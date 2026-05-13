@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgis/postgis:15-3.4
+    container_name: runway-db
+    environment:
+      POSTGRES_DB: runway
+      POSTGRES_USER: runway
+      POSTGRES_PASSWORD: runway
+    ports:
+      - "5432:5432"
+    volumes:
+      - runway_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U runway -d runway" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  runway_data:

@@ -1,0 +1,51 @@
+# ─── macOS ───────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ─── IntelliJ IDEA / Android Studio ─────────────────────
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# ─── Gradle ──────────────────────────────────────────────
+.gradle/
+build/
+**/build/
+
+# ─── Java compiled ───────────────────────────────────────
+*.class
+
+# ─── Android ─────────────────────────────────────────────
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# ─── Environment / Secrets ───────────────────────────────
+.env
+.env.local
+*.env
+application-local.yml
+
+# ─── Logs ────────────────────────────────────────────────
+*.log
+
+# ─── Docker local volume data ────────────────────────────
+docker-data/
+
+# ─── Claude Code local settings ──────────────────────────
+.claude/settings.local.json
+
+# ─── Do NOT ignore (Gradle wrapper must be committed) ────
+!gradlew
+!gradlew.bat
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+!**/gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.properties
+
+# ─── Do NOT ignore (docs must be committed) ──────────────
+!docs/*.md
