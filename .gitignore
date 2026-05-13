@@ -1,10 +1,12 @@
 # ─── macOS ───────────────────────────────────────────────
 .DS_Store
+**/.DS_Store
 .AppleDouble
 .LSOverride
 
 # ─── IntelliJ IDEA / Android Studio ─────────────────────
 .idea/
+**/.idea/
 *.iml
 *.iws
 *.ipr
@@ -37,7 +39,8 @@ application-local.yml
 docker-data/
 
 # ─── Claude Code local settings ──────────────────────────
-.claude/settings.local.json
+.claude/
+**/.claude/
 
 # ─── Do NOT ignore (Gradle wrapper must be committed) ────
 !gradlew

@@ -40,7 +40,7 @@ springdoc:
     path: /v3/api-docs
 
 jwt:
-  secret: ${JWT_SECRET:local-development-secret-must-be-changed}
+  secret: ${JWT_SECRET}
   access-token-expiry: ${JWT_ACCESS_TOKEN_EXPIRY:3600000}
   refresh-token-expiry: ${JWT_REFRESH_TOKEN_EXPIRY:1209600000}
 

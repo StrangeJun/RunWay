@@ -22,8 +22,8 @@
 | Backend | Java 17, Spring Boot 3.x, Spring Security, Spring Data JPA |
 | Database | PostgreSQL 15, PostGIS 3.4, Flyway |
 | Auth | JWT (Access Token + Refresh Token) |
-| Android | Kotlin, Retrofit2, OkHttp, Fused Location Provider |
-| Maps | Google Maps SDK 또는 Kakao Map SDK |
+| Android | Kotlin, Retrofit2, OkHttp, Fused Location Provider _(개발 예정)_ |
+| Maps | Google Maps SDK 또는 Kakao Map SDK _(개발 예정)_ |
 | Infra | Docker, docker-compose |
 
 ---
@@ -42,7 +42,7 @@ RunWay/
 │   ├── docker-compose.yml    # PostgreSQL + PostGIS
 │   ├── build.gradle
 │   └── gradlew
-├── android/                  # Android 클라이언트
+├── android/                  # Android 클라이언트 (개발 예정)
 ├── docs/
 │   ├── technical-specification.md
 │   └── api-specification.md
