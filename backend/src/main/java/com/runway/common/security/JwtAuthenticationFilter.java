@@ -29,7 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String token = resolveToken(request);
 
-        if (token != null && jwtProvider.validateToken(token)) {
+        if (token != null && jwtProvider.isValidAccessToken(token)) {
             UUID userId = jwtProvider.getUserIdFromToken(token);
             UserDetails userDetails = userDetailsService.loadUserByUsername(userId.toString());
 

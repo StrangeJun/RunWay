@@ -35,23 +35,27 @@ public class JwtProvider {
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
     }
 
+    private static final String CLAIM_TOKEN_TYPE = "tokenType";
+    private static final String TYPE_ACCESS      = "access";
+    private static final String TYPE_REFRESH     = "refresh";
+
     public String generateAccessToken(UUID userId, String email) {
-        return buildToken(userId, email, jwtProperties.getAccessTokenExpiry());
+        return buildToken(userId, email, jwtProperties.getAccessTokenExpiry(), TYPE_ACCESS);
     }
 
     public String generateRefreshToken(UUID userId, String email) {
-        return buildToken(userId, email, jwtProperties.getRefreshTokenExpiry());
+        return buildToken(userId, email, jwtProperties.getRefreshTokenExpiry(), TYPE_REFRESH);
     }
 
-    public boolean validateToken(String token) {
+    /**
+     * Bearer 필터 전용. 서명·만료 검증 + tokenType == "access" 까지 확인한다.
+     * refresh token을 Bearer 인증에 사용하는 것을 차단한다.
+     */
+    public boolean isValidAccessToken(String token) {
         try {
-            parseClaims(token);
-            return true;
-        } catch (ExpiredJwtException e) {
-            log.debug("Expired JWT token");
-            return false;
+            Claims claims = parseClaims(token);
+            return TYPE_ACCESS.equals(claims.get(CLAIM_TOKEN_TYPE, String.class));
         } catch (JwtException | IllegalArgumentException e) {
-            log.debug("Invalid JWT token: {}", e.getMessage());
             return false;
         }
     }
@@ -60,10 +64,16 @@ public class JwtProvider {
         return UUID.fromString(parseClaims(token).getSubject());
     }
 
-    // reissue 전용: 만료 vs 위조를 구분하여 RunwayException을 던진다
+    // reissue 전용: 만료 vs 위조를 구분하고 tokenType == "refresh" 를 추가로 검증한다
     public UUID validateRefreshTokenAndGetUserId(String token) {
         try {
-            return UUID.fromString(parseClaims(token).getSubject());
+            Claims claims = parseClaims(token);
+            if (!TYPE_REFRESH.equals(claims.get(CLAIM_TOKEN_TYPE, String.class))) {
+                throw new RunwayException(ErrorCode.INVALID_TOKEN);
+            }
+            return UUID.fromString(claims.getSubject());
+        } catch (RunwayException e) {
+            throw e;
         } catch (ExpiredJwtException e) {
             throw new RunwayException(ErrorCode.EXPIRED_TOKEN);
         } catch (JwtException | IllegalArgumentException e) {
@@ -85,12 +95,13 @@ public class JwtProvider {
         }
     }
 
-    private String buildToken(UUID userId, String email, long expiryMs) {
+    private String buildToken(UUID userId, String email, long expiryMs, String tokenType) {
         Date now = new Date();
         Date expiration = new Date(now.getTime() + expiryMs);
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("email", email)
+                .claim(CLAIM_TOKEN_TYPE, tokenType)
                 .issuedAt(now)
                 .expiration(expiration)
                 .signWith(secretKey)

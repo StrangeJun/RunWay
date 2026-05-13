@@ -36,7 +36,7 @@ public class UserService {
 
         // 닉네임이 변경된 경우에만 중복 확인
         if (request.getNickname() != null && !request.getNickname().equals(user.getNickname())) {
-            if (userRepository.existsByNicknameAndIdNot(request.getNickname(), userId)) {
+            if (userRepository.existsByNicknameAndIdNotAndDeletedAtIsNull(request.getNickname(), userId)) {
                 throw new RunwayException(ErrorCode.DUPLICATED_NICKNAME);
             }
         }

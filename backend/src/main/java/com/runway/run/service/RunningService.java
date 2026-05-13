@@ -99,6 +99,10 @@ public class RunningService {
             throw new RunwayException(ErrorCode.INVALID_RUN_STATUS);
         }
 
+        if (!request.getEndedAt().isAfter(record.getStartedAt())) {
+            throw new RunwayException(ErrorCode.INVALID_REQUEST, "종료 시각은 시작 시각 이후여야 합니다.");
+        }
+
         // running_points로 LineString 생성 — 2개 이상 포인트가 있어야 함
         List<RunningPoint> points = runningPointRepository.findByRunningRecordIdOrderBySequenceAsc(runId);
         boolean pathCreated = false;

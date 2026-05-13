@@ -25,10 +25,10 @@ public class AuthService {
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmailAndDeletedAtIsNull(request.getEmail())) {
             throw new RunwayException(ErrorCode.DUPLICATED_EMAIL);
         }
-        if (userRepository.existsByNickname(request.getNickname())) {
+        if (userRepository.existsByNicknameAndDeletedAtIsNull(request.getNickname())) {
             throw new RunwayException(ErrorCode.DUPLICATED_NICKNAME);
         }
 
@@ -45,12 +45,8 @@ public class AuthService {
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RunwayException(ErrorCode.USER_NOT_FOUND));
-
-        if (user.isDeleted()) {
-            throw new RunwayException(ErrorCode.USER_NOT_FOUND);
-        }
+        User user = userRepository.findByEmailAndDeletedAtIsNull(request.getEmail())
+                .orElseThrow(() -> new RunwayException(ErrorCode.INVALID_REQUEST, "이메일 또는 비밀번호가 올바르지 않습니다."));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new RunwayException(ErrorCode.INVALID_REQUEST, "이메일 또는 비밀번호가 올바르지 않습니다.");
