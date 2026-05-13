@@ -90,8 +90,12 @@ public class RunningRecord {
     }
 
     public void abandon() {
+        abandon(null);
+    }
+
+    public void abandon(Instant endedAt) {
         this.status = RunningRecordStatus.ABANDONED;
-        this.endedAt = Instant.now();
+        this.endedAt = endedAt != null ? endedAt : Instant.now();
     }
 
     public void updatePath(LineString path) {
