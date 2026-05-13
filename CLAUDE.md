@@ -53,12 +53,13 @@ RunWay/
 ### 완료된 작업
 
 - **Phase 1-1A**: Spring Boot 프로젝트 초기화, Docker PostgreSQL + PostGIS, Flyway V1~V7, 공통 응답/예외 구조
-- **Phase 1-2**: Auth API (회원가입, 로그인, 토큰 재발급, 로그아웃)
 
-### 다음 구현 순서 (Phase 1 기준)
+### 진행 중 또는 다음 작업
 
 | 단계 | 작업 |
 |------|------|
+| Phase 1-1B | User Entity, UserRepository, enum 클래스, Security/JWT 기반 클래스 |
+| Phase 1-2 | Auth API — 회원가입, 로그인, 토큰 재발급, 로그아웃 |
 | Phase 1-3 | Running API — 런 시작/일시정지/재개/완료/중단, GPS 포인트 배치 저장, 기록 조회 |
 | Phase 1-4 | Course API — 코스 생성, 수정, 공개/보관, 인근 코스 탐색, 코스 상세 조회 |
 | Phase 1-5 | Course Attempt API — 코스 시도 시작/완주/포기, 리더보드 조회 |
@@ -87,7 +88,7 @@ RunWay/
 - PK는 UUID를 사용한다 (`gen_random_uuid()`).
 - timestamp는 `Instant` 또는 `OffsetDateTime`으로 매핑한다 (`TIMESTAMPTZ` 대응).
 - `geography` 컬럼은 `@Column(columnDefinition = "geography(Point,4326)")` 형식으로 명시한다.
-- Enum은 `@Enumerated(EnumType.STRING)`으로 매핑한다.
+- Enum 매핑 시 DB status 값이 소문자(`in_progress`, `completed`, `verified` 등)임에 주의한다. Java enum 상수가 대문자(`IN_PROGRESS`)인 경우 `@Enumerated(EnumType.STRING)`을 사용하면 DB의 `CHECK constraint`와 충돌한다. 이 경우 `AttributeConverter`나 다른 명시적 매핑 전략을 사용한다.
 
 ---
 
@@ -236,7 +237,21 @@ docker-compose up -d
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-- `JWT_SECRET` 환경변수가 없으면 서버가 기동되지 않는다. `application-local.yml`에 `jwt.secret` 값이 있어야 한다.
+`application.yml`에서 `JWT_SECRET`을 환경변수로 요구하는 경우, 다음 두 방법 중 하나를 사용한다.
+
+방법 1 — 환경변수로 직접 설정:
+
+```bash
+export JWT_SECRET=local-development-secret-must-be-long-enough
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+방법 2 — `application-local.yml`에 로컬 값 정의 (Git에 커밋하지 않는다):
+
+```yaml
+jwt:
+  secret: local-development-secret-must-be-long-enough
+```
 
 ### DB 확인
 
@@ -253,6 +268,7 @@ docker exec -it runway-db psql -U runway -d runway \
 
 ```
 http://localhost:8080/swagger-ui.html
+http://localhost:8080/swagger-ui/index.html
 ```
 
 ---
