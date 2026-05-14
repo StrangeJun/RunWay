@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified footprint/teardrop shape representing the RunWay brand mark -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer drop shape (top-heavy teardrop = running route pin) -->
+    <path
+        android:fillColor="#A4E168"
+        android:pathData="
+            M54,22
+            C44,22 36,30 36,40
+            C36,55 54,78 54,78
+            C54,78 72,55 72,40
+            C72,30 64,22 54,22 Z" />
+    <!-- Inner circle cutout (white, simulates hole in pin) -->
+    <path
+        android:fillColor="#111119"
+        android:pathData="
+            M54,34
+            m-7,0
+            a7,7 0 1,0 14,0
+            a7,7 0 1,0 -14,0 Z" />
+</vector>

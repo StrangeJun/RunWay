@@ -1,0 +1,24 @@
+# Gradle build output
+.gradle/
+build/
+
+# Local machine config (contains SDK path)
+local.properties
+
+# IDE
+.idea/
+*.iml
+out/
+
+# macOS
+.DS_Store
+
+# Android keystore
+*.keystore
+*.jks
+
+# Kotlin compiler session files
+.kotlin/
+
+# Generated files
+app/src/main/java/com/runway/android/BuildConfig.kt

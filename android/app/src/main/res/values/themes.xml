@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Minimal XML theme — Compose takes full control of the UI.
+        This base theme only handles the Activity window (status bar transparency etc.)
+        enableEdgeToEdge() in MainActivity manages edge-to-edge rendering.
+    -->
+    <style name="Theme.RunWay" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+</resources>
