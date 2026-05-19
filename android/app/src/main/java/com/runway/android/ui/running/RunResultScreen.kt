@@ -27,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,12 +37,20 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.ui.components.RouteMapPlaceholder
 import com.runway.android.ui.components.RunwayPrimaryButton
+import com.runway.android.ui.course.CreateCourseDialog
 
 @Composable
 fun RunResultScreen(
     onBackToHome: () -> Unit,
     viewModel: RunResultViewModel = hiltViewModel(),
 ) {
+    // 코스 생성 성공 시 홈으로 이동 (Phase B-9에서 CourseDetail로 대체 예정)
+    LaunchedEffect(Unit) {
+        viewModel.courseCreated.collect {
+            onBackToHome()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -163,8 +172,8 @@ fun RunResultScreen(
         ) {
             RunwayPrimaryButton(
                 text = "Create course from this run",
-                onClick = { /* TODO Phase B-6: Course creation API */ },
-                enabled = false, // disabled until backend integration
+                onClick = { viewModel.onShowCreateDialog() },
+                enabled = viewModel.runId != null,
             )
             TextButton(
                 onClick = onBackToHome,
@@ -178,6 +187,24 @@ fun RunResultScreen(
                 )
             }
         }
+    }
+
+    // ─── 코스 생성 다이얼로그 ───
+    if (viewModel.showCreateDialog) {
+        CreateCourseDialog(
+            courseName = viewModel.courseName,
+            onCourseNameChange = viewModel::onCourseNameChange,
+            courseDescription = viewModel.courseDescription,
+            onDescriptionChange = viewModel::onDescriptionChange,
+            isLoop = viewModel.isLoop,
+            onIsLoopChange = viewModel::onIsLoopChange,
+            publish = viewModel.publish,
+            onPublishChange = viewModel::onPublishChange,
+            isCreating = viewModel.isCreating,
+            errorMessage = viewModel.createError,
+            onConfirm = viewModel::createCourse,
+            onDismiss = viewModel::onDismissCreateDialog,
+        )
     }
 }
 

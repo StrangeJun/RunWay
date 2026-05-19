@@ -5,6 +5,7 @@ import com.runway.android.core.network.AuthInterceptor
 import com.runway.android.core.network.NetworkConstants
 import com.runway.android.core.network.TokenAuthenticator
 import com.runway.android.data.auth.remote.AuthApi
+import com.runway.android.data.course.remote.CourseApi
 import com.runway.android.data.running.remote.RunningApi
 import retrofit2.converter.gson.GsonConverterFactory
 import dagger.Module
@@ -114,4 +115,9 @@ object NetworkModule {
     @Singleton
     fun provideRunningApi(retrofit: Retrofit): RunningApi =
         retrofit.create(RunningApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideCourseApi(retrofit: Retrofit): CourseApi =
+        retrofit.create(CourseApi::class.java)
 }

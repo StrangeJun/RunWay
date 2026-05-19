@@ -1,8 +1,10 @@
 package com.runway.android.di
 
 import com.runway.android.data.auth.AuthRepositoryImpl
+import com.runway.android.data.course.CourseRepositoryImpl
 import com.runway.android.data.running.RunningRepositoryImpl
 import com.runway.android.domain.auth.AuthRepository
+import com.runway.android.domain.course.CourseRepository
 import com.runway.android.domain.running.RunningRepository
 import dagger.Binds
 import dagger.Module
@@ -21,4 +23,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindRunningRepository(impl: RunningRepositoryImpl): RunningRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCourseRepository(impl: CourseRepositoryImpl): CourseRepository
 }
