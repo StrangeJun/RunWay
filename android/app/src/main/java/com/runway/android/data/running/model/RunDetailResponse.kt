@@ -9,5 +9,6 @@ data class RunDetailResponse(
     val durationSeconds: Int?,
     val avgPaceSecondsPerKm: Int?,
     val caloriesBurned: Int?,
+    val avgHeartRateBpm: Int?,
     val points: List<RunPointResponse>,
 )

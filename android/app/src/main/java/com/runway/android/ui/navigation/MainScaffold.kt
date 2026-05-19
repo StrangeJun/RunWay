@@ -46,7 +46,10 @@ fun MainScaffold(
                     onNavigateToCourseDetail = onNavigateToCourseDetail,
                 )
                 MainTab.LEADERBOARD -> LeaderboardScreen()
-                MainTab.PROFILE -> ProfileScreen(onLogout = onLogout)
+                MainTab.PROFILE -> ProfileScreen(
+                    onLogout = onLogout,
+                    onNavigateToMyRuns = onNavigateToMyRuns,
+                )
             }
         }
     }
