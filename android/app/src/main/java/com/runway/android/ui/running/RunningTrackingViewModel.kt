@@ -1,21 +1,25 @@
 package com.runway.android.ui.running
 
+import android.content.Context
+import android.content.Intent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.runway.android.core.location.DistanceCalculator
 import com.runway.android.core.location.GpsStatus
-import com.runway.android.core.location.LocationTracker
-import com.runway.android.core.location.RunwayLocation
 import com.runway.android.core.result.NetworkResult
+import com.runway.android.core.tracking.RunTrackingAction
+import com.runway.android.core.tracking.RunTrackingManager
+import com.runway.android.core.tracking.RunTrackingMode
+import com.runway.android.core.tracking.RunTrackingService
 import com.runway.android.data.running.model.FinishRunRequest
-import com.runway.android.data.running.model.RunPointRequest
 import com.runway.android.data.running.model.SavePointsRequest
 import com.runway.android.data.running.model.StartRunRequest
 import com.runway.android.domain.running.RunningRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -36,8 +40,9 @@ enum class RunningState { RUNNING, PAUSED }
 
 @HiltViewModel
 class RunningTrackingViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val runningRepository: RunningRepository,
-    private val locationTracker: LocationTracker,
+    private val manager: RunTrackingManager,
     @Named("appScope") private val appScope: CoroutineScope,
 ) : ViewModel() {
 
@@ -75,7 +80,7 @@ class RunningTrackingViewModel @Inject constructor(
         get() {
             val gpsSpeed = lastSpeedMps
             return if (gpsSpeed != null && gpsSpeed >= 0.1f) {
-                "%.1f".format(gpsSpeed * 3.6f) // m/s → km/h
+                "%.1f".format(gpsSpeed * 3.6f)
             } else if (elapsedSeconds < 1) {
                 "0.0"
             } else {
@@ -88,67 +93,40 @@ class RunningTrackingViewModel @Inject constructor(
 
     private var runId: String? = null
     private var isFinished = false
-    private var pointSequence = 0
-    private val pendingPoints = mutableListOf<RunPointRequest>()
-    private var lastLocation: RunwayLocation? = null
+    private var serviceStarted = false
 
-    private var locationJob: Job? = null
-    private var timerJob: Job? = null
+    private var stateObserveJob: Job? = null
     private var batchJob: Job? = null
 
     init {
         startRun()
-        startTimer()
     }
 
     // Called by the Screen after location permission is granted.
     fun startTracking() {
-        if (locationJob != null && locationJob!!.isActive) return
+        if (serviceStarted) return
+        serviceStarted = true
         gpsStatus = GpsStatus.WAITING_FOR_FIX
-        locationJob = viewModelScope.launch {
-            locationTracker.locationFlow().collect { location ->
-                gpsStatus = GpsStatus.ACTIVE
-                if (runningState == RunningState.RUNNING) {
-                    val prev = lastLocation
-                    if (prev != null) {
-                        val deltaMeters = DistanceCalculator.calculate(prev, location)
-                        if (deltaMeters > 0) {
-                            distanceKm += deltaMeters / 1000.0
-                        }
-                    }
-                    recordGpsPoint(location)
-                }
-                location.speedMps?.let { lastSpeedMps = it }
-                // Always update lastLocation (including during pause) so resume picks up
-                // from the current position rather than the pre-pause position.
-                lastLocation = location
-            }
-        }
-    }
 
-    private fun startTimer() {
-        timerJob = viewModelScope.launch {
-            while (true) {
-                delay(1_000L)
-                if (runningState == RunningState.RUNNING) {
-                    elapsedSeconds++
-                }
+        ContextCompat.startForegroundService(
+            context,
+            Intent(context, RunTrackingService::class.java).apply {
+                action = RunTrackingAction.ACTION_START
+                putExtra(RunTrackingAction.EXTRA_MODE, RunTrackingMode.FREE_RUN.name)
             }
-        }
-    }
-
-    private fun recordGpsPoint(location: RunwayLocation) {
-        pendingPoints.add(
-            RunPointRequest(
-                sequence = pointSequence,
-                latitude = location.latitude,
-                longitude = location.longitude,
-                altitudeMeters = location.altitudeMeters ?: 0.0,
-                speedMps = location.speedMps?.toDouble() ?: 0.0,
-                recordedAt = location.recordedAt.toString(),
-            )
         )
-        pointSequence++
+
+        stateObserveJob = viewModelScope.launch {
+            manager.state.collect { state ->
+                if (state.hasFirstFix && gpsStatus != GpsStatus.ACTIVE) {
+                    gpsStatus = GpsStatus.ACTIVE
+                }
+                elapsedSeconds = state.elapsedSeconds
+                distanceKm = state.distanceMeters / 1000.0
+                lastSpeedMps = state.currentSpeedMps
+                runningState = if (state.isPaused) RunningState.PAUSED else RunningState.RUNNING
+            }
+        }
     }
 
     private fun startRun() {
@@ -176,31 +154,30 @@ class RunningTrackingViewModel @Inject constructor(
 
     private suspend fun flushPendingPoints() {
         val rid = runId ?: return
-        if (pendingPoints.isEmpty()) return
-        val batch = pendingPoints.toList()
-        pendingPoints.clear()
-        val result = runningRepository.savePoints(rid, SavePointsRequest(batch))
+        val points = manager.consumePoints()
+        if (points.isEmpty()) return
+        val result = runningRepository.savePoints(rid, SavePointsRequest(points))
         if (result !is NetworkResult.Success) {
-            pendingPoints.addAll(0, batch)
+            manager.requeuePoints(points)
         }
     }
 
     fun pause() {
-        runningState = RunningState.PAUSED
+        manager.pause()
         val rid = runId ?: return
         viewModelScope.launch {
             if (runningRepository.pauseRun(rid) !is NetworkResult.Success) {
-                runningState = RunningState.RUNNING
+                manager.resume() // rollback
             }
         }
     }
 
     fun resume() {
-        runningState = RunningState.RUNNING
+        manager.resume()
         val rid = runId ?: return
         viewModelScope.launch {
             if (runningRepository.resumeRun(rid) !is NetworkResult.Success) {
-                runningState = RunningState.PAUSED
+                manager.pause() // rollback
             }
         }
     }
@@ -236,9 +213,8 @@ class RunningTrackingViewModel @Inject constructor(
                     is NetworkResult.Success -> Unit
                 }
             }
-            timerJob?.cancel()
-            locationJob?.cancel()
-            batchJob?.cancel()
+
+            stopServiceAndJobs()
             isFinished = true
             _navigateToResult.emit(
                 RunResult(
@@ -250,14 +226,25 @@ class RunningTrackingViewModel @Inject constructor(
         }
     }
 
+    private fun stopServiceAndJobs() {
+        stateObserveJob?.cancel()
+        batchJob?.cancel()
+        manager.stop()
+        context.startService(
+            Intent(context, RunTrackingService::class.java).apply {
+                action = RunTrackingAction.ACTION_STOP
+            }
+        )
+    }
+
     override fun onCleared() {
         super.onCleared()
-        timerJob?.cancel()
-        locationJob?.cancel()
-        batchJob?.cancel()
-        val rid = runId
-        if (rid != null && !isFinished) {
-            appScope.launch { runningRepository.abandonRun(rid) }
+        if (!isFinished) {
+            stopServiceAndJobs()
+            val rid = runId
+            if (rid != null) {
+                appScope.launch { runningRepository.abandonRun(rid) }
+            }
         }
     }
 }
