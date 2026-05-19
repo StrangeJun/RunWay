@@ -1,10 +1,13 @@
 package com.runway.android.data.running
 
+import com.runway.android.core.model.PageResponse
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.core.result.safeApiCall
 import com.runway.android.data.running.model.FinishRunRequest
 import com.runway.android.data.running.model.FinishRunResponse
+import com.runway.android.data.running.model.RunDetailResponse
 import com.runway.android.data.running.model.RunStatusResponse
+import com.runway.android.data.running.model.RunSummaryResponse
 import com.runway.android.data.running.model.SavePointsRequest
 import com.runway.android.data.running.model.SavePointsResponse
 import com.runway.android.data.running.model.StartRunRequest
@@ -36,4 +39,10 @@ class RunningRepositoryImpl @Inject constructor(
 
     override suspend fun abandonRun(runId: String): NetworkResult<RunStatusResponse> =
         safeApiCall { runningApi.abandonRun(runId) }
+
+    override suspend fun getMyRuns(page: Int, size: Int): NetworkResult<PageResponse<RunSummaryResponse>> =
+        safeApiCall { runningApi.getMyRuns(page, size) }
+
+    override suspend fun getRunDetail(runId: String): NetworkResult<RunDetailResponse> =
+        safeApiCall { runningApi.getRunDetail(runId) }
 }

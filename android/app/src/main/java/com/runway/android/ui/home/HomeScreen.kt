@@ -33,6 +33,7 @@ import com.runway.android.ui.components.WeeklyStatsCard
 @Composable
 fun HomeScreen(
     onStartRun: () -> Unit = {},
+    onSeeAllRuns: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     LazyColumn(
@@ -43,7 +44,10 @@ fun HomeScreen(
     ) {
         // ─── Greeting header ───
         item {
-            GreetingHeader(greeting = viewModel.greeting)
+            GreetingHeader(
+                greeting = viewModel.greeting,
+                nickname = viewModel.nickname,
+            )
         }
 
         // ─── Weekly stats ───
@@ -75,15 +79,17 @@ fun HomeScreen(
                     .padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                viewModel.nearbyCourses.forEach { course ->
-                    NearbyCourseCard(course = course)
-                }
+                // Nearby courses are loaded by DiscoverScreen; shown as placeholder here
             }
         }
 
         // ─── Recent runs ───
         item {
-            SectionHeader(title = "Recent runs")
+            SectionHeader(
+                title = "Recent runs",
+                cta = if (!viewModel.isLoadingRuns && viewModel.recentRuns.isNotEmpty()) "See all" else null,
+                onCtaClick = onSeeAllRuns,
+            )
         }
 
         items(viewModel.recentRuns) { run ->
@@ -98,7 +104,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun GreetingHeader(greeting: String) {
+private fun GreetingHeader(greeting: String, nickname: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -114,7 +120,7 @@ private fun GreetingHeader(greeting: String) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = "Runner 👋",
+                text = "${nickname.ifEmpty { "Runner" }} 👋",
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
             )
@@ -130,7 +136,7 @@ private fun GreetingHeader(greeting: String) {
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = "R",
+                text = nickname.firstOrNull()?.uppercaseChar()?.toString() ?: "R",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

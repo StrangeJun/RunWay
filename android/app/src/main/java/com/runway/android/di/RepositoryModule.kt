@@ -4,10 +4,12 @@ import com.runway.android.data.attempt.CourseAttemptRepositoryImpl
 import com.runway.android.data.auth.AuthRepositoryImpl
 import com.runway.android.data.course.CourseRepositoryImpl
 import com.runway.android.data.running.RunningRepositoryImpl
+import com.runway.android.data.user.UserRepositoryImpl
 import com.runway.android.domain.attempt.CourseAttemptRepository
 import com.runway.android.domain.auth.AuthRepository
 import com.runway.android.domain.course.CourseRepository
 import com.runway.android.domain.running.RunningRepository
+import com.runway.android.domain.user.UserRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -33,4 +35,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindCourseAttemptRepository(impl: CourseAttemptRepositoryImpl): CourseAttemptRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindUserRepository(impl: UserRepositoryImpl): UserRepository
 }

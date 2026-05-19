@@ -21,6 +21,7 @@ fun MainScaffold(
     onStartRun: () -> Unit = {},
     onLogout: () -> Unit = {},
     onNavigateToCourseDetail: (String) -> Unit = {},
+    onNavigateToMyRuns: () -> Unit = {},
 ) {
     // rememberSaveable preserves the selected tab when navigating to/from CourseDetailScreen
     var currentTabOrdinal by rememberSaveable { mutableIntStateOf(MainTab.HOME.ordinal) }
@@ -40,7 +41,7 @@ fun MainScaffold(
                 .padding(innerPadding),
         ) {
             when (currentTab) {
-                MainTab.HOME -> HomeScreen(onStartRun = onStartRun)
+                MainTab.HOME -> HomeScreen(onStartRun = onStartRun, onSeeAllRuns = onNavigateToMyRuns)
                 MainTab.DISCOVER -> DiscoverScreen(
                     onNavigateToCourseDetail = onNavigateToCourseDetail,
                 )
