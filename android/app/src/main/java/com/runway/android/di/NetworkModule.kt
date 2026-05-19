@@ -1,5 +1,6 @@
 package com.runway.android.di
 
+import com.runway.android.BuildConfig
 import com.runway.android.core.datastore.TokenDataStore
 import com.runway.android.core.network.AuthInterceptor
 import com.runway.android.core.network.NetworkConstants
@@ -35,7 +36,8 @@ object NetworkModule {
 
     private fun buildLoggingInterceptor(): HttpLoggingInterceptor =
         HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+            else HttpLoggingInterceptor.Level.NONE
         }
 
     // ─── noAuth 클라이언트 (reissue, signup, login) ───

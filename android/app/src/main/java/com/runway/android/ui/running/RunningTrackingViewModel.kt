@@ -68,6 +68,10 @@ class RunningTrackingViewModel @Inject constructor(
         private set
     var isConnecting by mutableStateOf(true)
         private set
+    var isFinishing by mutableStateOf(false)
+        private set
+    var finishError by mutableStateOf<String?>(null)
+        private set
 
     val timerText: String
         get() = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
@@ -166,7 +170,11 @@ class RunningTrackingViewModel @Inject constructor(
         if (pendingPoints.isEmpty()) return
         val batch = pendingPoints.toList()
         pendingPoints.clear()
-        runningRepository.savePoints(rid, SavePointsRequest(batch))
+        val result = runningRepository.savePoints(rid, SavePointsRequest(batch))
+        if (result !is NetworkResult.Success) {
+            // Re-queue at front to preserve order; will be retried on next flush
+            pendingPoints.addAll(0, batch)
+        }
     }
 
     fun pause() {
@@ -182,8 +190,9 @@ class RunningTrackingViewModel @Inject constructor(
     }
 
     fun finish() {
-        simulationJob?.cancel()
-        batchJob?.cancel()
+        if (isFinishing) return
+        isFinishing = true
+        finishError = null
 
         val currentRunId = runId
         val seconds = elapsedSeconds
@@ -197,7 +206,7 @@ class RunningTrackingViewModel @Inject constructor(
                 val avgPace = if (distance > 0.001) (seconds / distance).toInt() else 0
                 val calories = (distance * 72).toInt()
 
-                runningRepository.finishRun(
+                when (runningRepository.finishRun(
                     currentRunId,
                     FinishRunRequest(
                         endedAt = Instant.now().toString(),
@@ -206,9 +215,19 @@ class RunningTrackingViewModel @Inject constructor(
                         avgPaceSecondsPerKm = avgPace,
                         caloriesBurned = calories,
                     ),
-                )
+                )) {
+                    is NetworkResult.ApiError,
+                    is NetworkResult.NetworkError -> {
+                        isFinishing = false
+                        finishError = "런 완료에 실패했습니다. 다시 시도해 주세요."
+                        return@launch
+                    }
+                    is NetworkResult.Success -> Unit
+                }
             }
 
+            simulationJob?.cancel()
+            batchJob?.cancel()
             isFinished = true
             _navigateToResult.emit(
                 RunResult(

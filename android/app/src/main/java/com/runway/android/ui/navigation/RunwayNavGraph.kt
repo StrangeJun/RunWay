@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -39,6 +40,21 @@ fun RunwayNavGraph() {
 
     val startDestination = if (isLoggedIn == true) RunwayRoutes.MAIN else RunwayRoutes.LOGIN
     val navController = rememberNavController()
+
+    // Redirect to login when session expires mid-session (refresh token 만료 시)
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn == false) {
+            val currentRoute = navController.currentDestination?.route
+            if (currentRoute != null &&
+                currentRoute != RunwayRoutes.LOGIN &&
+                currentRoute != RunwayRoutes.SIGNUP
+            ) {
+                navController.navigate(RunwayRoutes.LOGIN) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        }
+    }
 
     NavHost(
         navController = navController,
