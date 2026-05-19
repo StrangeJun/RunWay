@@ -29,10 +29,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.runway.android.core.map.MapPoint
 import com.runway.android.core.util.formatRunDateFull
 import com.runway.android.core.util.formatTime
+import com.runway.android.ui.components.RouteMapView
 import com.runway.android.ui.components.RunDetailMetricGrid
-import com.runway.android.ui.components.RunRoutePreview
 
 @Composable
 fun RunDetailScreen(
@@ -145,8 +146,8 @@ fun RunDetailScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        RunRoutePreview(
-                            points = detail.points,
+                        RouteMapView(
+                            points = detail.points.map { MapPoint(it.latitude, it.longitude) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(220.dp)

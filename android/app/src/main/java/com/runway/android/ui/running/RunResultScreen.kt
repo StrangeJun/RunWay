@@ -35,7 +35,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.runway.android.ui.components.RouteMapPlaceholder
+import com.runway.android.ui.components.RouteMapView
 import com.runway.android.ui.components.RunwayPrimaryButton
 import com.runway.android.ui.course.CreateCourseDialog
 
@@ -152,8 +152,8 @@ fun RunResultScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // ─── Route map preview ───
-            RouteMapPlaceholder(
-                isAnimated = false,
+            RouteMapView(
+                points = viewModel.routePoints,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(140.dp)
