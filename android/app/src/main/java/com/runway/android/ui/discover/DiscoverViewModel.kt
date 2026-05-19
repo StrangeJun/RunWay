@@ -1,28 +1,26 @@
 package com.runway.android.ui.discover
 
+import android.annotation.SuppressLint
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.location.FusedLocationProviderClient
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.course.model.NearbyCourseItem
 import com.runway.android.domain.course.CourseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
     private val courseRepository: CourseRepository,
+    private val fusedLocationClient: FusedLocationProviderClient,
 ) : ViewModel() {
-
-    companion object {
-        // backend-test-guide 기준 고정 좌표 — Phase B-9 이후 실제 GPS로 대체 예정
-        private const val TEST_LATITUDE = 36.9706
-        private const val TEST_LONGITUDE = 127.8718
-    }
 
     var isLoading by mutableStateOf(false)
         private set
@@ -34,35 +32,67 @@ class DiscoverViewModel @Inject constructor(
         private set
     var isLoopFilter by mutableStateOf<Boolean?>(null)
         private set
+    var isLocationRequired by mutableStateOf(false)
+        private set
 
+    private var currentLatitude = 0.0
+    private var currentLongitude = 0.0
     private var loadJob: Job? = null
-
-    init {
-        loadCourses()
-    }
 
     fun onRadiusChange(meters: Int) {
         if (radiusMeters == meters) return
         radiusMeters = meters
-        loadCourses()
+        if (currentLatitude != 0.0) loadCourses()
     }
 
     fun onIsLoopFilterChange(value: Boolean?) {
         if (isLoopFilter == value) return
         isLoopFilter = value
-        loadCourses()
+        if (currentLatitude != 0.0) loadCourses()
     }
 
-    fun refresh() = loadCourses()
+    fun refresh() {
+        if (isLocationRequired) return
+        if (currentLatitude != 0.0) loadCourses()
+    }
+
+    @SuppressLint("MissingPermission")
+    fun onLocationPermissionGranted() {
+        isLocationRequired = false
+        viewModelScope.launch {
+            isLoading = true
+            errorMessage = null
+            try {
+                val location = fusedLocationClient.lastLocation.await()
+                if (location != null) {
+                    currentLatitude = location.latitude
+                    currentLongitude = location.longitude
+                    loadCourses()
+                } else {
+                    isLoading = false
+                    errorMessage = "위치를 가져올 수 없습니다. 잠시 후 다시 시도해 주세요."
+                }
+            } catch (_: Exception) {
+                isLoading = false
+                errorMessage = "위치를 가져올 수 없습니다."
+            }
+        }
+    }
+
+    fun onLocationPermissionDenied() {
+        isLocationRequired = true
+        isLoading = false
+        errorMessage = "주변 코스 탐색에 위치 권한이 필요합니다."
+    }
 
     private fun loadCourses() {
-        loadJob?.cancel()  // 이전 요청이 진행 중이면 취소하여 경쟁 조건 방지
+        loadJob?.cancel()
         loadJob = viewModelScope.launch {
             isLoading = true
             errorMessage = null
             when (val result = courseRepository.getNearbyCourses(
-                latitude = TEST_LATITUDE,
-                longitude = TEST_LONGITUDE,
+                latitude = currentLatitude,
+                longitude = currentLongitude,
                 radiusMeters = radiusMeters,
                 isLoop = isLoopFilter,
             )) {

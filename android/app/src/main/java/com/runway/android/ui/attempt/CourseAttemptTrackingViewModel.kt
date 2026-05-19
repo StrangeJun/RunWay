@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.core.content.ContextCompat
 import com.runway.android.core.location.GpsStatus
+import com.runway.android.core.map.MapPoint
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.core.tracking.PendingPointQueue
 import com.runway.android.core.tracking.RunTrackingAction
@@ -23,6 +24,7 @@ import com.runway.android.data.attempt.model.AbandonAttemptRequest
 import com.runway.android.data.attempt.model.FinishAttemptRequest
 import com.runway.android.data.running.model.SavePointsRequest
 import com.runway.android.domain.attempt.CourseAttemptRepository
+import com.runway.android.domain.course.CourseRepository
 import com.runway.android.domain.running.RunningRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -47,6 +49,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val runningRepository: RunningRepository,
     private val courseAttemptRepository: CourseAttemptRepository,
+    private val courseRepository: CourseRepository,
     private val manager: RunTrackingManager,
     private val pendingPointQueue: PendingPointQueue,
     private val sessionStore: TrackingSessionStore,
@@ -68,6 +71,10 @@ class CourseAttemptTrackingViewModel @Inject constructor(
     var isAbandoning by mutableStateOf(false)
         private set
     var finishError by mutableStateOf<String?>(null)
+        private set
+    var coursePoints by mutableStateOf<List<MapPoint>>(emptyList())
+        private set
+    var currentLocationPoint by mutableStateOf<MapPoint?>(null)
         private set
 
     private var lastSpeedMps by mutableStateOf<Float?>(null)
@@ -117,6 +124,12 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                 )
             )
         }
+        viewModelScope.launch {
+            when (val r = courseRepository.getCoursePoints(courseId)) {
+                is NetworkResult.Success -> coursePoints = r.data.points.map { MapPoint(it.latitude, it.longitude) }
+                else -> {}
+            }
+        }
         startBatchSaving()
     }
 
@@ -141,6 +154,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                 elapsedSeconds = state.elapsedSeconds
                 distanceKm = state.distanceMeters / 1000.0
                 lastSpeedMps = state.currentSpeedMps
+                currentLocationPoint = state.lastLocation?.let { MapPoint(it.latitude, it.longitude) }
             }
         }
     }

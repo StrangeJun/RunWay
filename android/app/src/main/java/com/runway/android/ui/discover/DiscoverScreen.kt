@@ -1,5 +1,9 @@
 package com.runway.android.ui.discover
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -26,10 +30,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.ui.components.DiscoverCourseCard
 
@@ -40,6 +47,38 @@ fun DiscoverScreen(
     onNavigateToCourseDetail: (String) -> Unit = {},
     viewModel: DiscoverViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) viewModel.onLocationPermissionGranted() else viewModel.onLocationPermissionDenied()
+    }
+
+    LaunchedEffect(Unit) {
+        val hasFine = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasFine || hasCoarse) {
+            viewModel.onLocationPermissionGranted()
+        } else {
+            permissionLauncher.launch(
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+            )
+        }
+    }
+
+    val onRefresh: () -> Unit = if (viewModel.isLocationRequired) {
+        { permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }
+    } else {
+        viewModel::refresh
+    }
+
     val radiusLabel = RADIUS_OPTIONS.find { it.first == viewModel.radiusMeters }?.second ?: "3km"
 
     LazyColumn(
@@ -72,7 +111,7 @@ fun DiscoverScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                IconButton(onClick = viewModel::refresh) {
+                IconButton(onClick = onRefresh) {
                     Icon(
                         imageVector = Icons.Filled.Refresh,
                         contentDescription = "새로고침",
@@ -177,12 +216,12 @@ fun DiscoverScreen(
                         textAlign = TextAlign.Center,
                     )
                     Surface(
-                        onClick = viewModel::refresh,
+                        onClick = onRefresh,
                         shape = MaterialTheme.shapes.extraLarge,
                         color = MaterialTheme.colorScheme.primary,
                     ) {
                         Text(
-                            text = "다시 시도",
+                            text = if (viewModel.isLocationRequired) "위치 권한 허용" else "다시 시도",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),

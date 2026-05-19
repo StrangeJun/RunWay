@@ -49,7 +49,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.location.GpsStatus
 import com.runway.android.ui.components.LocationPermissionCard
-import com.runway.android.ui.components.RouteMapPlaceholder
+import com.runway.android.ui.components.RouteMapView
 import com.runway.android.ui.components.RunMetricCard
 import com.runway.android.ui.components.RunningControlButton
 
@@ -245,8 +245,9 @@ fun CourseAttemptTrackingScreen(
                 )
             }
         } else {
-            RouteMapPlaceholder(
-                isAnimated = true,
+            RouteMapView(
+                points = viewModel.coursePoints,
+                currentLocation = viewModel.currentLocationPoint,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()

@@ -45,7 +45,12 @@ fun MainScaffold(
                 .padding(innerPadding),
         ) {
             when (currentTab) {
-                MainTab.HOME -> HomeScreen(onStartRun = onStartRun, onSeeAllRuns = onNavigateToMyRuns)
+                MainTab.HOME -> HomeScreen(
+                    onStartRun = onStartRun,
+                    onSeeAllRuns = onNavigateToMyRuns,
+                    onNavigateToCourseDetail = onNavigateToCourseDetail,
+                    onNavigateToDiscover = { currentTabOrdinal = MainTab.DISCOVER.ordinal },
+                )
                 MainTab.DISCOVER -> DiscoverScreen(
                     onNavigateToCourseDetail = onNavigateToCourseDetail,
                 )
