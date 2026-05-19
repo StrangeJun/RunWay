@@ -16,14 +16,16 @@
 ```
 RunWay/
 ├── backend/       # Spring Boot 백엔드
-├── android/       # Kotlin Android 클라이언트 (개발 예정)
+├── android/       # Kotlin Android 클라이언트 (개발 중)
 ├── docs/          # 기술 명세서, API 명세서
+├── design/        # Lovable 기반 UI 프로토타입
 └── CLAUDE.md
 ```
 
-- `backend/` — 현재 구현 중인 Spring Boot API 서버. 모든 백엔드 코드는 이 디렉토리 안에서만 다룬다.
-- `android/` — Kotlin Android 클라이언트. 아직 구현되지 않았다. 완전히 구현된 것으로 가정하지 않는다.
+- `backend/` — Spring Boot API 서버. Phase 1 MVP 완료. 모든 백엔드 코드는 이 디렉토리 안에서만 다룬다.
+- `android/` — Kotlin Android 클라이언트. Phase B-3~B-6 구현 완료, 개발 진행 중.
 - `docs/` — 설계 문서. 구현 전 반드시 참고해야 한다.
+- `design/` — Lovable 기반 React/Vite UI 프로토타입. Android UI 설계 참고용.
 
 ---
 
@@ -52,18 +54,35 @@ RunWay/
 
 ### 완료된 작업
 
-- **Phase 1-1A**: Spring Boot 프로젝트 초기화, Docker PostgreSQL + PostGIS, Flyway V1~V7, 공통 응답/예외 구조
-
-### 진행 중 또는 다음 작업
+**Backend (Phase 1 — MVP 완료)**
 
 | 단계 | 작업 |
 |------|------|
+| Phase 1-1A | Spring Boot 초기화, Docker PostgreSQL + PostGIS, Flyway V1~V7, 공통 응답/예외 구조 |
 | Phase 1-1B | User Entity, UserRepository, enum 클래스, Security/JWT 기반 클래스 |
 | Phase 1-2 | Auth API — 회원가입, 로그인, 토큰 재발급, 로그아웃 |
 | Phase 1-3 | Running API — 런 시작/일시정지/재개/완료/중단, GPS 포인트 배치 저장, 기록 조회 |
 | Phase 1-4 | Course API — 코스 생성, 수정, 공개/보관, 인근 코스 탐색, 코스 상세 조회 |
 | Phase 1-5 | Course Attempt API — 코스 시도 시작/완주/포기, 리더보드 조회 |
-| Phase 2+ | GPS 경로 검증, 완주 인증 이미지, 코스 사용 통계, 소셜 기능 |
+
+**Android (Phase B — 진행 중)**
+
+| 단계 | 작업 |
+|------|------|
+| Phase B-3 | 인증 UI — LoginScreen, SignupScreen, Hilt + Retrofit + DataStore 연동 |
+| Phase B-4 | 홈 + 메인 네비게이션 — MainScaffold (BottomNav 4탭), HomeScreen |
+| Phase B-5 | 러닝 추적 UI — RunningTrackingScreen, RunResultScreen, Canvas RouteMap |
+| Phase B-6 | Running API 백엔드 연동 — GPS 배치 전송, pause/resume/finish API |
+
+### 다음 작업 (Android)
+
+| 단계 | 작업 | 브랜치 |
+|------|------|--------|
+| Phase B-7 | 완료된 런에서 코스 생성 (`POST /api/courses/from-run/{runId}`) | `feature/android-course-create` |
+| Phase B-8 | 주변 코스 탐색 — DiscoverScreen (`GET /api/courses/nearby`) | `feature/android-discover` |
+| Phase B-9 | 코스 상세 조회 | `feature/android-course-detail` |
+| Phase B-10 | 코스 도전 + 리더보드 | `feature/android-attempt-leaderboard` |
+| Phase 2+ | GPS 경로 검증, 완주 인증 이미지, 코스 사용 통계, 소셜 기능 | — |
 
 ---
 
@@ -188,16 +207,19 @@ RunWay/
 ## 9. Android 규칙
 
 - Android 코드는 `android/` 하위에만 구현한다.
-- android/ 디렉토리는 아직 초기화되지 않았다. 구현되어 있다고 가정하지 않는다.
-- 명시적으로 요청받지 않으면 Android 구현을 시작하지 않는다.
+- Phase B-3~B-6이 구현 완료되어 있다. 구현 내용을 파악한 후 다음 Phase를 진행한다.
+- 구현 전에 반드시 기존 코드와 `docs/api-specification.md`를 확인한다.
 
-### 예정 스택
+### 현재 스택
 
-- Kotlin, Retrofit2, OkHttp, DataStore, Hilt, Coroutines + Flow
-- GPS: Fused Location Provider (Foreground Service)
-- 지도: Google Maps SDK 또는 Kakao Map SDK
+- Kotlin 2.0.21, Jetpack Compose (Material 3), Navigation Compose 2.8.4
+- Retrofit2 2.11.0, OkHttp 4.12.0, Gson
+- DataStore Preferences 1.1.1, Hilt 2.52 (KSP)
+- Coroutines + Flow, `NetworkResult<T>`, `safeApiCall`
+- GPS: Fused Location Provider (Foreground Service — Phase B-11 이후 실제 연동 예정)
+- 지도: Google Maps SDK 또는 Kakao Map SDK (Phase B-9 이후 예정)
 
-### Android 연동 핵심 규칙 (구현 시 참고)
+### Android 연동 핵심 규칙
 
 - GPS 포인트는 5~20개 단위 batch 전송. 단건 실시간 전송하지 않는다.
 - 네트워크 실패 시 local queue 보관 후 재전송한다.
@@ -282,3 +304,102 @@ http://localhost:8080/swagger-ui/index.html
   2. 실행할 명령어
   3. 검증 방법
   4. 주의사항이나 경고
+
+---
+
+## 13. Git Strategy
+
+이 프로젝트는 경량화된 GitHub Flow를 사용한다. backend, android, docs, design이 단일 repository에서 관리된다.
+
+### 기본 원칙
+
+- `main` 브랜치는 항상 빌드 가능하고 안정적인 상태를 유지한다.
+- 구현 작업은 반드시 feature 브랜치에서 시작한다. 명시적으로 요청받지 않으면 `main`에 직접 커밋하거나 push하지 않는다.
+- 명시적으로 요청받지 않으면 `git push`를 실행하지 않는다.
+- 구현 완료 후에는 `git status`, 변경 파일 목록, 빌드 결과, 권장 커밋 메시지를 함께 제공한다.
+
+### 브랜치 명명 규칙
+
+| 접두사 | 용도 |
+|--------|------|
+| `feature/backend-*` | 백엔드 기능 구현 |
+| `feature/android-*` | Android 기능 구현 |
+| `fix/*` | 버그 수정 |
+| `docs/*` | 문서 업데이트 |
+| `chore/*` | 설정 변경 또는 정리 작업 |
+
+**예시:**
+
+- `feature/android-course-create`
+- `feature/android-discover`
+- `feature/android-course-detail`
+- `feature/android-attempt-leaderboard`
+- `fix/android-login-error`
+- `fix/backend-jwt-config`
+- `docs/update-readme`
+- `chore/gitignore-cleanup`
+
+### 커밋 메시지 형식
+
+Conventional Commits를 사용한다.
+
+```
+type(scope): message
+```
+
+허용되는 type:
+
+| type | 용도 |
+|------|------|
+| `feat` | 새로운 기능 |
+| `fix` | 버그 수정 |
+| `docs` | 문서 변경 |
+| `chore` | 설정, 빌드, 의존성 변경 |
+| `refactor` | 기능 변경 없는 코드 개선 |
+| `test` | 테스트 추가 또는 수정 |
+| `style` | 포맷팅, 공백 등 (로직 변경 없음) |
+
+**예시:**
+
+- `feat(android): connect course creation from run result`
+- `feat(android): implement nearby course discovery`
+- `feat(backend): implement course leaderboard API`
+- `fix(android): handle login error state`
+- `docs(readme): update backend MVP status`
+- `chore(git): update gitignore`
+
+### 커밋 전 빌드 확인
+
+**Backend:**
+
+```bash
+cd backend
+./gradlew build
+```
+
+**Android:**
+
+```bash
+cd android
+./gradlew assembleDebug
+```
+
+### 권장 작업 흐름
+
+```bash
+# 1. main 최신화
+cd ~/Developer/RunWay
+git checkout main
+git pull origin main
+
+# 2. feature 브랜치 생성
+git checkout -b feature/android-course-create
+
+# 3. 구현 후 상태 확인 및 커밋
+git status
+git add .
+git commit -m "feat(android): connect course creation from run result"
+
+# 4. 명시적으로 요청받은 경우에만 push
+git push origin feature/android-course-create
+```

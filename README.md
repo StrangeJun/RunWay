@@ -13,7 +13,8 @@
 | 단계 | 내용 | 상태 |
 |------|------|------|
 | Phase 1 — Backend | Auth / User / Running / Course / Course Attempt / Leaderboard API | ✅ 완료 (통합 테스트 완료) |
-| Android | Kotlin Android 클라이언트 | 🔜 초기화 예정 |
+| Android Phase B-3~B-6 | 인증 UI, 홈 네비게이션, 러닝 추적 UI, Running API 연동 | ✅ 완료 |
+| Android Phase B-7~B-10 | 코스 생성, 주변 탐색, 코스 상세, 도전 + 리더보드 | 🔄 진행 중 |
 | Phase 2 | GPS 경로 검증, 완주 인증 이미지, 코스 통계, 소셜 기능 | 🔜 예정 |
 
 ---
@@ -48,7 +49,7 @@
 
 ```
 RunWay/
-├── backend/                        # Spring Boot API 서버
+├── backend/                        # Spring Boot API 서버 (Phase 1 완료)
 │   ├── src/
 │   │   ├── main/
 │   │   │   ├── java/com/runway/    # 메인 패키지
@@ -58,7 +59,16 @@ RunWay/
 │   ├── docker-compose.yml          # PostgreSQL + PostGIS
 │   ├── build.gradle
 │   └── gradlew
-├── android/                        # Android 클라이언트 (초기화 예정)
+├── android/                        # Kotlin Android 클라이언트 (Phase B-3~B-6 완료)
+│   ├── app/src/main/java/com/runway/android/
+│   │   ├── core/                   # network, datastore, result
+│   │   ├── data/                   # repository 구현체, API, DTOs
+│   │   ├── domain/                 # repository 인터페이스
+│   │   ├── di/                     # Hilt 모듈
+│   │   └── ui/                     # Compose 화면 및 ViewModel
+│   └── app/build.gradle.kts
+├── design/
+│   └── lovable/                    # Lovable 기반 React/Vite UI 프로토타입
 ├── docs/
 │   ├── technical-specification.md
 │   ├── api-specification.md
@@ -140,6 +150,26 @@ http://localhost:8080/swagger-ui/index.html
 
 ---
 
+## GitHub Workflow
+
+이 프로젝트는 경량화된 GitHub Flow 전략을 사용한다.
+
+- 단일 GitHub repository에서 backend, android, docs, design을 함께 관리한다.
+- `main` 브랜치는 항상 안정적인 상태를 유지한다.
+- 구현 작업은 `feature/*`, `fix/*`, `docs/*`, `chore/*` 브랜치에서 진행한다.
+- 솔로 개발 환경에서도 Pull Request 사용을 권장한다.
+- 다음 파일은 절대 커밋하지 않는다: secrets, local config, `.idea/`, `.claude/`, `.DS_Store`, `build/`, `.gradle/`, `application-local.yml`
+
+브랜치 명명 규칙, 커밋 메시지 형식, 빌드 확인 명령어, 권장 작업 흐름은 `CLAUDE.md` Section 13을 참고한다.
+
+---
+
 ## 다음 단계
 
-- `android/` 디렉토리 초기화 및 Kotlin Android 클라이언트 개발 시작
+| 단계 | 작업 | 브랜치 |
+|------|------|--------|
+| **Phase B-7** | 완료된 런에서 코스 생성 (`POST /api/courses/from-run/{runId}`) | `feature/android-course-create` |
+| **Phase B-8** | 주변 코스 탐색 — DiscoverScreen (`GET /api/courses/nearby`) | `feature/android-discover` |
+| **Phase B-9** | 코스 상세 조회 | `feature/android-course-detail` |
+| **Phase B-10** | 코스 도전 + 리더보드 | `feature/android-attempt-leaderboard` |
+| Phase 2+ | GPS 경로 검증, 완주 인증 이미지, 코스 통계, 소셜 기능 | — |
