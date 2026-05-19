@@ -12,16 +12,15 @@ import com.runway.android.data.running.model.SavePointsRequest
 import com.runway.android.data.running.model.StartRunRequest
 import com.runway.android.domain.running.RunningRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import java.time.Instant
 import javax.inject.Inject
+import javax.inject.Named
 
 data class RunResult(
     val runId: String?,
@@ -58,6 +57,7 @@ private val SAMPLE_COORDS = listOf(
 @HiltViewModel
 class RunningTrackingViewModel @Inject constructor(
     private val runningRepository: RunningRepository,
+    @Named("appScope") private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     var runningState by mutableStateOf(RunningState.RUNNING)
@@ -178,15 +178,23 @@ class RunningTrackingViewModel @Inject constructor(
     }
 
     fun pause() {
-        runningState = RunningState.PAUSED
+        runningState = RunningState.PAUSED  // optimistic update
         val rid = runId ?: return
-        viewModelScope.launch { runningRepository.pauseRun(rid) }
+        viewModelScope.launch {
+            if (runningRepository.pauseRun(rid) !is NetworkResult.Success) {
+                runningState = RunningState.RUNNING  // rollback on failure
+            }
+        }
     }
 
     fun resume() {
-        runningState = RunningState.RUNNING
+        runningState = RunningState.RUNNING  // optimistic update
         val rid = runId ?: return
-        viewModelScope.launch { runningRepository.resumeRun(rid) }
+        viewModelScope.launch {
+            if (runningRepository.resumeRun(rid) !is NetworkResult.Success) {
+                runningState = RunningState.PAUSED  // rollback on failure
+            }
+        }
     }
 
     fun finish() {
@@ -243,10 +251,10 @@ class RunningTrackingViewModel @Inject constructor(
         super.onCleared()
         simulationJob?.cancel()
         batchJob?.cancel()
-        // viewModelScope is already cancelled here; use a detached scope for cleanup
+        // viewModelScope is already cancelled here; use app-level scope for cleanup
         val rid = runId
         if (rid != null && !isFinished) {
-            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            appScope.launch {
                 runningRepository.abandonRun(rid)
             }
         }

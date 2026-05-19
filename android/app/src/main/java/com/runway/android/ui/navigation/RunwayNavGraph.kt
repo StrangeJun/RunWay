@@ -111,9 +111,8 @@ fun RunwayNavGraph() {
         composable(RunwayRoutes.RUNNING) {
             RunningTrackingScreen(
                 onFinish = { runId, elapsedSeconds, distanceKm ->
-                    val safeRunId = runId ?: "none"
                     navController.navigate(
-                        "${RunwayRoutes.RUN_RESULT}/$safeRunId/$elapsedSeconds/$distanceKm",
+                        RunwayRoutes.runResult(runId ?: "none", elapsedSeconds, distanceKm),
                     ) {
                         popUpTo(RunwayRoutes.RUNNING) { inclusive = true }
                     }

@@ -3,6 +3,7 @@ package com.runway.android.core.result
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.runway.android.core.model.ApiResponse
+import kotlinx.coroutines.CancellationException
 import retrofit2.HttpException
 
 /**
@@ -65,6 +66,8 @@ suspend fun <T : Any> safeApiCall(call: suspend () -> ApiResponse<T>): NetworkRe
         } else {
             NetworkResult.ApiError(e.code(), null, "HTTP ${e.code()}")
         }
+    } catch (e: CancellationException) {
+        throw e  // coroutine 취소 신호는 삼키지 않고 전파
     } catch (e: Exception) {
         NetworkResult.NetworkError(e)
     }
