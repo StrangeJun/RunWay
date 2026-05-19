@@ -16,9 +16,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.runway.android.ui.MainViewModel
+import com.runway.android.ui.attempt.CourseAttemptTrackingScreen
 import com.runway.android.ui.auth.login.LoginScreen
 import com.runway.android.ui.auth.signup.SignupScreen
 import com.runway.android.ui.course.detail.CourseDetailScreen
+import com.runway.android.ui.leaderboard.CourseLeaderboardScreen
 import com.runway.android.ui.running.RunResultScreen
 import com.runway.android.ui.running.RunningTrackingScreen
 
@@ -27,8 +29,6 @@ fun RunwayNavGraph() {
     val mainViewModel: MainViewModel = hiltViewModel()
     val isLoggedIn by mainViewModel.isLoggedIn.collectAsState()
 
-    // Wait for DataStore to emit the first value before rendering NavHost.
-    // Prevents a flash of the login screen for already-authenticated users.
     if (isLoggedIn == null) {
         Box(
             modifier = Modifier
@@ -41,7 +41,7 @@ fun RunwayNavGraph() {
     val startDestination = if (isLoggedIn == true) RunwayRoutes.MAIN else RunwayRoutes.LOGIN
     val navController = rememberNavController()
 
-    // Redirect to login when session expires mid-session (refresh token 만료 시)
+    // Refresh Token 만료 시 로그인 화면으로 리다이렉트
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn == false) {
             val currentRoute = navController.currentDestination?.route
@@ -64,9 +64,7 @@ fun RunwayNavGraph() {
 
         composable(RunwayRoutes.LOGIN) {
             LoginScreen(
-                onNavigateToSignup = {
-                    navController.navigate(RunwayRoutes.SIGNUP)
-                },
+                onNavigateToSignup = { navController.navigate(RunwayRoutes.SIGNUP) },
                 onLoginSuccess = {
                     navController.navigate(RunwayRoutes.MAIN) {
                         popUpTo(0) { inclusive = true }
@@ -77,9 +75,7 @@ fun RunwayNavGraph() {
 
         composable(RunwayRoutes.SIGNUP) {
             SignupScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
+                onNavigateBack = { navController.popBackStack() },
                 onSignupSuccess = {
                     navController.navigate(RunwayRoutes.LOGIN) {
                         popUpTo(RunwayRoutes.SIGNUP) { inclusive = true }
@@ -88,13 +84,11 @@ fun RunwayNavGraph() {
             )
         }
 
-        // ─── Main shell (with BottomNav) ───
+        // ─── Main shell (BottomNav 포함) ───
 
         composable(RunwayRoutes.MAIN) {
             MainScaffold(
-                onStartRun = {
-                    navController.navigate(RunwayRoutes.RUNNING)
-                },
+                onStartRun = { navController.navigate(RunwayRoutes.RUNNING) },
                 onLogout = {
                     navController.navigate(RunwayRoutes.LOGIN) {
                         popUpTo(0) { inclusive = true }
@@ -106,7 +100,7 @@ fun RunwayNavGraph() {
             )
         }
 
-        // ─── Running (no BottomNav — outside MainScaffold) ───
+        // ─── 자유 러닝 (BottomNav 없음) ───
 
         composable(RunwayRoutes.RUNNING) {
             RunningTrackingScreen(
@@ -117,13 +111,9 @@ fun RunwayNavGraph() {
                         popUpTo(RunwayRoutes.RUNNING) { inclusive = true }
                     }
                 },
-                onBack = {
-                    navController.popBackStack()
-                },
+                onBack = { navController.popBackStack() },
             )
         }
-
-        // ─── Run result (no BottomNav — outside MainScaffold) ───
 
         composable(
             route = "${RunwayRoutes.RUN_RESULT}/{runId}/{elapsedSeconds}/{distanceKm}",
@@ -140,18 +130,53 @@ fun RunwayNavGraph() {
             )
         }
 
-        // ─── Course detail (no BottomNav — outside MainScaffold) ───
+        // ─── 코스 상세 (BottomNav 없음) ───
 
         composable(
             route = RunwayRoutes.COURSE_DETAIL,
-            arguments = listOf(
-                navArgument("courseId") { type = NavType.StringType },
-            ),
+            arguments = listOf(navArgument("courseId") { type = NavType.StringType }),
         ) {
             CourseDetailScreen(
-                onBack = {
-                    navController.popBackStack()
+                onBack = { navController.popBackStack() },
+                onNavigateToAttempt = { courseId, courseAttemptId, runningRecordId ->
+                    navController.navigate(
+                        RunwayRoutes.courseAttempt(courseId, courseAttemptId, runningRecordId)
+                    )
                 },
+                onNavigateToLeaderboard = { courseId ->
+                    navController.navigate(RunwayRoutes.courseLeaderboard(courseId))
+                },
+            )
+        }
+
+        // ─── 코스 도전 트래킹 (BottomNav 없음) ───
+
+        composable(
+            route = RunwayRoutes.COURSE_ATTEMPT,
+            arguments = listOf(
+                navArgument("courseId") { type = NavType.StringType },
+                navArgument("courseAttemptId") { type = NavType.StringType },
+                navArgument("runningRecordId") { type = NavType.StringType },
+            ),
+        ) {
+            CourseAttemptTrackingScreen(
+                onNavigateToLeaderboard = { courseId ->
+                    navController.navigate(RunwayRoutes.courseLeaderboard(courseId)) {
+                        popUpTo(RunwayRoutes.COURSE_ATTEMPT) { inclusive = true }
+                    }
+                },
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
+
+        // ─── 코스 리더보드 (BottomNav 없음) ───
+
+        composable(
+            route = RunwayRoutes.COURSE_LEADERBOARD,
+            arguments = listOf(navArgument("courseId") { type = NavType.StringType }),
+        ) {
+            CourseLeaderboardScreen(
+                onBack = { navController.popBackStack() },
             )
         }
     }
