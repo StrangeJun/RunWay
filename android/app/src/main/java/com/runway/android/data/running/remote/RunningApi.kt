@@ -1,16 +1,21 @@
 package com.runway.android.data.running.remote
 
 import com.runway.android.core.model.ApiResponse
+import com.runway.android.core.model.PageResponse
 import com.runway.android.data.running.model.FinishRunRequest
 import com.runway.android.data.running.model.FinishRunResponse
+import com.runway.android.data.running.model.RunDetailResponse
 import com.runway.android.data.running.model.RunStatusResponse
+import com.runway.android.data.running.model.RunSummaryResponse
 import com.runway.android.data.running.model.SavePointsRequest
 import com.runway.android.data.running.model.SavePointsResponse
 import com.runway.android.data.running.model.StartRunRequest
 import com.runway.android.data.running.model.StartRunResponse
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface RunningApi {
 
@@ -37,4 +42,13 @@ interface RunningApi {
 
     @POST("api/runs/{runId}/abandon")
     suspend fun abandonRun(@Path("runId") runId: String): ApiResponse<RunStatusResponse>
+
+    @GET("api/runs/me")
+    suspend fun getMyRuns(
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): ApiResponse<PageResponse<RunSummaryResponse>>
+
+    @GET("api/runs/{runId}")
+    suspend fun getRunDetail(@Path("runId") runId: String): ApiResponse<RunDetailResponse>
 }

@@ -23,6 +23,8 @@ import com.runway.android.ui.course.detail.CourseDetailScreen
 import com.runway.android.ui.leaderboard.CourseLeaderboardScreen
 import com.runway.android.ui.running.RunResultScreen
 import com.runway.android.ui.running.RunningTrackingScreen
+import com.runway.android.ui.running.history.MyRunsScreen
+import com.runway.android.ui.running.history.RunDetailScreen
 
 @Composable
 fun RunwayNavGraph() {
@@ -97,6 +99,7 @@ fun RunwayNavGraph() {
                 onNavigateToCourseDetail = { courseId ->
                     navController.navigate(RunwayRoutes.courseDetail(courseId))
                 },
+                onNavigateToMyRuns = { navController.navigate(RunwayRoutes.MY_RUNS) },
             )
         }
 
@@ -167,6 +170,26 @@ fun RunwayNavGraph() {
                 },
                 onNavigateBack = { navController.popBackStack() },
             )
+        }
+
+        // ─── 내 러닝 기록 목록 (BottomNav 없음) ───
+
+        composable(RunwayRoutes.MY_RUNS) {
+            MyRunsScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToDetail = { runId ->
+                    navController.navigate(RunwayRoutes.runDetail(runId))
+                },
+            )
+        }
+
+        // ─── 러닝 기록 상세 (BottomNav 없음) ───
+
+        composable(
+            route = RunwayRoutes.RUN_DETAIL,
+            arguments = listOf(navArgument("runId") { type = NavType.StringType }),
+        ) {
+            RunDetailScreen(onBack = { navController.popBackStack() })
         }
 
         // ─── 코스 리더보드 (BottomNav 없음) ───

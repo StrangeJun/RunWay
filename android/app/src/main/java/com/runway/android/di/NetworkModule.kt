@@ -9,6 +9,7 @@ import com.runway.android.data.attempt.remote.CourseAttemptApi
 import com.runway.android.data.auth.remote.AuthApi
 import com.runway.android.data.course.remote.CourseApi
 import com.runway.android.data.running.remote.RunningApi
+import com.runway.android.data.user.remote.UserApi
 import retrofit2.converter.gson.GsonConverterFactory
 import dagger.Module
 import dagger.Provides
@@ -128,4 +129,9 @@ object NetworkModule {
     @Singleton
     fun provideCourseAttemptApi(retrofit: Retrofit): CourseAttemptApi =
         retrofit.create(CourseAttemptApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideUserApi(retrofit: Retrofit): UserApi =
+        retrofit.create(UserApi::class.java)
 }
