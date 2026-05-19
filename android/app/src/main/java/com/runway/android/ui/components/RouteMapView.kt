@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.JointType
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.RoundCap
@@ -31,14 +32,16 @@ import com.runway.android.core.map.toLatLngBounds
 /**
  * Shows a GoogleMap with the route polyline when [points] has ≥ 2 entries.
  * Falls back to a Canvas route drawing when < 2 points.
+ * [currentLocation] overlays an azure marker for live GPS position when non-null.
  */
 @Composable
 fun RouteMapView(
     points: List<MapPoint>,
     modifier: Modifier = Modifier,
+    currentLocation: MapPoint? = null,
 ) {
     if (points.size >= 2) {
-        RouteGoogleMap(points = points, modifier = modifier)
+        RouteGoogleMap(points = points, currentLocation = currentLocation, modifier = modifier)
     } else {
         RouteCanvasFallback(modifier = modifier)
     }
@@ -47,13 +50,16 @@ fun RouteMapView(
 @Composable
 private fun RouteGoogleMap(
     points: List<MapPoint>,
+    currentLocation: MapPoint?,
     modifier: Modifier,
 ) {
     val latLngs = remember(points) { points.map { LatLng(it.latitude, it.longitude) } }
     val bounds = remember(points) { points.toLatLngBounds() }
     val cameraPositionState = rememberCameraPositionState()
     val primaryColor = MaterialTheme.colorScheme.primary
-    val errorColor = MaterialTheme.colorScheme.error
+    val currentLatLng = remember(currentLocation) {
+        currentLocation?.let { LatLng(it.latitude, it.longitude) }
+    }
 
     GoogleMap(
         modifier = modifier,
@@ -88,6 +94,13 @@ private fun RouteGoogleMap(
             state = MarkerState(position = latLngs.last()),
             title = "End",
         )
+        if (currentLatLng != null) {
+            Marker(
+                state = MarkerState(position = currentLatLng),
+                title = "현재 위치",
+                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE),
+            )
+        }
     }
 }
 

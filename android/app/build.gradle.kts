@@ -1,5 +1,7 @@
 import java.util.Properties
 
+private val roomVersion = "2.6.1"
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -106,6 +108,12 @@ dependencies {
 
     // ─── Coroutines ───
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
+
+    // ─── Room ───
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
 
     // ─── Debug ───
     debugImplementation("androidx.compose.ui:ui-tooling")

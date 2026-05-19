@@ -10,15 +10,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.core.content.ContextCompat
 import com.runway.android.core.location.GpsStatus
+import com.runway.android.core.map.MapPoint
 import com.runway.android.core.result.NetworkResult
+import com.runway.android.core.tracking.PendingPointQueue
 import com.runway.android.core.tracking.RunTrackingAction
 import com.runway.android.core.tracking.RunTrackingManager
 import com.runway.android.core.tracking.RunTrackingMode
 import com.runway.android.core.tracking.RunTrackingService
+import com.runway.android.core.tracking.TrackingSessionSnapshot
+import com.runway.android.core.tracking.TrackingSessionStore
+import com.runway.android.core.tracking.toRunPointRequest
 import com.runway.android.data.attempt.model.AbandonAttemptRequest
 import com.runway.android.data.attempt.model.FinishAttemptRequest
 import com.runway.android.data.running.model.SavePointsRequest
 import com.runway.android.domain.attempt.CourseAttemptRepository
+import com.runway.android.domain.course.CourseRepository
 import com.runway.android.domain.running.RunningRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -43,7 +49,10 @@ class CourseAttemptTrackingViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val runningRepository: RunningRepository,
     private val courseAttemptRepository: CourseAttemptRepository,
+    private val courseRepository: CourseRepository,
     private val manager: RunTrackingManager,
+    private val pendingPointQueue: PendingPointQueue,
+    private val sessionStore: TrackingSessionStore,
     @Named("appScope") private val appScope: CoroutineScope,
 ) : ViewModel() {
 
@@ -62,6 +71,10 @@ class CourseAttemptTrackingViewModel @Inject constructor(
     var isAbandoning by mutableStateOf(false)
         private set
     var finishError by mutableStateOf<String?>(null)
+        private set
+    var coursePoints by mutableStateOf<List<MapPoint>>(emptyList())
+        private set
+    var currentLocationPoint by mutableStateOf<MapPoint?>(null)
         private set
 
     private var lastSpeedMps by mutableStateOf<Float?>(null)
@@ -101,10 +114,25 @@ class CourseAttemptTrackingViewModel @Inject constructor(
     private var batchJob: Job? = null
 
     init {
+        viewModelScope.launch {
+            sessionStore.saveSnapshot(
+                TrackingSessionSnapshot(
+                    runningRecordId = runningRecordId,
+                    courseAttemptId = courseAttemptId,
+                    elapsedSeconds = 0,
+                    distanceMeters = 0.0,
+                )
+            )
+        }
+        viewModelScope.launch {
+            when (val r = courseRepository.getCoursePoints(courseId)) {
+                is NetworkResult.Success -> coursePoints = r.data.points.map { MapPoint(it.latitude, it.longitude) }
+                else -> {}
+            }
+        }
         startBatchSaving()
     }
 
-    // Called by the Screen after location permission is granted.
     fun startTracking() {
         if (serviceStarted) return
         serviceStarted = true
@@ -126,6 +154,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                 elapsedSeconds = state.elapsedSeconds
                 distanceKm = state.distanceMeters / 1000.0
                 lastSpeedMps = state.currentSpeedMps
+                currentLocationPoint = state.lastLocation?.let { MapPoint(it.latitude, it.longitude) }
             }
         }
     }
@@ -135,17 +164,33 @@ class CourseAttemptTrackingViewModel @Inject constructor(
             while (true) {
                 delay(5_000L)
                 flushPendingPoints()
+                updateSnapshot()
             }
         }
     }
 
     private suspend fun flushPendingPoints() {
-        val points = manager.consumePoints()
-        if (points.isEmpty()) return
-        val result = runningRepository.savePoints(runningRecordId, SavePointsRequest(points))
-        if (result !is NetworkResult.Success) {
-            manager.requeuePoints(points)
+        val inMemory = manager.consumePoints()
+        pendingPointQueue.add(runningRecordId, inMemory)
+
+        val batch = pendingPointQueue.dequeue(runningRecordId, 50)
+        if (batch.isEmpty()) return
+
+        val result = runningRepository.savePoints(runningRecordId, SavePointsRequest(batch.map { it.toRunPointRequest() }))
+        if (result is NetworkResult.Success) {
+            pendingPointQueue.deleteByIds(batch.map { it.id })
         }
+    }
+
+    private suspend fun updateSnapshot() {
+        sessionStore.saveSnapshot(
+            TrackingSessionSnapshot(
+                runningRecordId = runningRecordId,
+                courseAttemptId = courseAttemptId,
+                elapsedSeconds = elapsedSeconds,
+                distanceMeters = distanceKm * 1000.0,
+            )
+        )
     }
 
     fun finish() {
@@ -157,7 +202,18 @@ class CourseAttemptTrackingViewModel @Inject constructor(
         val distance = distanceKm
 
         viewModelScope.launch {
-            flushPendingPoints()
+            // Drain in-memory → Room then flush all Room points
+            pendingPointQueue.add(runningRecordId, manager.consumePoints())
+            repeat(3) {
+                val batch = pendingPointQueue.dequeue(runningRecordId, 50)
+                if (batch.isNotEmpty()) {
+                    val r = runningRepository.savePoints(
+                        runningRecordId,
+                        SavePointsRequest(batch.map { it.toRunPointRequest() }),
+                    )
+                    if (r is NetworkResult.Success) pendingPointQueue.deleteByIds(batch.map { it.id })
+                }
+            }
 
             when (courseAttemptRepository.finishAttempt(
                 attemptId = courseAttemptId,
@@ -175,7 +231,10 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                     finishError = "완주 처리에 실패했습니다. 다시 시도해 주세요."
                     return@launch
                 }
-                is NetworkResult.Success -> Unit
+                is NetworkResult.Success -> {
+                    sessionStore.clearSnapshot()
+                    pendingPointQueue.deleteByRunningRecordId(runningRecordId)
+                }
             }
 
             stopServiceAndJobs()
@@ -193,6 +252,8 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                 attemptId = courseAttemptId,
                 request = AbandonAttemptRequest(abandonedAt = Instant.now().toString()),
             )
+            sessionStore.clearSnapshot()
+            pendingPointQueue.deleteByRunningRecordId(runningRecordId)
             stopServiceAndJobs()
             isDone = true
             _navEvent.emit(AttemptNavEvent.NavigateBack)
@@ -219,6 +280,8 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                     attemptId = courseAttemptId,
                     request = AbandonAttemptRequest(abandonedAt = Instant.now().toString()),
                 )
+                sessionStore.clearSnapshot()
+                pendingPointQueue.deleteByRunningRecordId(runningRecordId)
             }
         }
     }

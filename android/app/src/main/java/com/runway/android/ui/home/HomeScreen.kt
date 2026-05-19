@@ -1,7 +1,6 @@
 package com.runway.android.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,18 +12,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.runway.android.ui.components.NearbyCourseCard
+import com.runway.android.ui.components.DiscoverCourseCard
 import com.runway.android.ui.components.RecentRunCard
 import com.runway.android.ui.components.SectionHeader
 import com.runway.android.ui.components.StartRunCard
@@ -34,8 +36,14 @@ import com.runway.android.ui.components.WeeklyStatsCard
 fun HomeScreen(
     onStartRun: () -> Unit = {},
     onSeeAllRuns: () -> Unit = {},
+    onNavigateToCourseDetail: (String) -> Unit = {},
+    onNavigateToDiscover: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
+    LaunchedEffect(Unit) {
+        viewModel.tryLoadNearbyCourses()
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -69,17 +77,49 @@ fun HomeScreen(
 
         // ─── Nearby courses ───
         item {
-            SectionHeader(title = "Nearby courses", cta = "See all")
+            SectionHeader(title = "Nearby courses", cta = "See all", onCtaClick = onNavigateToDiscover)
         }
 
         item {
-            Row(
-                modifier = Modifier
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                // Nearby courses are loaded by DiscoverScreen; shown as placeholder here
+            when {
+                viewModel.isLoadingNearbyCourses -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                viewModel.nearbyCourses.isEmpty() -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(80.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "주변에 코스가 없습니다",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                else -> {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(viewModel.nearbyCourses) { course ->
+                            DiscoverCourseCard(
+                                course = course,
+                                modifier = Modifier.width(280.dp),
+                                onClick = { onNavigateToCourseDetail(course.courseId) },
+                            )
+                        }
+                    }
+                }
             }
         }
 

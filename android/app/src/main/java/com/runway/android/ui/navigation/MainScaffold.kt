@@ -10,11 +10,14 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.ui.components.RunwayBottomNav
 import com.runway.android.ui.discover.DiscoverScreen
 import com.runway.android.ui.home.HomeScreen
 import com.runway.android.ui.leaderboard.LeaderboardScreen
 import com.runway.android.ui.profile.ProfileScreen
+import com.runway.android.ui.tracking.TrackingRecoveryDialog
+import com.runway.android.ui.tracking.TrackingRecoveryViewModel
 
 @Composable
 fun MainScaffold(
@@ -23,7 +26,8 @@ fun MainScaffold(
     onNavigateToCourseDetail: (String) -> Unit = {},
     onNavigateToMyRuns: () -> Unit = {},
 ) {
-    // rememberSaveable preserves the selected tab when navigating to/from CourseDetailScreen
+    val recoveryViewModel: TrackingRecoveryViewModel = hiltViewModel()
+
     var currentTabOrdinal by rememberSaveable { mutableIntStateOf(MainTab.HOME.ordinal) }
     val currentTab = MainTab.entries[currentTabOrdinal]
 
@@ -41,7 +45,12 @@ fun MainScaffold(
                 .padding(innerPadding),
         ) {
             when (currentTab) {
-                MainTab.HOME -> HomeScreen(onStartRun = onStartRun, onSeeAllRuns = onNavigateToMyRuns)
+                MainTab.HOME -> HomeScreen(
+                    onStartRun = onStartRun,
+                    onSeeAllRuns = onNavigateToMyRuns,
+                    onNavigateToCourseDetail = onNavigateToCourseDetail,
+                    onNavigateToDiscover = { currentTabOrdinal = MainTab.DISCOVER.ordinal },
+                )
                 MainTab.DISCOVER -> DiscoverScreen(
                     onNavigateToCourseDetail = onNavigateToCourseDetail,
                 )
@@ -50,6 +59,10 @@ fun MainScaffold(
                     onLogout = onLogout,
                     onNavigateToMyRuns = onNavigateToMyRuns,
                 )
+            }
+
+            if (recoveryViewModel.isVisible) {
+                TrackingRecoveryDialog(viewModel = recoveryViewModel)
             }
         }
     }

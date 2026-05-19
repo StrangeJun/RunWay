@@ -1,6 +1,7 @@
 package com.runway.android.core.tracking
 
 import com.runway.android.core.location.DistanceCalculator
+import com.runway.android.core.location.GpsPointValidator
 import com.runway.android.core.location.LocationTracker
 import com.runway.android.data.running.model.RunPointRequest
 import kotlinx.coroutines.CoroutineScope
@@ -90,6 +91,11 @@ class RunTrackingManager @Inject constructor(
 
                 if (!currentState.isPaused) {
                     val prev = currentState.lastLocation
+
+                    if (!GpsPointValidator.isValid(location, prev)) {
+                        return@collect
+                    }
+
                     val deltaMeters = if (prev != null) {
                         DistanceCalculator.calculate(prev, location)
                     } else {
