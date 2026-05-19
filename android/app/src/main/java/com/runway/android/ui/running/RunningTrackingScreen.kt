@@ -3,6 +3,7 @@ package com.runway.android.ui.running
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.InfiniteRepeatableSpec
@@ -71,12 +72,13 @@ fun RunningTrackingScreen(
     val context = LocalContext.current
     var permissionDeniedPermanently by remember { mutableStateOf(false) }
 
+    // Requests location (required) + notification (optional, Android 13+) together.
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+        val locationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
             permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        if (granted) {
+        if (locationGranted) {
             viewModel.startTracking()
         } else {
             val activity = context as? Activity
@@ -84,6 +86,7 @@ fun RunningTrackingScreen(
                 Manifest.permission.ACCESS_FINE_LOCATION
             ) ?: false
             permissionDeniedPermanently = !shouldShow
+            // Notification permission denial is silently ignored — tracking still works.
         }
     }
 
@@ -98,12 +101,14 @@ fun RunningTrackingScreen(
         if (hasFine || hasCoarse) {
             viewModel.startTracking()
         } else {
-            permissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                )
-            )
+            val permissions = buildList {
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
+                add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    add(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }.toTypedArray()
+            permissionLauncher.launch(permissions)
         }
     }
 
