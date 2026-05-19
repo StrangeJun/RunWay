@@ -1,5 +1,10 @@
 package com.runway.android.ui.running
 
+import android.Manifest
+import android.app.Activity
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.InfiniteRepeatableSpec
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -9,6 +14,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -33,12 +39,19 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.runway.android.core.location.GpsStatus
+import com.runway.android.ui.components.LocationPermissionCard
 import com.runway.android.ui.components.RouteMapPlaceholder
 import com.runway.android.ui.components.RunMetricCard
 import com.runway.android.ui.components.RunningControlButton
@@ -52,6 +65,45 @@ fun RunningTrackingScreen(
     LaunchedEffect(Unit) {
         viewModel.navigateToResult.collect { result ->
             onFinish(result.runId, result.elapsedSeconds, result.distanceKm)
+        }
+    }
+
+    val context = LocalContext.current
+    var permissionDeniedPermanently by remember { mutableStateOf(false) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            viewModel.startTracking()
+        } else {
+            val activity = context as? Activity
+            val shouldShow = activity?.shouldShowRequestPermissionRationale(
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) ?: false
+            permissionDeniedPermanently = !shouldShow
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val hasFine = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasFine || hasCoarse) {
+            viewModel.startTracking()
+        } else {
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                )
+            )
         }
     }
 
@@ -75,8 +127,10 @@ fun RunningTrackingScreen(
             Text(
                 text = when {
                     viewModel.isConnecting -> "Connecting..."
-                    isRunning -> "GPS · Strong"
-                    else -> "Paused"
+                    viewModel.gpsStatus == GpsStatus.PERMISSION_REQUIRED -> "위치 권한 필요"
+                    viewModel.gpsStatus == GpsStatus.WAITING_FOR_FIX -> "GPS 신호 수신 중..."
+                    !isRunning -> "Paused"
+                    else -> "GPS · Active"
                 },
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -145,15 +199,36 @@ fun RunningTrackingScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ─── Route map (flexible height) ───
-        RouteMapPlaceholder(
-            isAnimated = isRunning,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .clip(MaterialTheme.shapes.extraLarge),
-        )
+        // ─── Route map / Permission card ───
+        if (viewModel.gpsStatus == GpsStatus.PERMISSION_REQUIRED) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                LocationPermissionCard(
+                    isPermanentlyDenied = permissionDeniedPermanently,
+                    onRequestPermission = {
+                        permissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION,
+                            )
+                        )
+                    },
+                )
+            }
+        } else {
+            RouteMapPlaceholder(
+                isAnimated = isRunning,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .clip(MaterialTheme.shapes.extraLarge),
+            )
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -163,7 +238,6 @@ fun RunningTrackingScreen(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Stop / Finish (destructive) — disabled while finish API is in-flight
             if (viewModel.isFinishing) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(60.dp),
@@ -183,7 +257,6 @@ fun RunningTrackingScreen(
 
             Spacer(modifier = Modifier.width(24.dp))
 
-            // Pause / Resume (primary, large)
             if (isRunning) {
                 RunningControlButton(
                     icon = Icons.Filled.Pause,
@@ -203,7 +276,6 @@ fun RunningTrackingScreen(
             }
         }
 
-        // ─── Finish error message ───
         if (viewModel.finishError != null) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(

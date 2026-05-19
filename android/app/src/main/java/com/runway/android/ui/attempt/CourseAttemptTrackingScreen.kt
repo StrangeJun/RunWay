@@ -1,9 +1,15 @@
 package com.runway.android.ui.attempt
 
+import android.Manifest
+import android.app.Activity
+import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -35,9 +41,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.runway.android.core.location.GpsStatus
+import com.runway.android.ui.components.LocationPermissionCard
 import com.runway.android.ui.components.RouteMapPlaceholder
 import com.runway.android.ui.components.RunMetricCard
 import com.runway.android.ui.components.RunningControlButton
@@ -57,9 +67,47 @@ fun CourseAttemptTrackingScreen(
         }
     }
 
+    val context = LocalContext.current
+    var permissionDeniedPermanently by remember { mutableStateOf(false) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            viewModel.startTracking()
+        } else {
+            val activity = context as? Activity
+            val shouldShow = activity?.shouldShowRequestPermissionRationale(
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) ?: false
+            permissionDeniedPermanently = !shouldShow
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val hasFine = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasFine || hasCoarse) {
+            viewModel.startTracking()
+        } else {
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                )
+            )
+        }
+    }
+
     var showAbandonDialog by remember { mutableStateOf(false) }
 
-    // Back 버튼 → 포기 확인 다이얼로그
     BackHandler(enabled = !viewModel.isFinishing && !viewModel.isAbandoning) {
         showAbandonDialog = true
     }
@@ -101,7 +149,11 @@ fun CourseAttemptTrackingScreen(
         ) {
             CoursePill()
             Text(
-                text = "GPS · Active",
+                text = when (viewModel.gpsStatus) {
+                    GpsStatus.PERMISSION_REQUIRED -> "위치 권한 필요"
+                    GpsStatus.WAITING_FOR_FIX -> "GPS 신호 수신 중..."
+                    GpsStatus.ACTIVE -> "GPS · Active"
+                },
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -169,15 +221,36 @@ fun CourseAttemptTrackingScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ─── 경로 미리보기 ───
-        RouteMapPlaceholder(
-            isAnimated = true,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .clip(MaterialTheme.shapes.extraLarge),
-        )
+        // ─── 경로 미리보기 / 권한 카드 ───
+        if (viewModel.gpsStatus == GpsStatus.PERMISSION_REQUIRED) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                LocationPermissionCard(
+                    isPermanentlyDenied = permissionDeniedPermanently,
+                    onRequestPermission = {
+                        permissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION,
+                            )
+                        )
+                    },
+                )
+            }
+        } else {
+            RouteMapPlaceholder(
+                isAnimated = true,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .clip(MaterialTheme.shapes.extraLarge),
+            )
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -187,7 +260,6 @@ fun CourseAttemptTrackingScreen(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 포기 버튼
             if (viewModel.isAbandoning) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(56.dp),
@@ -207,7 +279,6 @@ fun CourseAttemptTrackingScreen(
 
             Spacer(modifier = Modifier.width(24.dp))
 
-            // 완주 버튼 (primary, 크게)
             if (viewModel.isFinishing) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(84.dp),
@@ -225,7 +296,6 @@ fun CourseAttemptTrackingScreen(
             }
         }
 
-        // ─── 완주 에러 메시지 ───
         if (viewModel.finishError != null) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(
