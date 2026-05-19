@@ -9,6 +9,7 @@ import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.course.model.NearbyCourseItem
 import com.runway.android.domain.course.CourseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -34,6 +35,8 @@ class DiscoverViewModel @Inject constructor(
     var isLoopFilter by mutableStateOf<Boolean?>(null)
         private set
 
+    private var loadJob: Job? = null
+
     init {
         loadCourses()
     }
@@ -53,7 +56,8 @@ class DiscoverViewModel @Inject constructor(
     fun refresh() = loadCourses()
 
     private fun loadCourses() {
-        viewModelScope.launch {
+        loadJob?.cancel()  // 이전 요청이 진행 중이면 취소하여 경쟁 조건 방지
+        loadJob = viewModelScope.launch {
             isLoading = true
             errorMessage = null
             when (val result = courseRepository.getNearbyCourses(

@@ -110,7 +110,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideAuthApi(retrofit: Retrofit): AuthApi =
+    fun provideAuthApi(@Named("noAuth") retrofit: Retrofit): AuthApi =
         retrofit.create(AuthApi::class.java)
 
     @Provides
