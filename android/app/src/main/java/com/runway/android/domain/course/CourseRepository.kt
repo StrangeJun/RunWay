@@ -1,8 +1,10 @@
 package com.runway.android.domain.course
 
+import com.runway.android.core.model.PageResponse
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.data.course.model.CreateCourseFromRunRequest
+import com.runway.android.data.course.model.NearbyCourseItem
 
 interface CourseRepository {
 
@@ -10,4 +12,15 @@ interface CourseRepository {
         runId: String,
         request: CreateCourseFromRunRequest,
     ): NetworkResult<CourseResponse>
+
+    suspend fun getNearbyCourses(
+        latitude: Double,
+        longitude: Double,
+        radiusMeters: Int = 3000,
+        minDistanceMeters: Double? = null,
+        maxDistanceMeters: Double? = null,
+        isLoop: Boolean? = null,
+        page: Int = 0,
+        size: Int = 20,
+    ): NetworkResult<PageResponse<NearbyCourseItem>>
 }
