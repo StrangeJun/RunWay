@@ -3,6 +3,8 @@ package com.runway.android.data.course
 import com.runway.android.core.model.PageResponse
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.core.result.safeApiCall
+import com.runway.android.data.course.model.CourseDetailResponse
+import com.runway.android.data.course.model.CoursePointsResponse
 import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.data.course.model.CreateCourseFromRunRequest
 import com.runway.android.data.course.model.NearbyCourseItem
@@ -42,4 +44,10 @@ class CourseRepositoryImpl @Inject constructor(
             size = size,
         )
     }
+
+    override suspend fun getCourseDetail(courseId: String): NetworkResult<CourseDetailResponse> =
+        safeApiCall { courseApi.getCourseDetail(courseId) }
+
+    override suspend fun getCoursePoints(courseId: String): NetworkResult<CoursePointsResponse> =
+        safeApiCall { courseApi.getCoursePoints(courseId) }
 }

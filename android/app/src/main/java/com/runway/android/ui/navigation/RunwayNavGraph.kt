@@ -17,6 +17,7 @@ import androidx.navigation.navArgument
 import com.runway.android.ui.MainViewModel
 import com.runway.android.ui.auth.login.LoginScreen
 import com.runway.android.ui.auth.signup.SignupScreen
+import com.runway.android.ui.course.detail.CourseDetailScreen
 import com.runway.android.ui.running.RunResultScreen
 import com.runway.android.ui.running.RunningTrackingScreen
 
@@ -83,6 +84,9 @@ fun RunwayNavGraph() {
                         popUpTo(0) { inclusive = true }
                     }
                 },
+                onNavigateToCourseDetail = { courseId ->
+                    navController.navigate(RunwayRoutes.courseDetail(courseId))
+                },
             )
         }
 
@@ -117,6 +121,21 @@ fun RunwayNavGraph() {
             RunResultScreen(
                 onBackToHome = {
                     navController.popBackStack(RunwayRoutes.MAIN, inclusive = false)
+                },
+            )
+        }
+
+        // ─── Course detail (no BottomNav — outside MainScaffold) ───
+
+        composable(
+            route = RunwayRoutes.COURSE_DETAIL,
+            arguments = listOf(
+                navArgument("courseId") { type = NavType.StringType },
+            ),
+        ) {
+            CourseDetailScreen(
+                onBack = {
+                    navController.popBackStack()
                 },
             )
         }

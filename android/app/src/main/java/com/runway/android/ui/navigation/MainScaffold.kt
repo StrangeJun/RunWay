@@ -6,8 +6,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.runway.android.ui.components.RunwayBottomNav
@@ -20,14 +20,17 @@ import com.runway.android.ui.profile.ProfileScreen
 fun MainScaffold(
     onStartRun: () -> Unit = {},
     onLogout: () -> Unit = {},
+    onNavigateToCourseDetail: (String) -> Unit = {},
 ) {
-    var currentTab by remember { mutableStateOf(MainTab.HOME) }
+    // rememberSaveable preserves the selected tab when navigating to/from CourseDetailScreen
+    var currentTabOrdinal by rememberSaveable { mutableIntStateOf(MainTab.HOME.ordinal) }
+    val currentTab = MainTab.entries[currentTabOrdinal]
 
     Scaffold(
         bottomBar = {
             RunwayBottomNav(
                 currentTab = currentTab,
-                onTabSelected = { currentTab = it },
+                onTabSelected = { currentTabOrdinal = it.ordinal },
             )
         },
     ) { innerPadding ->
@@ -38,7 +41,9 @@ fun MainScaffold(
         ) {
             when (currentTab) {
                 MainTab.HOME -> HomeScreen(onStartRun = onStartRun)
-                MainTab.DISCOVER -> DiscoverScreen()
+                MainTab.DISCOVER -> DiscoverScreen(
+                    onNavigateToCourseDetail = onNavigateToCourseDetail,
+                )
                 MainTab.LEADERBOARD -> LeaderboardScreen()
                 MainTab.PROFILE -> ProfileScreen(onLogout = onLogout)
             }

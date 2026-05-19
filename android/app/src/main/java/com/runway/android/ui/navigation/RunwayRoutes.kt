@@ -6,4 +6,7 @@ object RunwayRoutes {
     const val MAIN = "main"
     const val RUNNING = "running"
     const val RUN_RESULT = "run_result"
+    const val COURSE_DETAIL = "course_detail/{courseId}"
+
+    fun courseDetail(courseId: String) = "course_detail/$courseId"
 }

@@ -2,6 +2,8 @@ package com.runway.android.data.course.remote
 
 import com.runway.android.core.model.ApiResponse
 import com.runway.android.core.model.PageResponse
+import com.runway.android.data.course.model.CourseDetailResponse
+import com.runway.android.data.course.model.CoursePointsResponse
 import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.data.course.model.CreateCourseFromRunRequest
 import com.runway.android.data.course.model.NearbyCourseItem
@@ -30,4 +32,14 @@ interface CourseApi {
         @Query("page") page: Int? = null,
         @Query("size") size: Int? = null,
     ): ApiResponse<PageResponse<NearbyCourseItem>>
+
+    @GET("api/courses/{courseId}")
+    suspend fun getCourseDetail(
+        @Path("courseId") courseId: String,
+    ): ApiResponse<CourseDetailResponse>
+
+    @GET("api/courses/{courseId}/points")
+    suspend fun getCoursePoints(
+        @Path("courseId") courseId: String,
+    ): ApiResponse<CoursePointsResponse>
 }
