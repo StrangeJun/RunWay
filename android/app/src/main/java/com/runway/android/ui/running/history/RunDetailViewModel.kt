@@ -25,16 +25,25 @@ class RunDetailViewModel @Inject constructor(
         private set
     var isLoading by mutableStateOf(true)
         private set
+    var hasError by mutableStateOf(false)
+        private set
 
     init {
         loadDetail()
     }
 
+    fun retry() {
+        isLoading = true
+        hasError = false
+        detail = null
+        loadDetail()
+    }
+
     private fun loadDetail() {
         viewModelScope.launch {
-            val result = runningRepository.getRunDetail(runId)
-            if (result is NetworkResult.Success) {
-                detail = result.data
+            when (val result = runningRepository.getRunDetail(runId)) {
+                is NetworkResult.Success -> detail = result.data
+                else -> hasError = true
             }
             isLoading = false
         }

@@ -8,4 +8,5 @@ data class RunSummaryResponse(
     val distanceMeters: Double?,
     val durationSeconds: Int?,
     val avgPaceSecondsPerKm: Int?,
+    val caloriesBurned: Int?,
 )
