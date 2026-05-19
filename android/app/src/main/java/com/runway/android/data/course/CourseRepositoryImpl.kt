@@ -1,9 +1,11 @@
 package com.runway.android.data.course
 
+import com.runway.android.core.model.PageResponse
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.core.result.safeApiCall
 import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.data.course.model.CreateCourseFromRunRequest
+import com.runway.android.data.course.model.NearbyCourseItem
 import com.runway.android.data.course.remote.CourseApi
 import com.runway.android.domain.course.CourseRepository
 import javax.inject.Inject
@@ -18,4 +20,26 @@ class CourseRepositoryImpl @Inject constructor(
         runId: String,
         request: CreateCourseFromRunRequest,
     ): NetworkResult<CourseResponse> = safeApiCall { courseApi.createCourseFromRun(runId, request) }
+
+    override suspend fun getNearbyCourses(
+        latitude: Double,
+        longitude: Double,
+        radiusMeters: Int,
+        minDistanceMeters: Double?,
+        maxDistanceMeters: Double?,
+        isLoop: Boolean?,
+        page: Int,
+        size: Int,
+    ): NetworkResult<PageResponse<NearbyCourseItem>> = safeApiCall {
+        courseApi.getNearbyCourses(
+            latitude = latitude,
+            longitude = longitude,
+            radiusMeters = radiusMeters,
+            minDistanceMeters = minDistanceMeters,
+            maxDistanceMeters = maxDistanceMeters,
+            isLoop = isLoop,
+            page = page,
+            size = size,
+        )
+    }
 }
