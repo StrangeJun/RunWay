@@ -73,6 +73,18 @@ fun MyRunsScreen(
                     )
                 }
             }
+            viewModel.hasError -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "기록을 불러오지 못했습니다.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             viewModel.runs.isEmpty() -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),

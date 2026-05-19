@@ -55,6 +55,12 @@ fun ProfileScreen(
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
+        } else if (viewModel.profileError) {
+            Text(
+                text = "프로필을 불러오지 못했습니다.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         } else {
             Box(
                 modifier = Modifier
@@ -72,7 +78,7 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = viewModel.nickname.ifEmpty { "Runner" },
+                text = viewModel.nickname,
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
             )

@@ -26,6 +26,8 @@ class MyRunsViewModel @Inject constructor(
         private set
     var isLoading by mutableStateOf(true)
         private set
+    var hasError by mutableStateOf(false)
+        private set
     var totalCount by mutableStateOf(0L)
         private set
 
@@ -39,6 +41,8 @@ class MyRunsViewModel @Inject constructor(
             if (result is NetworkResult.Success) {
                 totalCount = result.data.totalElements
                 runs = result.data.content.map { it.toHistoryItem() }
+            } else {
+                hasError = true
             }
             isLoading = false
         }

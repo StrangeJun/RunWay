@@ -34,6 +34,8 @@ class ProfileViewModel @Inject constructor(
         private set
     var isLoading by mutableStateOf(true)
         private set
+    var profileError by mutableStateOf(false)
+        private set
 
     init {
         loadProfile()
@@ -50,6 +52,8 @@ class ProfileViewModel @Inject constructor(
             if (profileResult is NetworkResult.Success) {
                 nickname = profileResult.data.nickname
                 email = profileResult.data.email
+            } else {
+                profileError = true
             }
 
             val totalRuns: Long
