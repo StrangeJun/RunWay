@@ -37,6 +37,7 @@ private val RADIUS_OPTIONS = listOf(1000 to "1km", 3000 to "3km", 5000 to "5km")
 
 @Composable
 fun DiscoverScreen(
+    onNavigateToCourseDetail: (String) -> Unit = {},
     viewModel: DiscoverViewModel = hiltViewModel(),
 ) {
     val radiusLabel = RADIUS_OPTIONS.find { it.first == viewModel.radiusMeters }?.second ?: "3km"
@@ -81,7 +82,7 @@ fun DiscoverScreen(
             }
         }
 
-        // ─── Search bar (Phase B-9에서 실제 검색 연동 예정) ───
+        // ─── Search bar ───
         item {
             Surface(
                 modifier = Modifier
@@ -217,7 +218,7 @@ fun DiscoverScreen(
                     modifier = Modifier
                         .padding(horizontal = 20.dp)
                         .padding(bottom = 12.dp),
-                    onClick = { /* TODO Phase B-9: 코스 상세로 이동 */ },
+                    onClick = { onNavigateToCourseDetail(course.courseId) },
                 )
             }
         }
