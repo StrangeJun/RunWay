@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -162,15 +163,23 @@ fun RunningTrackingScreen(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Stop / Finish (destructive)
-            RunningControlButton(
-                icon = Icons.Filled.Stop,
-                onClick = viewModel::finish,
-                size = 60.dp,
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.error,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
-            )
+            // Stop / Finish (destructive) — disabled while finish API is in-flight
+            if (viewModel.isFinishing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(60.dp),
+                    color = MaterialTheme.colorScheme.error,
+                    strokeWidth = 3.dp,
+                )
+            } else {
+                RunningControlButton(
+                    icon = Icons.Filled.Stop,
+                    onClick = viewModel::finish,
+                    size = 60.dp,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.error,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                )
+            }
 
             Spacer(modifier = Modifier.width(24.dp))
 
@@ -192,6 +201,20 @@ fun RunningTrackingScreen(
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 )
             }
+        }
+
+        // ─── Finish error message ───
+        if (viewModel.finishError != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = viewModel.finishError!!,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp),
+            )
         }
 
         Spacer(modifier = Modifier.height(44.dp))
