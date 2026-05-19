@@ -6,9 +6,11 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.runway.android.core.map.MapPoint
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.course.model.CreateCourseFromRunRequest
 import com.runway.android.domain.course.CourseRepository
+import com.runway.android.domain.running.RunningRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -20,12 +22,27 @@ import javax.inject.Inject
 class RunResultViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val courseRepository: CourseRepository,
+    private val runningRepository: RunningRepository,
 ) : ViewModel() {
 
     val runId: String? = savedStateHandle.get<String>("runId")?.takeIf { it != "none" }
 
+    var routePoints by mutableStateOf<List<MapPoint>>(emptyList())
+        private set
+
     private val elapsedSeconds: Int = savedStateHandle.get<Int>("elapsedSeconds") ?: 0
     private val distanceKm: Float = savedStateHandle.get<Float>("distanceKm") ?: 0f
+
+    init {
+        runId?.let { id ->
+            viewModelScope.launch {
+                val result = runningRepository.getRunDetail(id)
+                if (result is NetworkResult.Success) {
+                    routePoints = result.data.points.map { MapPoint(it.latitude, it.longitude) }
+                }
+            }
+        }
+    }
 
     val timerText: String = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
     val distanceText: String = "%.2f".format(distanceKm)

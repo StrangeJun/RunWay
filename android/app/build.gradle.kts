@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -18,6 +20,12 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val localProps = Properties().also { props ->
+            val f = rootProject.file("local.properties")
+            if (f.exists()) f.inputStream().use { props.load(it) }
+        }
+        manifestPlaceholders["MAPS_API_KEY"] = localProps.getProperty("MAPS_API_KEY") ?: ""
     }
 
     buildTypes {
@@ -91,6 +99,10 @@ dependencies {
 
     // ─── Location ───
     implementation("com.google.android.gms:play-services-location:21.3.0")
+
+    // ─── Google Maps ───
+    implementation("com.google.android.gms:play-services-maps:19.0.0")
+    implementation("com.google.maps.android:maps-compose:4.4.1")
 
     // ─── Coroutines ───
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")

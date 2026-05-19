@@ -42,7 +42,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.runway.android.ui.components.CourseRoutePreview
+import com.runway.android.core.map.MapPoint
+import com.runway.android.ui.components.RouteMapView
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -177,8 +178,8 @@ private fun CourseDetailContent(
             .verticalScroll(rememberScrollState()),
     ) {
         // ─── Route preview ───
-        CourseRoutePreview(
-            points = viewModel.coursePoints,
+        RouteMapView(
+            points = viewModel.coursePoints.map { MapPoint(it.latitude, it.longitude) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(220.dp)
