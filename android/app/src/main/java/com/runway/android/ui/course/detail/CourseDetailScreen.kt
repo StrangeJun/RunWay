@@ -20,6 +20,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -29,9 +31,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,8 +48,28 @@ import com.runway.android.ui.components.CourseRoutePreview
 @Composable
 fun CourseDetailScreen(
     onBack: () -> Unit,
+    onNavigateToAttempt: (courseId: String, courseAttemptId: String, runningRecordId: String) -> Unit,
+    onNavigateToLeaderboard: (courseId: String) -> Unit,
     viewModel: CourseDetailViewModel = hiltViewModel(),
 ) {
+    LaunchedEffect(Unit) {
+        viewModel.navigateToAttempt.collect { event ->
+            onNavigateToAttempt(event.courseId, event.courseAttemptId, event.runningRecordId)
+        }
+    }
+
+    // 도전 시작 실패 다이얼로그
+    if (viewModel.startAttemptError != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::clearStartAttemptError,
+            title = { Text("도전 시작 실패") },
+            text = { Text(viewModel.startAttemptError!!) },
+            confirmButton = {
+                TextButton(onClick = viewModel::clearStartAttemptError) { Text("확인") }
+            },
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -88,6 +112,7 @@ fun CourseDetailScreen(
                 viewModel.courseDetail != null ->
                     CourseDetailContent(
                         viewModel = viewModel,
+                        onNavigateToLeaderboard = onNavigateToLeaderboard,
                     )
             }
         }
@@ -96,10 +121,7 @@ fun CourseDetailScreen(
 
 @Composable
 private fun LoadingState() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
     }
 }
@@ -143,7 +165,10 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
 }
 
 @Composable
-private fun CourseDetailContent(viewModel: CourseDetailViewModel) {
+private fun CourseDetailContent(
+    viewModel: CourseDetailViewModel,
+    onNavigateToLeaderboard: (courseId: String) -> Unit,
+) {
     val course = viewModel.courseDetail ?: return
 
     Column(
@@ -255,7 +280,7 @@ private fun CourseDetailContent(viewModel: CourseDetailViewModel) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             Spacer(modifier = Modifier.height(20.dp))
 
-            // ─── 리더보드 플레이스홀더 (Phase B-10) ───
+            // ─── 리더보드 섹션 ───
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -276,34 +301,64 @@ private fun CourseDetailContent(viewModel: CourseDetailViewModel) {
                     )
                 }
                 Surface(
+                    onClick = { onNavigateToLeaderboard(viewModel.courseId) },
                     shape = MaterialTheme.shapes.extraLarge,
                     color = MaterialTheme.colorScheme.surface,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                 ) {
                     Text(
-                        text = "곧 공개",
+                        text = "순위 보기",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ─── 도전 CTA (Phase B-10 예정) ───
+            // ─── 도전 CTA ───
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                color = if (viewModel.isStartingAttempt)
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                else
+                    MaterialTheme.colorScheme.primary,
+                onClick = { if (!viewModel.isStartingAttempt) viewModel.startAttempt() },
             ) {
-                Text(
-                    text = "코스 도전하기 (준비 중)",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                    textAlign = TextAlign.Center,
+                Row(
                     modifier = Modifier.padding(vertical = 16.dp),
-                )
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (viewModel.isStartingAttempt) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "도전 시작 중…",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "코스 도전하기",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))

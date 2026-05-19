@@ -5,6 +5,7 @@ import com.runway.android.core.datastore.TokenDataStore
 import com.runway.android.core.network.AuthInterceptor
 import com.runway.android.core.network.NetworkConstants
 import com.runway.android.core.network.TokenAuthenticator
+import com.runway.android.data.attempt.remote.CourseAttemptApi
 import com.runway.android.data.auth.remote.AuthApi
 import com.runway.android.data.course.remote.CourseApi
 import com.runway.android.data.running.remote.RunningApi
@@ -122,4 +123,9 @@ object NetworkModule {
     @Singleton
     fun provideCourseApi(retrofit: Retrofit): CourseApi =
         retrofit.create(CourseApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideCourseAttemptApi(retrofit: Retrofit): CourseAttemptApi =
+        retrofit.create(CourseAttemptApi::class.java)
 }
