@@ -6,6 +6,10 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.runway.android.core.location.DistanceCalculator
+import com.runway.android.core.location.GpsStatus
+import com.runway.android.core.location.LocationTracker
+import com.runway.android.core.location.RunwayLocation
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.attempt.model.AbandonAttemptRequest
 import com.runway.android.data.attempt.model.FinishAttemptRequest
@@ -29,19 +33,12 @@ sealed class AttemptNavEvent {
     object NavigateBack : AttemptNavEvent()
 }
 
-private val SAMPLE_COORDS = listOf(
-    36.9706 to 127.8718, 36.9710 to 127.8724, 36.9715 to 127.8730,
-    36.9720 to 127.8736, 36.9725 to 127.8741, 36.9728 to 127.8748,
-    36.9723 to 127.8755, 36.9718 to 127.8761, 36.9713 to 127.8756,
-    36.9708 to 127.8750, 36.9706 to 127.8742, 36.9704 to 127.8733,
-    36.9706 to 127.8725, 36.9708 to 127.8718, 36.9706 to 127.8718,
-)
-
 @HiltViewModel
 class CourseAttemptTrackingViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val runningRepository: RunningRepository,
     private val courseAttemptRepository: CourseAttemptRepository,
+    private val locationTracker: LocationTracker,
     @Named("appScope") private val appScope: CoroutineScope,
 ) : ViewModel() {
 
@@ -49,6 +46,8 @@ class CourseAttemptTrackingViewModel @Inject constructor(
     private val courseAttemptId: String = checkNotNull(savedStateHandle["courseAttemptId"])
     private val runningRecordId: String = checkNotNull(savedStateHandle["runningRecordId"])
 
+    var gpsStatus by mutableStateOf(GpsStatus.PERMISSION_REQUIRED)
+        private set
     var elapsedSeconds by mutableStateOf(0)
         private set
     var distanceKm by mutableStateOf(0.0)
@@ -60,20 +59,31 @@ class CourseAttemptTrackingViewModel @Inject constructor(
     var finishError by mutableStateOf<String?>(null)
         private set
 
+    private var lastSpeedMps by mutableStateOf<Float?>(null)
+
     val timerText: String
         get() = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
+
     val distanceText: String
         get() = "%.2f".format(distanceKm)
+
     val paceText: String
         get() {
             if (distanceKm < 0.001) return "--'--\""
             val secsPerKm = (elapsedSeconds / distanceKm).toInt()
             return "%d'%02d\"".format(secsPerKm / 60, secsPerKm % 60)
         }
+
     val speedText: String
         get() {
-            if (elapsedSeconds < 1) return "0.0"
-            return "%.1f".format(distanceKm / (elapsedSeconds / 3600.0))
+            val gpsSpeed = lastSpeedMps
+            return if (gpsSpeed != null && gpsSpeed >= 0.1f) {
+                "%.1f".format(gpsSpeed * 3.6f) // m/s → km/h
+            } else if (elapsedSeconds < 1) {
+                "0.0"
+            } else {
+                "%.1f".format(distanceKm / (elapsedSeconds / 3600.0))
+            }
         }
 
     private val _navEvent = MutableSharedFlow<AttemptNavEvent>()
@@ -82,36 +92,56 @@ class CourseAttemptTrackingViewModel @Inject constructor(
     private var isDone = false
     private var pointSequence = 0
     private val pendingPoints = mutableListOf<RunPointRequest>()
-    private var simulationJob: Job? = null
+    private var lastLocation: RunwayLocation? = null
+
+    private var locationJob: Job? = null
+    private var timerJob: Job? = null
     private var batchJob: Job? = null
 
     init {
-        startSimulation()
+        startTimer()
         startBatchSaving()
     }
 
-    private fun startSimulation() {
-        simulationJob = viewModelScope.launch {
-            while (true) {
-                delay(1_000L)
-                elapsedSeconds++
-                distanceKm += 0.002778
-                recordGpsPoint()
+    // Called by the Screen after location permission is granted.
+    fun startTracking() {
+        if (locationJob != null && locationJob!!.isActive) return
+        gpsStatus = GpsStatus.WAITING_FOR_FIX
+        locationJob = viewModelScope.launch {
+            locationTracker.locationFlow().collect { location ->
+                gpsStatus = GpsStatus.ACTIVE
+                val prev = lastLocation
+                if (prev != null) {
+                    val deltaMeters = DistanceCalculator.calculate(prev, location)
+                    if (deltaMeters > 0) {
+                        distanceKm += deltaMeters / 1000.0
+                    }
+                }
+                recordGpsPoint(location)
+                location.speedMps?.let { lastSpeedMps = it }
+                lastLocation = location
             }
         }
     }
 
-    private fun recordGpsPoint() {
-        val idx = pointSequence % SAMPLE_COORDS.size
-        val (lat, lng) = SAMPLE_COORDS[idx]
+    private fun startTimer() {
+        timerJob = viewModelScope.launch {
+            while (true) {
+                delay(1_000L)
+                elapsedSeconds++
+            }
+        }
+    }
+
+    private fun recordGpsPoint(location: RunwayLocation) {
         pendingPoints.add(
             RunPointRequest(
                 sequence = pointSequence,
-                latitude = lat,
-                longitude = lng,
-                altitudeMeters = 72.0 + (pointSequence % 5) * 0.5,
-                speedMps = 2.78,
-                recordedAt = Instant.now().toString(),
+                latitude = location.latitude,
+                longitude = location.longitude,
+                altitudeMeters = location.altitudeMeters ?: 0.0,
+                speedMps = location.speedMps?.toDouble() ?: 0.0,
+                recordedAt = location.recordedAt.toString(),
             )
         )
         pointSequence++
@@ -166,8 +196,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                 is NetworkResult.Success -> Unit
             }
 
-            simulationJob?.cancel()
-            batchJob?.cancel()
+            stopJobs()
             isDone = true
             _navEvent.emit(AttemptNavEvent.NavigateToLeaderboard(courseId))
         }
@@ -182,19 +211,22 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                 attemptId = courseAttemptId,
                 request = AbandonAttemptRequest(abandonedAt = Instant.now().toString()),
             )
-            simulationJob?.cancel()
-            batchJob?.cancel()
+            stopJobs()
             isDone = true
             _navEvent.emit(AttemptNavEvent.NavigateBack)
         }
     }
 
+    private fun stopJobs() {
+        timerJob?.cancel()
+        locationJob?.cancel()
+        batchJob?.cancel()
+    }
+
     override fun onCleared() {
         super.onCleared()
-        simulationJob?.cancel()
-        batchJob?.cancel()
+        stopJobs()
         if (!isDone) {
-            // ViewModel이 비정상 종료 시 백그라운드에서 abandon 처리
             appScope.launch {
                 courseAttemptRepository.abandonAttempt(
                     attemptId = courseAttemptId,

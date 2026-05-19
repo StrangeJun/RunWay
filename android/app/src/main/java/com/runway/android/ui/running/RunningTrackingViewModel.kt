@@ -5,6 +5,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.runway.android.core.location.DistanceCalculator
+import com.runway.android.core.location.GpsStatus
+import com.runway.android.core.location.LocationTracker
+import com.runway.android.core.location.RunwayLocation
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.running.model.FinishRunRequest
 import com.runway.android.data.running.model.RunPointRequest
@@ -12,8 +16,8 @@ import com.runway.android.data.running.model.SavePointsRequest
 import com.runway.android.data.running.model.StartRunRequest
 import com.runway.android.domain.running.RunningRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -30,36 +34,15 @@ data class RunResult(
 
 enum class RunningState { RUNNING, PAUSED }
 
-// Sample GPS coordinates cycling through a loop near Seoul's Hangang Park
-private val SAMPLE_COORDS = listOf(
-    37.5100 to 126.9997,
-    37.5105 to 127.0005,
-    37.5110 to 127.0013,
-    37.5115 to 127.0021,
-    37.5120 to 127.0029,
-    37.5125 to 127.0037,
-    37.5130 to 127.0045,
-    37.5125 to 127.0053,
-    37.5120 to 127.0061,
-    37.5115 to 127.0069,
-    37.5110 to 127.0061,
-    37.5105 to 127.0053,
-    37.5100 to 127.0045,
-    37.5095 to 127.0037,
-    37.5100 to 127.0029,
-    37.5105 to 127.0021,
-    37.5110 to 127.0013,
-    37.5115 to 127.0005,
-    37.5110 to 126.9997,
-    37.5105 to 126.9989,
-)
-
 @HiltViewModel
 class RunningTrackingViewModel @Inject constructor(
     private val runningRepository: RunningRepository,
+    private val locationTracker: LocationTracker,
     @Named("appScope") private val appScope: CoroutineScope,
 ) : ViewModel() {
 
+    var gpsStatus by mutableStateOf(GpsStatus.PERMISSION_REQUIRED)
+        private set
     var runningState by mutableStateOf(RunningState.RUNNING)
         private set
     var elapsedSeconds by mutableStateOf(0)
@@ -72,6 +55,8 @@ class RunningTrackingViewModel @Inject constructor(
         private set
     var finishError by mutableStateOf<String?>(null)
         private set
+
+    private var lastSpeedMps by mutableStateOf<Float?>(null)
 
     val timerText: String
         get() = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
@@ -88,8 +73,14 @@ class RunningTrackingViewModel @Inject constructor(
 
     val speedText: String
         get() {
-            if (elapsedSeconds < 1) return "0.0"
-            return "%.1f".format(distanceKm / (elapsedSeconds / 3600.0))
+            val gpsSpeed = lastSpeedMps
+            return if (gpsSpeed != null && gpsSpeed >= 0.1f) {
+                "%.1f".format(gpsSpeed * 3.6f) // m/s → km/h
+            } else if (elapsedSeconds < 1) {
+                "0.0"
+            } else {
+                "%.1f".format(distanceKm / (elapsedSeconds / 3600.0))
+            }
         }
 
     private val _navigateToResult = MutableSharedFlow<RunResult>()
@@ -99,61 +90,79 @@ class RunningTrackingViewModel @Inject constructor(
     private var isFinished = false
     private var pointSequence = 0
     private val pendingPoints = mutableListOf<RunPointRequest>()
+    private var lastLocation: RunwayLocation? = null
 
-    private var simulationJob: Job? = null
+    private var locationJob: Job? = null
+    private var timerJob: Job? = null
     private var batchJob: Job? = null
 
     init {
         startRun()
-        startSimulation()
+        startTimer()
+    }
+
+    // Called by the Screen after location permission is granted.
+    fun startTracking() {
+        if (locationJob != null && locationJob!!.isActive) return
+        gpsStatus = GpsStatus.WAITING_FOR_FIX
+        locationJob = viewModelScope.launch {
+            locationTracker.locationFlow().collect { location ->
+                gpsStatus = GpsStatus.ACTIVE
+                if (runningState == RunningState.RUNNING) {
+                    val prev = lastLocation
+                    if (prev != null) {
+                        val deltaMeters = DistanceCalculator.calculate(prev, location)
+                        if (deltaMeters > 0) {
+                            distanceKm += deltaMeters / 1000.0
+                        }
+                    }
+                    recordGpsPoint(location)
+                }
+                location.speedMps?.let { lastSpeedMps = it }
+                // Always update lastLocation (including during pause) so resume picks up
+                // from the current position rather than the pre-pause position.
+                lastLocation = location
+            }
+        }
+    }
+
+    private fun startTimer() {
+        timerJob = viewModelScope.launch {
+            while (true) {
+                delay(1_000L)
+                if (runningState == RunningState.RUNNING) {
+                    elapsedSeconds++
+                }
+            }
+        }
+    }
+
+    private fun recordGpsPoint(location: RunwayLocation) {
+        pendingPoints.add(
+            RunPointRequest(
+                sequence = pointSequence,
+                latitude = location.latitude,
+                longitude = location.longitude,
+                altitudeMeters = location.altitudeMeters ?: 0.0,
+                speedMps = location.speedMps?.toDouble() ?: 0.0,
+                recordedAt = location.recordedAt.toString(),
+            )
+        )
+        pointSequence++
     }
 
     private fun startRun() {
         viewModelScope.launch {
-            val now = Instant.now().toString()
-            val result = runningRepository.startRun(StartRunRequest(startedAt = now))
+            val result = runningRepository.startRun(StartRunRequest(startedAt = Instant.now().toString()))
             when (result) {
                 is NetworkResult.Success -> {
                     runId = result.data.runId
                     isConnecting = false
                     startBatchSaving()
                 }
-                else -> {
-                    // Offline fallback — timer and GPS simulation continue without backend saving
-                    isConnecting = false
-                }
+                else -> isConnecting = false
             }
         }
-    }
-
-    private fun startSimulation() {
-        simulationJob = viewModelScope.launch {
-            while (true) {
-                delay(1_000L)
-                if (runningState == RunningState.RUNNING) {
-                    elapsedSeconds++
-                    distanceKm += 0.002778 // ~10 km/h
-                    recordGpsPoint()
-                }
-            }
-        }
-    }
-
-    private fun recordGpsPoint() {
-        val idx = pointSequence % SAMPLE_COORDS.size
-        val (lat, lng) = SAMPLE_COORDS[idx]
-        val altitude = 72.0 + (pointSequence % 5) * 0.5
-        pendingPoints.add(
-            RunPointRequest(
-                sequence = pointSequence,
-                latitude = lat,
-                longitude = lng,
-                altitudeMeters = altitude,
-                speedMps = 2.78,
-                recordedAt = Instant.now().toString(),
-            )
-        )
-        pointSequence++
     }
 
     private fun startBatchSaving() {
@@ -172,27 +181,26 @@ class RunningTrackingViewModel @Inject constructor(
         pendingPoints.clear()
         val result = runningRepository.savePoints(rid, SavePointsRequest(batch))
         if (result !is NetworkResult.Success) {
-            // Re-queue at front to preserve order; will be retried on next flush
             pendingPoints.addAll(0, batch)
         }
     }
 
     fun pause() {
-        runningState = RunningState.PAUSED  // optimistic update
+        runningState = RunningState.PAUSED
         val rid = runId ?: return
         viewModelScope.launch {
             if (runningRepository.pauseRun(rid) !is NetworkResult.Success) {
-                runningState = RunningState.RUNNING  // rollback on failure
+                runningState = RunningState.RUNNING
             }
         }
     }
 
     fun resume() {
-        runningState = RunningState.RUNNING  // optimistic update
+        runningState = RunningState.RUNNING
         val rid = runId ?: return
         viewModelScope.launch {
             if (runningRepository.resumeRun(rid) !is NetworkResult.Success) {
-                runningState = RunningState.PAUSED  // rollback on failure
+                runningState = RunningState.PAUSED
             }
         }
     }
@@ -209,19 +217,14 @@ class RunningTrackingViewModel @Inject constructor(
         viewModelScope.launch {
             if (currentRunId != null) {
                 flushPendingPoints()
-
-                val distanceMeters = distance * 1000.0
-                val avgPace = if (distance > 0.001) (seconds / distance).toInt() else 0
-                val calories = (distance * 72).toInt()
-
                 when (runningRepository.finishRun(
                     currentRunId,
                     FinishRunRequest(
                         endedAt = Instant.now().toString(),
-                        distanceMeters = distanceMeters,
+                        distanceMeters = distance * 1000.0,
                         durationSeconds = seconds,
-                        avgPaceSecondsPerKm = avgPace,
-                        caloriesBurned = calories,
+                        avgPaceSecondsPerKm = if (distance > 0.001) (seconds / distance).toInt() else 0,
+                        caloriesBurned = (distance * 72).toInt(),
                     ),
                 )) {
                     is NetworkResult.ApiError,
@@ -233,8 +236,8 @@ class RunningTrackingViewModel @Inject constructor(
                     is NetworkResult.Success -> Unit
                 }
             }
-
-            simulationJob?.cancel()
+            timerJob?.cancel()
+            locationJob?.cancel()
             batchJob?.cancel()
             isFinished = true
             _navigateToResult.emit(
@@ -249,14 +252,12 @@ class RunningTrackingViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        simulationJob?.cancel()
+        timerJob?.cancel()
+        locationJob?.cancel()
         batchJob?.cancel()
-        // viewModelScope is already cancelled here; use app-level scope for cleanup
         val rid = runId
         if (rid != null && !isFinished) {
-            appScope.launch {
-                runningRepository.abandonRun(rid)
-            }
+            appScope.launch { runningRepository.abandonRun(rid) }
         }
     }
 }
