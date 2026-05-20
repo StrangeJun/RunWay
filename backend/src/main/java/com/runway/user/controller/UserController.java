@@ -46,4 +46,12 @@ public class UserController {
         userService.deleteUser(principal.getUserId());
         return ResponseEntity.ok(ApiResponse.success("회원 탈퇴가 완료되었습니다."));
     }
+
+    @Operation(summary = "내 업적 조회", security = @SecurityRequirement(name = "bearerAuth"))
+    @GetMapping("/me/achievements")
+    public ResponseEntity<ApiResponse<com.runway.user.dto.AchievementsResponse>> getAchievements(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        var data = userService.getAchievements(principal.getUserId());
+        return ResponseEntity.ok(ApiResponse.success("업적 조회가 완료되었습니다.", data));
+    }
 }

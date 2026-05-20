@@ -22,7 +22,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
+import java.time.DayOfWeek;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -203,6 +211,112 @@ public class RunningService {
                 .totalCompletedRuns(totalCompletedRuns)
                 .totalDistanceMeters(totalDistanceMeters)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public RunningStatsResponse getRunningStats(UUID userId, String period) {
+        Instant now = Instant.now();
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+
+        Instant periodStart;
+        Instant periodEnd = today.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+
+        switch (period.toLowerCase()) {
+            case "weekly" -> {
+                LocalDate monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                periodStart = monday.atStartOfDay(ZoneOffset.UTC).toInstant();
+            }
+            case "yearly" -> {
+                LocalDate jan1 = today.with(TemporalAdjusters.firstDayOfYear());
+                periodStart = jan1.atStartOfDay(ZoneOffset.UTC).toInstant();
+            }
+            case "all" -> {
+                periodStart = Instant.EPOCH;
+                periodEnd = now;
+            }
+            default -> { // monthly
+                LocalDate first = today.with(TemporalAdjusters.firstDayOfMonth());
+                periodStart = first.atStartOfDay(ZoneOffset.UTC).toInstant();
+            }
+        }
+
+        RunningRecordStatus completed = RunningRecordStatus.COMPLETED;
+
+        // 기간 내 완료된 런 목록
+        List<RunningRecord> periodRuns = "all".equals(period.toLowerCase())
+                ? runningRecordRepository.findAllByUserIdAndStatusOrderByStartedAt(userId, completed)
+                : runningRecordRepository.findByUserIdAndStatusAndPeriod(userId, completed, periodStart, periodEnd);
+
+        long totalRuns = periodRuns.size();
+        double totalDistanceMeters = periodRuns.stream().mapToDouble(r -> r.getDistanceMeters() != null ? r.getDistanceMeters() : 0.0).sum();
+        long totalDurationSeconds = periodRuns.stream().mapToLong(r -> r.getDurationSeconds() != null ? r.getDurationSeconds() : 0).sum();
+        long totalCaloriesBurned = periodRuns.stream().mapToLong(r -> r.getCaloriesBurned() != null ? r.getCaloriesBurned() : 0).sum();
+        double longestRunMeters = periodRuns.stream().mapToDouble(r -> r.getDistanceMeters() != null ? r.getDistanceMeters() : 0.0).max().orElse(0.0);
+        int avgPace = (totalDistanceMeters > 1.0) ? (int) (totalDurationSeconds / (totalDistanceMeters / 1000.0)) : 0;
+
+        // 활동일 수 (날짜 중복 제거)
+        Set<LocalDate> activeDateSet = new HashSet<>();
+        for (RunningRecord r : periodRuns) {
+            activeDateSet.add(r.getStartedAt().atZone(ZoneOffset.UTC).toLocalDate());
+        }
+        long activeDays = activeDateSet.size();
+
+        // streak 계산 — 전체 완료 런 기준 (기간 무관)
+        List<RunningRecord> allCompleted = "all".equals(period.toLowerCase())
+                ? periodRuns
+                : runningRecordRepository.findAllByUserIdAndStatusOrderByStartedAt(userId, completed);
+        int[] streaks = calculateStreaks(allCompleted, today);
+
+        return RunningStatsResponse.builder()
+                .period(period.toLowerCase())
+                .totalRuns(totalRuns)
+                .totalDistanceMeters(totalDistanceMeters)
+                .totalDurationSeconds(totalDurationSeconds)
+                .totalCaloriesBurned(totalCaloriesBurned)
+                .averagePaceSecondsPerKm(avgPace)
+                .longestRunMeters(longestRunMeters)
+                .currentStreakDays(streaks[0])
+                .longestStreakDays(streaks[1])
+                .activeDays(activeDays)
+                .periodStart(periodStart)
+                .periodEnd(periodEnd.equals(now) ? periodEnd : periodEnd.minus(1, ChronoUnit.SECONDS))
+                .build();
+    }
+
+    // [0] = currentStreak, [1] = longestStreak
+    private int[] calculateStreaks(List<RunningRecord> allCompleted, LocalDate today) {
+        if (allCompleted.isEmpty()) return new int[]{0, 0};
+
+        Set<LocalDate> runDates = new HashSet<>();
+        for (RunningRecord r : allCompleted) {
+            runDates.add(r.getStartedAt().atZone(ZoneOffset.UTC).toLocalDate());
+        }
+
+        // 현재 streak: 오늘 또는 어제부터 연속일 수
+        int current = 0;
+        LocalDate check = today;
+        if (!runDates.contains(check)) {
+            check = today.minusDays(1);
+        }
+        while (runDates.contains(check)) {
+            current++;
+            check = check.minusDays(1);
+        }
+
+        // 최장 streak: 날짜 정렬 후 연속일 카운트
+        List<LocalDate> sorted = new ArrayList<>(runDates);
+        sorted.sort(null);
+        int longest = 1, cur = 1;
+        for (int i = 1; i < sorted.size(); i++) {
+            if (sorted.get(i).equals(sorted.get(i - 1).plusDays(1))) {
+                cur++;
+                if (cur > longest) longest = cur;
+            } else {
+                cur = 1;
+            }
+        }
+
+        return new int[]{current, longest};
     }
 
     @Transactional

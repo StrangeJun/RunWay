@@ -110,6 +110,15 @@ public class RunningController {
         return ResponseEntity.ok(ApiResponse.success("개인 최고 기록 조회가 완료되었습니다.", data));
     }
 
+    @Operation(summary = "러닝 통계 조회 (weekly/monthly/yearly/all)", security = @SecurityRequirement(name = "bearerAuth"))
+    @GetMapping("/me/stats")
+    public ResponseEntity<ApiResponse<com.runway.run.dto.RunningStatsResponse>> getRunningStats(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "monthly") String period) {
+        var data = runningService.getRunningStats(principal.getUserId(), period);
+        return ResponseEntity.ok(ApiResponse.success("러닝 통계 조회가 완료되었습니다.", data));
+    }
+
     @Operation(summary = "러닝 기록 삭제", security = @SecurityRequirement(name = "bearerAuth"))
     @DeleteMapping("/{runId}")
     public ResponseEntity<ApiResponse<Void>> deleteRun(

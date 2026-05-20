@@ -16,6 +16,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.runway.android.ui.MainViewModel
+import com.runway.android.ui.achievements.AchievementsScreen
 import com.runway.android.ui.attempt.CourseAttemptTrackingScreen
 import com.runway.android.ui.auth.login.LoginScreen
 import com.runway.android.ui.share.RunShareImageScreen
@@ -28,6 +29,7 @@ import com.runway.android.ui.running.RunResultScreen
 import com.runway.android.ui.running.RunningTrackingScreen
 import com.runway.android.ui.running.history.MyRunsScreen
 import com.runway.android.ui.running.history.RunDetailScreen
+import com.runway.android.ui.stats.StatsScreen
 
 @Composable
 fun RunwayNavGraph() {
@@ -125,6 +127,8 @@ fun RunwayNavGraph() {
                 onNavigateToRunDetail = { runId ->
                     navController.navigate(RunwayRoutes.runDetail(runId))
                 },
+                onNavigateToStats = { navController.navigate(RunwayRoutes.STATS) },
+                onNavigateToAchievements = { navController.navigate(RunwayRoutes.ACHIEVEMENTS) },
             )
         }
 
@@ -256,6 +260,18 @@ fun RunwayNavGraph() {
             RunShareImageScreen(
                 onBack = { navController.popBackStack() },
             )
+        }
+
+        // ─── 통계 ───
+
+        composable(RunwayRoutes.STATS) {
+            StatsScreen(onBack = { navController.popBackStack() })
+        }
+
+        // ─── 업적 ───
+
+        composable(RunwayRoutes.ACHIEVEMENTS) {
+            AchievementsScreen(onBack = { navController.popBackStack() })
         }
     }
 }

@@ -1,8 +1,16 @@
 package com.runway.user.service;
 
+import com.runway.attempt.domain.enums.CourseAttemptStatus;
+import com.runway.attempt.repository.CourseAttemptRepository;
 import com.runway.common.exception.ErrorCode;
 import com.runway.common.exception.RunwayException;
+import com.runway.course.repository.CourseRepository;
+import com.runway.run.domain.RunningRecord;
+import com.runway.run.domain.enums.RunningRecordStatus;
+import com.runway.run.repository.RunningRecordRepository;
 import com.runway.user.domain.User;
+import com.runway.user.dto.AchievementItemResponse;
+import com.runway.user.dto.AchievementsResponse;
 import com.runway.user.dto.UpdateProfileRequest;
 import com.runway.user.dto.UserProfileResponse;
 import com.runway.user.repository.UserRepository;
@@ -11,6 +19,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -19,6 +34,9 @@ import java.util.UUID;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final RunningRecordRepository runningRecordRepository;
+    private final CourseAttemptRepository courseAttemptRepository;
+    private final CourseRepository courseRepository;
 
     @Transactional(readOnly = true)
     public UserProfileResponse getProfile(UUID userId) {
@@ -52,6 +70,142 @@ public class UserService {
         user.softDelete();
         user.updateRefreshTokenHash(null);
         log.info("User soft deleted: {}", user.getEmail());
+    }
+
+    @Transactional(readOnly = true)
+    public AchievementsResponse getAchievements(UUID userId) {
+        RunningRecordStatus completed = RunningRecordStatus.COMPLETED;
+
+        // 기본 집계
+        List<RunningRecord> allRuns = runningRecordRepository
+                .findAllByUserIdAndStatusOrderByStartedAt(userId, completed);
+        long completedRuns = allRuns.size();
+        double totalDistanceMeters = allRuns.stream()
+                .mapToDouble(r -> r.getDistanceMeters() != null ? r.getDistanceMeters() : 0.0).sum();
+
+        long completedAttempts = courseAttemptRepository.countByUserIdAndStatus(userId, CourseAttemptStatus.COMPLETED);
+        long createdCourses = courseRepository.countByCreatorIdAndDeletedAtIsNull(userId);
+
+        // streak 계산 (RunningService 의존성 없이 직접 계산)
+        int longestStreak = computeLongestStreak(allRuns);
+
+        List<AchievementItemResponse> items = new ArrayList<>();
+
+        // FIRST_RUN
+        Instant firstRunAt = allRuns.isEmpty() ? null : allRuns.get(0).getStartedAt();
+        items.add(AchievementItemResponse.builder()
+                .code("FIRST_RUN")
+                .title("첫 러닝")
+                .description("첫 러닝을 완료했습니다.")
+                .unlocked(completedRuns >= 1)
+                .unlockedAt(completedRuns >= 1 ? firstRunAt : null)
+                .progress(Math.min(completedRuns, 1))
+                .target(1)
+                .build());
+
+        // TOTAL_10K / 50K / 100K
+        items.add(buildDistanceAchievement("TOTAL_10K", "누적 10km", "총 10km를 달성했습니다.",
+                10_000, totalDistanceMeters, allRuns));
+        items.add(buildDistanceAchievement("TOTAL_50K", "누적 50km", "총 50km를 달성했습니다.",
+                50_000, totalDistanceMeters, allRuns));
+        items.add(buildDistanceAchievement("TOTAL_100K", "누적 100km", "총 100km를 달성했습니다.",
+                100_000, totalDistanceMeters, allRuns));
+
+        // STREAK_3 / STREAK_7
+        items.add(buildStreakAchievement("STREAK_3", "3일 연속 러닝", "3일 연속으로 러닝을 완료했습니다.",
+                3, longestStreak));
+        items.add(buildStreakAchievement("STREAK_7", "7일 연속 러닝", "7일 연속으로 러닝을 완료했습니다.",
+                7, longestStreak));
+
+        // FIRST_COURSE_CREATED
+        Instant firstCourseAt = courseRepository.findFirstByCreatorIdAndDeletedAtIsNullOrderByCreatedAtAsc(userId)
+                .map(c -> c.getCreatedAt()).orElse(null);
+        items.add(AchievementItemResponse.builder()
+                .code("FIRST_COURSE_CREATED")
+                .title("첫 코스 등록")
+                .description("첫 번째 코스를 등록했습니다.")
+                .unlocked(createdCourses >= 1)
+                .unlockedAt(createdCourses >= 1 ? firstCourseAt : null)
+                .progress(Math.min(createdCourses, 1))
+                .target(1)
+                .build());
+
+        // FIRST_COURSE_COMPLETED
+        Instant firstAttemptAt = courseAttemptRepository
+                .findFirstByUserIdAndStatusOrderByCompletedAtAsc(userId, CourseAttemptStatus.COMPLETED)
+                .map(a -> a.getCompletedAt()).orElse(null);
+        items.add(AchievementItemResponse.builder()
+                .code("FIRST_COURSE_COMPLETED")
+                .title("첫 코스 완주")
+                .description("첫 번째 코스를 완주했습니다.")
+                .unlocked(completedAttempts >= 1)
+                .unlockedAt(completedAttempts >= 1 ? firstAttemptAt : null)
+                .progress(Math.min(completedAttempts, 1))
+                .target(1)
+                .build());
+
+        return AchievementsResponse.builder().items(items).build();
+    }
+
+    private AchievementItemResponse buildDistanceAchievement(
+            String code, String title, String description,
+            long targetMeters, double totalDistance, List<RunningRecord> runs) {
+
+        boolean unlocked = totalDistance >= targetMeters;
+        Instant unlockedAt = null;
+        if (unlocked) {
+            // 누적 거리가 threshold를 넘은 시점의 런 날짜를 계산
+            double acc = 0;
+            for (RunningRecord r : runs) {
+                acc += r.getDistanceMeters() != null ? r.getDistanceMeters() : 0.0;
+                if (acc >= targetMeters) {
+                    unlockedAt = r.getStartedAt();
+                    break;
+                }
+            }
+        }
+        return AchievementItemResponse.builder()
+                .code(code)
+                .title(title)
+                .description(description)
+                .unlocked(unlocked)
+                .unlockedAt(unlockedAt)
+                .progress((long) Math.min(totalDistance, targetMeters))
+                .target(targetMeters)
+                .build();
+    }
+
+    private int computeLongestStreak(List<RunningRecord> allRuns) {
+        if (allRuns.isEmpty()) return 0;
+        Set<LocalDate> dates = new HashSet<>();
+        for (RunningRecord r : allRuns) {
+            dates.add(r.getStartedAt().atZone(ZoneOffset.UTC).toLocalDate());
+        }
+        List<LocalDate> sorted = new ArrayList<>(dates);
+        sorted.sort(null);
+        int longest = 1, cur = 1;
+        for (int i = 1; i < sorted.size(); i++) {
+            if (sorted.get(i).equals(sorted.get(i - 1).plusDays(1))) {
+                cur++;
+                if (cur > longest) longest = cur;
+            } else {
+                cur = 1;
+            }
+        }
+        return longest;
+    }
+
+    private AchievementItemResponse buildStreakAchievement(
+            String code, String title, String description, int target, int longestStreak) {
+        return AchievementItemResponse.builder()
+                .code(code)
+                .title(title)
+                .description(description)
+                .unlocked(longestStreak >= target)
+                .unlockedAt(null)
+                .progress(Math.min(longestStreak, target))
+                .target(target)
+                .build();
     }
 
     private User findActiveUser(UUID userId) {
