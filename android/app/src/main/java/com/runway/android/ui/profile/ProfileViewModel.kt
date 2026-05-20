@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.runway.android.core.result.NetworkResult
+import com.runway.android.data.running.model.PersonalRecordsResponse
 import com.runway.android.domain.auth.AuthRepository
 import com.runway.android.domain.running.RunningRepository
 import com.runway.android.domain.user.UserRepository
@@ -32,6 +33,8 @@ class ProfileViewModel @Inject constructor(
         private set
     var stats by mutableStateOf<ProfileStats?>(null)
         private set
+    var personalRecords by mutableStateOf<PersonalRecordsResponse?>(null)
+        private set
     var isLoading by mutableStateOf(true)
         private set
     var profileError by mutableStateOf(false)
@@ -44,10 +47,10 @@ class ProfileViewModel @Inject constructor(
     private fun loadProfile() {
         viewModelScope.launch {
             val profileDeferred = async { userRepository.getMe() }
-            val runsDeferred = async { runningRepository.getMyRuns(page = 0, size = 100) }
+            val recordsDeferred = async { runningRepository.getPersonalRecords() }
 
             val profileResult = profileDeferred.await()
-            val runsResult = runsDeferred.await()
+            val recordsResult = recordsDeferred.await()
 
             if (profileResult is NetworkResult.Success) {
                 nickname = profileResult.data.nickname
@@ -56,20 +59,17 @@ class ProfileViewModel @Inject constructor(
                 profileError = true
             }
 
-            val totalRuns: Long
-            val totalDistanceKm: Double
-            if (runsResult is NetworkResult.Success) {
-                totalRuns = runsResult.data.totalElements
-                totalDistanceKm = runsResult.data.content.sumOf { it.distanceMeters ?: 0.0 } / 1000.0
+            if (recordsResult is NetworkResult.Success) {
+                val r = recordsResult.data
+                stats = ProfileStats(
+                    totalRuns = r.totalCompletedRuns,
+                    totalDistanceKm = "%.1f".format(r.totalDistanceMeters / 1000.0),
+                )
+                personalRecords = r
             } else {
-                totalRuns = 0L
-                totalDistanceKm = 0.0
+                stats = ProfileStats(totalRuns = 0L, totalDistanceKm = "0.0")
             }
 
-            stats = ProfileStats(
-                totalRuns = totalRuns,
-                totalDistanceKm = "%.1f".format(totalDistanceKm),
-            )
             isLoading = false
         }
     }

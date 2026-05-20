@@ -7,6 +7,8 @@ import com.runway.run.domain.RunningPoint;
 import com.runway.run.domain.RunningRecord;
 import com.runway.run.domain.enums.RunningRecordStatus;
 import com.runway.run.dto.*;
+import com.runway.run.dto.PersonalRecordItemResponse;
+import com.runway.run.dto.PersonalRecordsResponse;
 import com.runway.run.repository.RunningPointRepository;
 import com.runway.run.repository.RunningRecordRepository;
 import lombok.RequiredArgsConstructor;
@@ -169,6 +171,44 @@ public class RunningService {
         RunningRecord record = findOwnedRecord(runId, userId);
         List<RunningPoint> points = runningPointRepository.findByRunningRecordIdOrderBySequenceAsc(runId);
         return RunDetailResponse.from(record, points);
+    }
+
+    @Transactional(readOnly = true)
+    public PersonalRecordsResponse getPersonalRecords(UUID userId) {
+        RunningRecordStatus completed = RunningRecordStatus.COMPLETED;
+
+        PersonalRecordItemResponse longestRun = runningRecordRepository
+                .findTop1ByUserIdAndStatusOrderByDistanceMetersDesc(userId, completed)
+                .map(PersonalRecordItemResponse::from).orElse(null);
+
+        PersonalRecordItemResponse fastestPace = runningRecordRepository
+                .findFastestPace(userId, completed, 1000.0)
+                .map(PersonalRecordItemResponse::from).orElse(null);
+
+        PersonalRecordItemResponse mostCalories = runningRecordRepository
+                .findTop1ByUserIdAndStatusAndCaloriesBurnedNotNullOrderByCaloriesBurnedDesc(userId, completed)
+                .map(PersonalRecordItemResponse::from).orElse(null);
+
+        PersonalRecordItemResponse best5k = runningRecordRepository
+                .findBestTimeForDistance(userId, completed, 5000.0)
+                .map(PersonalRecordItemResponse::from).orElse(null);
+
+        PersonalRecordItemResponse best10k = runningRecordRepository
+                .findBestTimeForDistance(userId, completed, 10000.0)
+                .map(PersonalRecordItemResponse::from).orElse(null);
+
+        long totalCompletedRuns = runningRecordRepository.countByUserIdAndStatus(userId, completed);
+        double totalDistanceMeters = runningRecordRepository.sumDistanceMetersByUserIdAndStatus(userId, completed);
+
+        return PersonalRecordsResponse.builder()
+                .longestRun(longestRun)
+                .fastestPace(fastestPace)
+                .mostCalories(mostCalories)
+                .best5k(best5k)
+                .best10k(best10k)
+                .totalCompletedRuns(totalCompletedRuns)
+                .totalDistanceMeters(totalDistanceMeters)
+                .build();
     }
 
     @Transactional

@@ -34,6 +34,7 @@ import com.runway.android.core.util.formatRunDateFull
 import com.runway.android.core.util.formatTime
 import com.runway.android.ui.components.RouteMapView
 import com.runway.android.ui.components.RunDetailMetricGrid
+import com.runway.android.ui.components.RunPaceChart
 import com.runway.android.ui.components.RunSplitsCard
 
 @Composable
@@ -154,6 +155,13 @@ fun RunDetailScreen(
                                 .height(220.dp)
                                 .clip(MaterialTheme.shapes.extraLarge),
                         )
+                    }
+
+                    // ─── 페이스 차트 ───
+                    if (viewModel.chartPoints.isNotEmpty()) {
+                        item {
+                            RunPaceChart(points = viewModel.chartPoints)
+                        }
                     }
 
                     // ─── 1km 구간 기록 ───

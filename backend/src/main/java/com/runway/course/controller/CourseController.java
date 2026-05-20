@@ -47,11 +47,12 @@ public class CourseController {
             @RequestParam(required = false) Double minDistanceMeters,
             @RequestParam(required = false) Double maxDistanceMeters,
             @RequestParam(required = false) Boolean isLoop,
+            @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         PageResponse<NearbyCourseItem> data = courseService.getNearby(
                 latitude, longitude, radiusMeters,
-                minDistanceMeters, maxDistanceMeters, isLoop,
+                minDistanceMeters, maxDistanceMeters, isLoop, keyword,
                 page, size);
         return ResponseEntity.ok(ApiResponse.success("인근 코스 조회에 성공했습니다.", data));
     }
