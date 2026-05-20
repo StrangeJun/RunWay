@@ -27,6 +27,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.runway.course.util.CoursePrivacyUtils;
+
 import java.util.*;
 
 @Slf4j
@@ -206,17 +208,20 @@ public class CourseService {
         Course course = findVisibleCourse(courseId, userId);
         User creator = userRepository.findById(course.getCreatorId())
                 .orElseThrow(() -> new RunwayException(ErrorCode.USER_NOT_FOUND));
-        return CourseDetailResponse.from(course, creator);
+        return CourseDetailResponse.from(course, creator, course.isOwnedBy(userId));
     }
 
     @Transactional(readOnly = true)
     public CoursePointsResponse getCoursePoints(UUID userId, UUID courseId) {
         Course course = findVisibleCourse(courseId, userId);
-        List<CoursePointResponse> points = coursePointRepository
+        List<CoursePointResponse> rawPoints = coursePointRepository
                 .findByCourseIdOrderBySequenceAsc(course.getId())
                 .stream()
                 .map(CoursePointResponse::from)
                 .toList();
+        List<CoursePointResponse> points = course.isOwnedBy(userId)
+                ? rawPoints
+                : CoursePrivacyUtils.maskPrivacyZone(rawPoints);
         return CoursePointsResponse.builder()
                 .courseId(course.getId())
                 .points(points)
@@ -311,6 +316,9 @@ public class CourseService {
     }
 
     private NearbyCourseItem toNearbyCourseItem(Object[] row) {
+        // Mask start coordinates to ~1.1 km precision to protect privacy
+        double maskedLat = CoursePrivacyUtils.maskCoordinate(((Number) row[8]).doubleValue());
+        double maskedLon = CoursePrivacyUtils.maskCoordinate(((Number) row[9]).doubleValue());
         return NearbyCourseItem.builder()
                 .courseId(UUID.fromString(row[0].toString()))
                 .name((String) row[1])
@@ -320,9 +328,7 @@ public class CourseService {
                 .isLoop((Boolean) row[5])
                 .attemptCount(((Number) row[6]).intValue())
                 .completionCount(((Number) row[7]).intValue())
-                .startPoint(new GeoPoint(
-                        ((Number) row[8]).doubleValue(),   // start_lat
-                        ((Number) row[9]).doubleValue()))  // start_lon
+                .startPoint(new GeoPoint(maskedLat, maskedLon))
                 .build();
     }
 }

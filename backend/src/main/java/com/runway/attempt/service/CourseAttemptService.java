@@ -90,6 +90,12 @@ public class CourseAttemptService {
             throw new RunwayException(ErrorCode.INVALID_ATTEMPT_STATUS);
         }
 
+        // 12 m/s (43.2 km/h) 초과는 인간 러닝으로 물리적으로 불가능한 속도
+        if (request.getDurationSeconds() > 0
+                && (double) request.getDistanceMeters() / request.getDurationSeconds() > 12.0) {
+            throw new RunwayException(ErrorCode.IMPOSSIBLE_SPEED);
+        }
+
         Instant endedAt = request.getEndedAt() != null ? request.getEndedAt() : Instant.now();
 
         // running_record 완료 처리

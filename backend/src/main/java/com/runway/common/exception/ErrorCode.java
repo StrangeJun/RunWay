@@ -33,6 +33,7 @@ public enum ErrorCode {
     INVALID_COURSE_STATUS(HttpStatus.CONFLICT, "현재 코스 상태에서는 해당 동작을 수행할 수 없습니다."),
     INVALID_ATTEMPT_STATUS(HttpStatus.CONFLICT, "현재 코스 시도 상태에서는 해당 동작을 수행할 수 없습니다."),
     NOT_COMPLETED_RUN(HttpStatus.CONFLICT, "완료된 러닝 기록만 코스로 생성할 수 있습니다."),
+    IMPOSSIBLE_SPEED(HttpStatus.CONFLICT, "기록된 속도가 물리적으로 불가능한 값입니다."),
 
     // 500 Internal Server Error
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다.");
