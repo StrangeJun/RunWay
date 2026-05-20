@@ -7,6 +7,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.runway.android.core.result.NetworkResult
+import com.runway.android.core.running.RunSplit
+import com.runway.android.core.running.SplitCalculator
 import com.runway.android.data.running.model.RunDetailResponse
 import com.runway.android.domain.running.RunningRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,6 +25,8 @@ class RunDetailViewModel @Inject constructor(
 
     var detail by mutableStateOf<RunDetailResponse?>(null)
         private set
+    var splits by mutableStateOf<List<RunSplit>>(emptyList())
+        private set
     var isLoading by mutableStateOf(true)
         private set
     var hasError by mutableStateOf(false)
@@ -36,13 +40,17 @@ class RunDetailViewModel @Inject constructor(
         isLoading = true
         hasError = false
         detail = null
+        splits = emptyList()
         loadDetail()
     }
 
     private fun loadDetail() {
         viewModelScope.launch {
             when (val result = runningRepository.getRunDetail(runId)) {
-                is NetworkResult.Success -> detail = result.data
+                is NetworkResult.Success -> {
+                    detail = result.data
+                    splits = SplitCalculator.calculate(result.data.points)
+                }
                 else -> hasError = true
             }
             isLoading = false

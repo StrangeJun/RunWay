@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.location.GpsStatus
+import com.runway.android.ui.components.BatteryOptimizationCard
 import com.runway.android.ui.components.LocationPermissionCard
 import com.runway.android.ui.components.RouteMapView
 import com.runway.android.ui.components.RunMetricCard
@@ -70,6 +71,8 @@ fun CourseAttemptTrackingScreen(
 
     val context = LocalContext.current
     var permissionDeniedPermanently by remember { mutableStateOf(false) }
+    var showAbandonDialog by remember { mutableStateOf(false) }
+    var showBatteryCard by remember { mutableStateOf(true) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -108,8 +111,6 @@ fun CourseAttemptTrackingScreen(
             permissionLauncher.launch(permissions)
         }
     }
-
-    var showAbandonDialog by remember { mutableStateOf(false) }
 
     BackHandler(enabled = !viewModel.isFinishing && !viewModel.isAbandoning) {
         showAbandonDialog = true
@@ -152,10 +153,11 @@ fun CourseAttemptTrackingScreen(
         ) {
             CoursePill()
             Text(
-                text = when (viewModel.gpsStatus) {
-                    GpsStatus.PERMISSION_REQUIRED -> "위치 권한 필요"
-                    GpsStatus.WAITING_FOR_FIX -> "GPS 신호 수신 중..."
-                    GpsStatus.ACTIVE -> "GPS · Active"
+                text = when {
+                    viewModel.gpsStatus == GpsStatus.PERMISSION_REQUIRED -> "위치 권한 필요"
+                    viewModel.gpsStatus == GpsStatus.WAITING_FOR_FIX -> "GPS 신호 수신 중..."
+                    viewModel.isAutoPaused -> "자동 일시정지 중"
+                    else -> "GPS · Active"
                 },
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -222,7 +224,37 @@ fun CourseAttemptTrackingScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ─── Milestone banner ───
+        viewModel.milestoneMessage?.let { msg ->
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+            ) {
+                Text(
+                    text = msg,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // ─── Battery optimization card ───
+        if (showBatteryCard && viewModel.gpsStatus == GpsStatus.ACTIVE) {
+            BatteryOptimizationCard(
+                onDismiss = { showBatteryCard = false },
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         // ─── 경로 미리보기 / 권한 카드 ───
         if (viewModel.gpsStatus == GpsStatus.PERMISSION_REQUIRED) {

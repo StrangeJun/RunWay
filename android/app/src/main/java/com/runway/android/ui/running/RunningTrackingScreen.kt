@@ -46,16 +46,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.location.GpsStatus
+import com.runway.android.ui.components.BatteryOptimizationCard
 import com.runway.android.ui.components.LocationPermissionCard
 import com.runway.android.ui.components.RouteMapPlaceholder
 import com.runway.android.ui.components.RunMetricCard
 import com.runway.android.ui.components.RunningControlButton
+import com.runway.android.ui.theme.WarningYellow
 
 @Composable
 fun RunningTrackingScreen(
@@ -71,8 +74,8 @@ fun RunningTrackingScreen(
 
     val context = LocalContext.current
     var permissionDeniedPermanently by remember { mutableStateOf(false) }
+    var showBatteryCard by remember { mutableStateOf(true) }
 
-    // Requests location (required) + notification (optional, Android 13+) together.
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -86,7 +89,6 @@ fun RunningTrackingScreen(
                 Manifest.permission.ACCESS_FINE_LOCATION
             ) ?: false
             permissionDeniedPermanently = !shouldShow
-            // Notification permission denial is silently ignored — tracking still works.
         }
     }
 
@@ -128,12 +130,13 @@ fun RunningTrackingScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            RecordingPill(isRunning = isRunning)
+            RecordingPill(state = viewModel.runningState)
             Text(
                 text = when {
                     viewModel.isConnecting -> "GPS 연결 중..."
                     viewModel.gpsStatus == GpsStatus.PERMISSION_REQUIRED -> "위치 권한 필요"
                     viewModel.gpsStatus == GpsStatus.WAITING_FOR_FIX -> "GPS 신호 수신 중..."
+                    viewModel.runningState == RunningState.AUTO_PAUSED -> "자동 일시정지 중"
                     !isRunning -> "일시정지"
                     else -> "GPS · Active"
                 },
@@ -202,7 +205,37 @@ fun RunningTrackingScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ─── Milestone banner ───
+        viewModel.milestoneMessage?.let { msg ->
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+            ) {
+                Text(
+                    text = msg,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // ─── Battery optimization card ───
+        if (showBatteryCard && viewModel.gpsStatus == GpsStatus.ACTIVE) {
+            BatteryOptimizationCard(
+                onDismiss = { showBatteryCard = false },
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         // ─── Route map / Permission card ───
         if (viewModel.gpsStatus == GpsStatus.PERMISSION_REQUIRED) {
@@ -271,6 +304,7 @@ fun RunningTrackingScreen(
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 )
             } else {
+                // Shows resume for both PAUSED and AUTO_PAUSED
                 RunningControlButton(
                     icon = Icons.Filled.PlayArrow,
                     onClick = viewModel::resume,
@@ -299,7 +333,7 @@ fun RunningTrackingScreen(
 }
 
 @Composable
-private fun RecordingPill(isRunning: Boolean) {
+private fun RecordingPill(state: RunningState) {
     val infiniteTransition = rememberInfiniteTransition(label = "dot")
     val dotAlpha by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -308,10 +342,16 @@ private fun RecordingPill(isRunning: Boolean) {
         label = "dot_alpha",
     )
 
-    val pillColor = if (isRunning) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
+    val pillColor: Color = when (state) {
+        RunningState.RUNNING -> MaterialTheme.colorScheme.primary
+        RunningState.PAUSED -> MaterialTheme.colorScheme.onSurfaceVariant
+        RunningState.AUTO_PAUSED -> WarningYellow
+    }
+
+    val label: String = when (state) {
+        RunningState.RUNNING -> "RECORDING"
+        RunningState.PAUSED -> "PAUSED"
+        RunningState.AUTO_PAUSED -> "AUTO PAUSED"
     }
 
     Surface(
@@ -325,12 +365,12 @@ private fun RecordingPill(isRunning: Boolean) {
         ) {
             Canvas(modifier = Modifier.size(6.dp)) {
                 drawCircle(
-                    color = pillColor.copy(alpha = if (isRunning) dotAlpha else 0.5f),
+                    color = pillColor.copy(alpha = if (state == RunningState.RUNNING) dotAlpha else 0.5f),
                 )
             }
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = if (isRunning) "RECORDING" else "PAUSED",
+                text = label,
                 style = MaterialTheme.typography.labelLarge,
                 color = pillColor,
             )
