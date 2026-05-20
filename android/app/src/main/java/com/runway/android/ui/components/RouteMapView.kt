@@ -88,11 +88,11 @@ private fun RouteGoogleMap(
         )
         Marker(
             state = MarkerState(position = latLngs.first()),
-            title = "Start",
+            title = "출발",
         )
         Marker(
             state = MarkerState(position = latLngs.last()),
-            title = "End",
+            title = "도착",
         )
         if (currentLatLng != null) {
             Marker(

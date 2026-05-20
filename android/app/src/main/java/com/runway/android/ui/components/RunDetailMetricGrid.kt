@@ -43,19 +43,19 @@ fun RunDetailMetricGrid(
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            MetricRow(label = "Distance", value = formatDistance(distanceMeters))
+            MetricRow(label = "거리", value = formatDistance(distanceMeters))
             MetricDivider()
-            MetricRow(label = "Duration", value = formatDuration(durationSeconds))
+            MetricRow(label = "소요 시간", value = formatDuration(durationSeconds))
             MetricDivider()
-            MetricRow(label = "Avg Pace", value = formatPace(avgPaceSecondsPerKm))
+            MetricRow(label = "평균 페이스", value = formatPace(avgPaceSecondsPerKm))
 
             caloriesBurned?.let { cal ->
                 MetricDivider()
-                MetricRow(label = "Calories", value = "$cal kcal")
+                MetricRow(label = "칼로리", value = "$cal kcal")
             }
             avgHeartRateBpm?.let { hr ->
                 MetricDivider()
-                MetricRow(label = "Avg Heart Rate", value = "$hr bpm")
+                MetricRow(label = "평균 심박수", value = "$hr bpm")
             }
         }
     }

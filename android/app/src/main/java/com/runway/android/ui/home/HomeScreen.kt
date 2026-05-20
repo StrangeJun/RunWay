@@ -77,7 +77,7 @@ fun HomeScreen(
 
         // ─── Nearby courses ───
         item {
-            SectionHeader(title = "Nearby courses", cta = "See all", onCtaClick = onNavigateToDiscover)
+            SectionHeader(title = "주변 코스", cta = "전체 보기", onCtaClick = onNavigateToDiscover)
         }
 
         item {
@@ -100,7 +100,7 @@ fun HomeScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "주변에 코스가 없습니다",
+                            text = "주변에 코스가 없어요",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -126,8 +126,8 @@ fun HomeScreen(
         // ─── Recent runs ───
         item {
             SectionHeader(
-                title = "Recent runs",
-                cta = if (!viewModel.isLoadingRuns && viewModel.recentRuns.isNotEmpty()) "See all" else null,
+                title = "최근 러닝",
+                cta = if (!viewModel.isLoadingRuns && viewModel.recentRuns.isNotEmpty()) "전체 보기" else null,
                 onCtaClick = onSeeAllRuns,
             )
         }
@@ -160,7 +160,7 @@ private fun GreetingHeader(greeting: String, nickname: String) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = "${nickname.ifEmpty { "Runner" }} 👋",
+                text = "${nickname.ifEmpty { "러너" }} 👋",
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
             )

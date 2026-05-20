@@ -71,7 +71,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "Welcome back.",
+                text = "다시 만났네요.",
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground,
             )
@@ -79,7 +79,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Lace up and pick up where you left off.",
+                text = "이어서 달려볼까요?",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -90,7 +90,7 @@ fun LoginScreen(
             RunwayTextField(
                 value = viewModel.email,
                 onValueChange = viewModel::onEmailChange,
-                label = "Email",
+                label = "이메일",
                 placeholder = "your@email.com",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 isError = viewModel.error != null,
@@ -101,7 +101,7 @@ fun LoginScreen(
             RunwayTextField(
                 value = viewModel.password,
                 onValueChange = viewModel::onPasswordChange,
-                label = "Password",
+                label = "비밀번호",
                 placeholder = "••••••••",
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -115,7 +115,7 @@ fun LoginScreen(
                 modifier = Modifier.align(Alignment.End),
             ) {
                 Text(
-                    text = "Forgot password?",
+                    text = "비밀번호를 잊으셨나요?",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -136,7 +136,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             RunwayLoadingButton(
-                text = "Log in",
+                text = "로그인",
                 onClick = viewModel::login,
                 isLoading = viewModel.isLoading,
             )
@@ -149,9 +149,9 @@ fun LoginScreen(
             ) {
                 Text(
                     text = buildAnnotatedString {
-                        append("New here? ")
+                        append("처음이신가요? ")
                         withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) {
-                            append("Create an account")
+                            append("회원가입")
                         }
                     },
                     style = MaterialTheme.typography.bodyMedium,

@@ -131,10 +131,10 @@ fun RunningTrackingScreen(
             RecordingPill(isRunning = isRunning)
             Text(
                 text = when {
-                    viewModel.isConnecting -> "Connecting..."
+                    viewModel.isConnecting -> "GPS 연결 중..."
                     viewModel.gpsStatus == GpsStatus.PERMISSION_REQUIRED -> "위치 권한 필요"
                     viewModel.gpsStatus == GpsStatus.WAITING_FOR_FIX -> "GPS 신호 수신 중..."
-                    !isRunning -> "Paused"
+                    !isRunning -> "일시정지"
                     else -> "GPS · Active"
                 },
                 style = MaterialTheme.typography.labelLarge,
