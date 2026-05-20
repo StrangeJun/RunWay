@@ -4,6 +4,7 @@ import com.runway.android.core.model.ApiResponse
 import com.runway.android.core.model.PageResponse
 import com.runway.android.data.running.model.FinishRunRequest
 import com.runway.android.data.running.model.FinishRunResponse
+import com.runway.android.data.running.model.PersonalRecordsResponse
 import com.runway.android.data.running.model.RunDetailResponse
 import com.runway.android.data.running.model.RunStatusResponse
 import com.runway.android.data.running.model.RunSummaryResponse
@@ -51,4 +52,7 @@ interface RunningApi {
 
     @GET("api/runs/{runId}")
     suspend fun getRunDetail(@Path("runId") runId: String): ApiResponse<RunDetailResponse>
+
+    @GET("api/runs/me/records")
+    suspend fun getPersonalRecords(): ApiResponse<PersonalRecordsResponse>
 }

@@ -104,6 +104,7 @@ public class CourseService {
     public PageResponse<NearbyCourseItem> getNearby(
             Double latitude, Double longitude, Double radiusMeters,
             Double minDistanceMeters, Double maxDistanceMeters, Boolean isLoop,
+            String keyword,
             int page, int size) {
 
         // CTE로 현재 위치 포인트를 한 번 계산하고 재사용
@@ -128,6 +129,10 @@ public class CourseService {
         if (isLoop != null) {
             optFilter.append(" AND c.is_loop = ?");
             filterParams.add(isLoop);
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            optFilter.append(" AND LOWER(c.name) LIKE ?");
+            filterParams.add("%" + keyword.toLowerCase() + "%");
         }
 
         String baseSql =

@@ -7,6 +7,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.runway.android.core.result.NetworkResult
+import com.runway.android.core.running.RunChartCalculator
+import com.runway.android.core.running.RunChartPoint
 import com.runway.android.core.running.RunSplit
 import com.runway.android.core.running.SplitCalculator
 import com.runway.android.data.running.model.RunDetailResponse
@@ -27,6 +29,8 @@ class RunDetailViewModel @Inject constructor(
         private set
     var splits by mutableStateOf<List<RunSplit>>(emptyList())
         private set
+    var chartPoints by mutableStateOf<List<RunChartPoint>>(emptyList())
+        private set
     var isLoading by mutableStateOf(true)
         private set
     var hasError by mutableStateOf(false)
@@ -41,6 +45,7 @@ class RunDetailViewModel @Inject constructor(
         hasError = false
         detail = null
         splits = emptyList()
+        chartPoints = emptyList()
         loadDetail()
     }
 
@@ -50,6 +55,7 @@ class RunDetailViewModel @Inject constructor(
                 is NetworkResult.Success -> {
                     detail = result.data
                     splits = SplitCalculator.calculate(result.data.points)
+                    chartPoints = RunChartCalculator.calculate(result.data.points)
                 }
                 else -> hasError = true
             }

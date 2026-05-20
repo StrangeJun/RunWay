@@ -34,6 +34,8 @@ class DiscoverViewModel @Inject constructor(
         private set
     var isLocationRequired by mutableStateOf(false)
         private set
+    var keyword by mutableStateOf("")
+        private set
 
     private var currentLatitude = 0.0
     private var currentLongitude = 0.0
@@ -48,6 +50,19 @@ class DiscoverViewModel @Inject constructor(
     fun onIsLoopFilterChange(value: Boolean?) {
         if (isLoopFilter == value) return
         isLoopFilter = value
+        if (currentLatitude != 0.0) loadCourses()
+    }
+
+    fun onKeywordChange(value: String) {
+        keyword = value
+    }
+
+    fun onSearch() {
+        if (currentLatitude != 0.0) loadCourses()
+    }
+
+    fun clearKeyword() {
+        keyword = ""
         if (currentLatitude != 0.0) loadCourses()
     }
 
@@ -95,6 +110,7 @@ class DiscoverViewModel @Inject constructor(
                 longitude = currentLongitude,
                 radiusMeters = radiusMeters,
                 isLoop = isLoopFilter,
+                keyword = keyword.trim().takeIf { it.isNotBlank() },
             )) {
                 is NetworkResult.Success -> courses = result.data.content
                 is NetworkResult.ApiError -> errorMessage = result.message

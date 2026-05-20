@@ -32,6 +32,7 @@ class CourseRepositoryImpl @Inject constructor(
         minDistanceMeters: Double?,
         maxDistanceMeters: Double?,
         isLoop: Boolean?,
+        keyword: String?,
         page: Int,
         size: Int,
     ): NetworkResult<PageResponse<NearbyCourseItem>> = safeApiCall {
@@ -42,6 +43,7 @@ class CourseRepositoryImpl @Inject constructor(
             minDistanceMeters = minDistanceMeters,
             maxDistanceMeters = maxDistanceMeters,
             isLoop = isLoop,
+            keyword = keyword.takeIf { !it.isNullOrBlank() },
             page = page,
             size = size,
         )

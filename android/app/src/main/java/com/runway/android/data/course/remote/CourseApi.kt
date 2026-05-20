@@ -31,6 +31,7 @@ interface CourseApi {
         @Query("minDistanceMeters") minDistanceMeters: Double? = null,
         @Query("maxDistanceMeters") maxDistanceMeters: Double? = null,
         @Query("isLoop") isLoop: Boolean? = null,
+        @Query("keyword") keyword: String? = null,
         @Query("page") page: Int? = null,
         @Query("size") size: Int? = null,
     ): ApiResponse<PageResponse<NearbyCourseItem>>

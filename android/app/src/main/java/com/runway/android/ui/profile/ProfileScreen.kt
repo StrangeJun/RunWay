@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -28,18 +30,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.runway.android.ui.components.PersonalRecordsSection
 
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit,
     onNavigateToMyRuns: () -> Unit = {},
     onNavigateToCourses: () -> Unit = {},
+    onNavigateToRunDetail: (String) -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -127,10 +132,18 @@ fun ProfileScreen(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                PersonalRecordsSection(
+                    records = viewModel.personalRecords,
+                    onRecordClick = onNavigateToRunDetail,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(24.dp))
 
         // ─── My Runs 메뉴 ───
         Surface(

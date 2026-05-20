@@ -102,6 +102,14 @@ public class RunningController {
         return ResponseEntity.ok(ApiResponse.success("러닝 기록 상세 조회가 완료되었습니다.", data));
     }
 
+    @Operation(summary = "개인 최고 기록 조회", security = @SecurityRequirement(name = "bearerAuth"))
+    @GetMapping("/me/records")
+    public ResponseEntity<ApiResponse<Object>> getPersonalRecords(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        var data = runningService.getPersonalRecords(principal.getUserId());
+        return ResponseEntity.ok(ApiResponse.success("개인 최고 기록 조회가 완료되었습니다.", data));
+    }
+
     @Operation(summary = "러닝 기록 삭제", security = @SecurityRequirement(name = "bearerAuth"))
     @DeleteMapping("/{runId}")
     public ResponseEntity<ApiResponse<Void>> deleteRun(
