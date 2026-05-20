@@ -1,16 +1,23 @@
 package com.runway.android.core.share
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 
 object ShareUtils {
     fun shareText(context: Context, subject: String, text: String) {
-        val intent = Intent(Intent.ACTION_SEND).apply {
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_SUBJECT, subject)
             putExtra(Intent.EXTRA_TEXT, text)
         }
-        context.startActivity(Intent.createChooser(intent, subject))
+        val chooser = Intent.createChooser(shareIntent, subject).apply {
+            // Activity context가 아닌 경우(Application, Service 등) 새 태스크로 시작
+            if (context !is Activity) {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        }
+        context.startActivity(chooser)
     }
 
     fun shareCourse(

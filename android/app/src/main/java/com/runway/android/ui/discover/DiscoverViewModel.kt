@@ -46,6 +46,7 @@ class DiscoverViewModel @Inject constructor(
     private var rawCourses = listOf<NearbyCourseItem>()
     private var currentLatitude = 0.0
     private var currentLongitude = 0.0
+    private var hasLocation = false
     private var loadJob: Job? = null
 
     val courses: List<NearbyCourseItem>
@@ -62,13 +63,13 @@ class DiscoverViewModel @Inject constructor(
     fun onRadiusChange(meters: Int) {
         if (radiusMeters == meters) return
         radiusMeters = meters
-        if (currentLatitude != 0.0) loadCourses()
+        if (hasLocation) loadCourses()
     }
 
     fun onIsLoopFilterChange(value: Boolean?) {
         if (isLoopFilter == value) return
         isLoopFilter = value
-        if (currentLatitude != 0.0) loadCourses()
+        if (hasLocation) loadCourses()
     }
 
     fun onKeywordChange(value: String) {
@@ -76,17 +77,17 @@ class DiscoverViewModel @Inject constructor(
     }
 
     fun onSearch() {
-        if (currentLatitude != 0.0) loadCourses()
+        if (hasLocation) loadCourses()
     }
 
     fun clearKeyword() {
         keyword = ""
-        if (currentLatitude != 0.0) loadCourses()
+        if (hasLocation) loadCourses()
     }
 
     fun refresh() {
-        if (isLocationRequired) return
-        if (currentLatitude != 0.0) loadCourses()
+        if (isLocationRequired || !hasLocation) return
+        loadCourses()
     }
 
     @SuppressLint("MissingPermission")
@@ -100,6 +101,7 @@ class DiscoverViewModel @Inject constructor(
                 if (location != null) {
                     currentLatitude = location.latitude
                     currentLongitude = location.longitude
+                    hasLocation = true
                     loadCourses()
                 } else {
                     isLoading = false

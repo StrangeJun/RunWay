@@ -27,12 +27,11 @@ class ReminderScheduler @Inject constructor(
 
     fun cancelAll() {
         for (day in 1..7) {
-            val intent = buildIntent(day)
-            alarmManager.cancel(intent)
+            alarmManager.cancel(buildIntent(day, 0, 0))
         }
     }
 
-    private fun schedule(dayOfWeek: Int, hour: Int, minute: Int) {
+    fun schedule(dayOfWeek: Int, hour: Int, minute: Int) {
         val calendar = Calendar.getInstance().apply {
             set(Calendar.DAY_OF_WEEK, dayOfWeek)
             set(Calendar.HOUR_OF_DAY, hour)
@@ -44,7 +43,18 @@ class ReminderScheduler @Inject constructor(
             }
         }
 
-        val pendingIntent = buildIntent(dayOfWeek)
+        val pendingIntent = buildIntent(dayOfWeek, hour, minute)
+
+        // Android 12+(API 31): 정확한 알람 권한이 없으면 비정확 알람으로 폴백
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                calendar.timeInMillis,
+                pendingIntent,
+            )
+            return
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
@@ -60,10 +70,13 @@ class ReminderScheduler @Inject constructor(
         }
     }
 
-    private fun buildIntent(dayOfWeek: Int): PendingIntent {
-        val dayLabel = dayLabel(dayOfWeek)
+    // ReminderReceiver에서 다음 주 재예약에 사용하기 위해 internal로 공개
+    internal fun buildIntent(dayOfWeek: Int, hour: Int, minute: Int): PendingIntent {
         val intent = Intent(context, ReminderReceiver::class.java).apply {
-            putExtra("day_label", dayLabel)
+            putExtra(ReminderReceiver.EXTRA_DAY_LABEL, dayLabel(dayOfWeek))
+            putExtra(ReminderReceiver.EXTRA_DAY_OF_WEEK, dayOfWeek)
+            putExtra(ReminderReceiver.EXTRA_HOUR, hour)
+            putExtra(ReminderReceiver.EXTRA_MINUTE, minute)
         }
         return PendingIntent.getBroadcast(
             context,
