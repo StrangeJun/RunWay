@@ -29,8 +29,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.automirrored.filled.TextSnippet
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.map.MapPoint
+import com.runway.android.core.share.ShareUtils
+import com.runway.android.core.util.formatDuration
+import com.runway.android.core.util.formatPace
 import com.runway.android.core.util.formatRunDateFull
 import com.runway.android.core.util.formatTime
 import com.runway.android.ui.components.RouteMapView
@@ -44,6 +49,8 @@ fun RunDetailScreen(
     onShareImage: (runId: String) -> Unit = {},
     viewModel: RunDetailViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -71,6 +78,28 @@ fun RunDetailScreen(
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.weight(1f),
             )
+            IconButton(
+                onClick = {
+                    val detail = viewModel.detail
+                    if (detail != null) {
+                        ShareUtils.shareRunSummary(
+                            context = context,
+                            distanceFormatted = if ((detail.distanceMeters ?: 0.0) >= 1000)
+                                "%.2f km".format((detail.distanceMeters ?: 0.0) / 1000)
+                            else "${(detail.distanceMeters ?: 0).toInt()} m",
+                            duration = formatDuration(detail.durationSeconds),
+                            pace = formatPace(detail.avgPaceSecondsPerKm),
+                            date = formatRunDateFull(detail.startedAt),
+                        )
+                    }
+                },
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.TextSnippet,
+                    contentDescription = "텍스트 공유",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             IconButton(onClick = { onShareImage(viewModel.runId) }) {
                 Icon(
                     imageVector = Icons.Filled.Share,

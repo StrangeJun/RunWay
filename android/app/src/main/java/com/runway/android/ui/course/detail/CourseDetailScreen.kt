@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,8 +44,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.map.MapPoint
+import com.runway.android.core.share.ShareUtils
 import com.runway.android.ui.components.RouteMapView
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,6 +58,8 @@ fun CourseDetailScreen(
     onNavigateToLeaderboard: (courseId: String) -> Unit,
     viewModel: CourseDetailViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
+
     LaunchedEffect(Unit) {
         viewModel.navigateToAttempt.collect { event ->
             onNavigateToAttempt(event.courseId, event.courseAttemptId, event.runningRecordId)
@@ -146,6 +151,29 @@ fun CourseDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = {
+                            val detail = viewModel.courseDetail
+                            if (detail != null) {
+                                val distKm = if (detail.distanceMeters >= 1000)
+                                    "%.1f km".format(detail.distanceMeters / 1000)
+                                else "${detail.distanceMeters.toInt()} m"
+                                ShareUtils.shareCourse(
+                                    context = context,
+                                    name = detail.name,
+                                    distanceKm = distKm,
+                                    completionCount = detail.completionCount,
+                                    isLoop = detail.isLoop,
+                                )
+                            }
+                        },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Share,
+                            contentDescription = "공유",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     IconButton(onClick = viewModel::openReportDialog) {
                         Icon(
                             imageVector = Icons.Filled.Flag,
