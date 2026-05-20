@@ -14,6 +14,7 @@ import javax.inject.Singleton
 
 private val Context.tokenDataStore: DataStore<Preferences> by preferencesDataStore(name = "runway_auth")
 private val Context.trackingDataStore: DataStore<Preferences> by preferencesDataStore(name = "runway_tracking")
+private val Context.onboardingDataStore: DataStore<Preferences> by preferencesDataStore(name = "runway_onboarding")
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -31,4 +32,11 @@ object DataStoreModule {
     fun provideTrackingDataStore(
         @ApplicationContext context: Context,
     ): DataStore<Preferences> = context.trackingDataStore
+
+    @Provides
+    @Singleton
+    @Named("onboardingDataStore")
+    fun provideOnboardingDataStore(
+        @ApplicationContext context: Context,
+    ): DataStore<Preferences> = context.onboardingDataStore
 }

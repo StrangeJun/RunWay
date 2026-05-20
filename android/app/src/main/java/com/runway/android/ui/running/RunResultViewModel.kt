@@ -72,6 +72,9 @@ class RunResultViewModel @Inject constructor(
     var createError by mutableStateOf<String?>(null)
         private set
 
+    var courseCreatedSuccess by mutableStateOf(false)
+        private set
+
     private val _courseCreated = MutableSharedFlow<String>()
     val courseCreated = _courseCreated.asSharedFlow()
 
@@ -119,6 +122,8 @@ class RunResultViewModel @Inject constructor(
             when (val result = courseRepository.createCourseFromRun(id, request)) {
                 is NetworkResult.Success -> {
                     showCreateDialog = false
+                    courseCreatedSuccess = true
+                    kotlinx.coroutines.delay(1_500)
                     _courseCreated.emit(result.data.courseId)
                 }
                 is NetworkResult.ApiError -> {

@@ -4,6 +4,8 @@ import com.runway.android.core.model.PageResponse
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.course.model.CourseDetailResponse
 import com.runway.android.data.course.model.CoursePointsResponse
+import com.runway.android.data.course.model.CourseReportRequest
+import com.runway.android.data.course.model.CourseReportResponse
 import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.data.course.model.CreateCourseFromRunRequest
 import com.runway.android.data.course.model.NearbyCourseItem
@@ -26,7 +28,15 @@ interface CourseRepository {
         size: Int = 20,
     ): NetworkResult<PageResponse<NearbyCourseItem>>
 
+    suspend fun getMyCourses(
+        status: String? = null,
+        page: Int = 0,
+        size: Int = 20,
+    ): NetworkResult<PageResponse<CourseResponse>>
+
     suspend fun getCourseDetail(courseId: String): NetworkResult<CourseDetailResponse>
 
     suspend fun getCoursePoints(courseId: String): NetworkResult<CoursePointsResponse>
+
+    suspend fun reportCourse(courseId: String, request: CourseReportRequest): NetworkResult<CourseReportResponse>
 }

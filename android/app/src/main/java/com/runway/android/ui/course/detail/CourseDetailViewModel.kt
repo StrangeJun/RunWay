@@ -10,6 +10,7 @@ import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.attempt.model.StartAttemptRequest
 import com.runway.android.data.course.model.CourseDetailResponse
 import com.runway.android.data.course.model.CoursePointResponse
+import com.runway.android.data.course.model.CourseReportRequest
 import com.runway.android.domain.attempt.CourseAttemptRepository
 import com.runway.android.domain.course.CourseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -49,6 +50,19 @@ class CourseDetailViewModel @Inject constructor(
     var startAttemptError by mutableStateOf<String?>(null)
         private set
 
+    var showReportDialog by mutableStateOf(false)
+        private set
+    var reportReason by mutableStateOf("")
+        private set
+    var reportDescription by mutableStateOf("")
+        private set
+    var isSubmittingReport by mutableStateOf(false)
+        private set
+    var reportError by mutableStateOf<String?>(null)
+        private set
+    var reportSuccess by mutableStateOf(false)
+        private set
+
     private val _navigateToAttempt = MutableSharedFlow<AttemptStartedEvent>()
     val navigateToAttempt = _navigateToAttempt.asSharedFlow()
 
@@ -60,6 +74,58 @@ class CourseDetailViewModel @Inject constructor(
 
     fun clearStartAttemptError() {
         startAttemptError = null
+    }
+
+    fun clearReportSuccess() {
+        reportSuccess = false
+    }
+
+    fun openReportDialog() {
+        reportReason = ""
+        reportDescription = ""
+        reportError = null
+        reportSuccess = false
+        showReportDialog = true
+    }
+
+    fun dismissReportDialog() {
+        if (!isSubmittingReport) showReportDialog = false
+    }
+
+    fun onReportReasonChange(value: String) {
+        reportReason = value
+        reportError = null
+    }
+
+    fun onReportDescriptionChange(value: String) {
+        reportDescription = value
+    }
+
+    fun submitReport() {
+        if (isSubmittingReport || reportReason.isEmpty()) return
+        isSubmittingReport = true
+        reportError = null
+
+        viewModelScope.launch {
+            when (val result = courseRepository.reportCourse(
+                courseId = courseId,
+                request = CourseReportRequest(
+                    reason = reportReason,
+                    description = reportDescription.trim().ifBlank { null },
+                ),
+            )) {
+                is NetworkResult.Success -> {
+                    reportSuccess = true
+                    showReportDialog = false
+                }
+                is NetworkResult.ApiError -> reportError = when (result.errorCode) {
+                    "ALREADY_REPORTED" -> "이미 신고한 코스입니다."
+                    else -> result.message
+                }
+                is NetworkResult.NetworkError -> reportError = "네트워크 연결을 확인해 주세요."
+            }
+            isSubmittingReport = false
+        }
     }
 
     fun startAttempt() {

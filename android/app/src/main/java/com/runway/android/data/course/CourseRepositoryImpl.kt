@@ -5,6 +5,8 @@ import com.runway.android.core.result.NetworkResult
 import com.runway.android.core.result.safeApiCall
 import com.runway.android.data.course.model.CourseDetailResponse
 import com.runway.android.data.course.model.CoursePointsResponse
+import com.runway.android.data.course.model.CourseReportRequest
+import com.runway.android.data.course.model.CourseReportResponse
 import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.data.course.model.CreateCourseFromRunRequest
 import com.runway.android.data.course.model.NearbyCourseItem
@@ -45,9 +47,22 @@ class CourseRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun getMyCourses(
+        status: String?,
+        page: Int,
+        size: Int,
+    ): NetworkResult<PageResponse<CourseResponse>> = safeApiCall {
+        courseApi.getMyCourses(status = status, page = page, size = size)
+    }
+
     override suspend fun getCourseDetail(courseId: String): NetworkResult<CourseDetailResponse> =
         safeApiCall { courseApi.getCourseDetail(courseId) }
 
     override suspend fun getCoursePoints(courseId: String): NetworkResult<CoursePointsResponse> =
         safeApiCall { courseApi.getCoursePoints(courseId) }
+
+    override suspend fun reportCourse(
+        courseId: String,
+        request: CourseReportRequest,
+    ): NetworkResult<CourseReportResponse> = safeApiCall { courseApi.reportCourse(courseId, request) }
 }
