@@ -20,6 +20,8 @@ public class CourseDetailResponse {
     private Boolean isLoop;
     private Integer attemptCount;
     private Integer completionCount;
+    private Double avgRating;
+    private Long ratingCount;
     private CreatorDto creator;
     private GeoPoint startPoint;
     private GeoPoint endPoint;
@@ -42,7 +44,8 @@ public class CourseDetailResponse {
         }
     }
 
-    public static CourseDetailResponse from(Course course, User creator, boolean isOwner) {
+    public static CourseDetailResponse from(Course course, User creator, boolean isOwner,
+                                             Double avgRating, Long ratingCount) {
         GeoPoint startPoint = isOwner
                 ? new GeoPoint(course.getStartLocation().getY(), course.getStartLocation().getX())
                 : null;
@@ -59,6 +62,8 @@ public class CourseDetailResponse {
                 .isLoop(course.getIsLoop())
                 .attemptCount(course.getAttemptCount())
                 .completionCount(course.getCompletionCount())
+                .avgRating(avgRating)
+                .ratingCount(ratingCount)
                 .creator(CreatorDto.from(creator))
                 .startPoint(startPoint)
                 .endPoint(endPoint)

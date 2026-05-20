@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -40,6 +41,7 @@ import com.runway.android.ui.components.RunSplitsCard
 @Composable
 fun RunDetailScreen(
     onBack: () -> Unit,
+    onShareImage: (runId: String) -> Unit = {},
     viewModel: RunDetailViewModel = hiltViewModel(),
 ) {
     Column(
@@ -67,7 +69,15 @@ fun RunDetailScreen(
                 text = "러닝 상세",
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f),
             )
+            IconButton(onClick = { onShareImage(viewModel.runId) }) {
+                Icon(
+                    imageVector = Icons.Filled.Share,
+                    contentDescription = "공유 이미지 만들기",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         // ─── 콘텐츠 ───

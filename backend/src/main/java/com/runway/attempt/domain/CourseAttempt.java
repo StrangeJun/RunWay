@@ -70,10 +70,10 @@ public class CourseAttempt {
         this.createdAt = Instant.now();
     }
 
-    // Phase 1: 완주 시 verification_status 를 verified 로 자동 설정 (동일 트랜잭션)
-    public void complete(Instant completedAt, Integer durationSeconds, Double distanceMeters) {
+    public void complete(Instant completedAt, Integer durationSeconds, Double distanceMeters,
+                         AttemptVerificationStatus verificationStatus) {
         this.status = CourseAttemptStatus.COMPLETED;
-        this.verificationStatus = AttemptVerificationStatus.VERIFIED;
+        this.verificationStatus = verificationStatus;
         this.completedAt = completedAt;
         this.durationSeconds = durationSeconds;
         this.distanceMeters = distanceMeters;

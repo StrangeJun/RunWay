@@ -15,8 +15,10 @@ object RunwayRoutes {
     const val COURSE_DETAIL = "course_detail/{courseId}"
     const val COURSE_ATTEMPT = "course_attempt/{courseId}/{courseAttemptId}/{runningRecordId}"
     const val COURSE_LEADERBOARD = "course_leaderboard/{courseId}"
+    const val RUN_SHARE = "run_share/{runId}"
 
     fun courseDetail(courseId: String) = "course_detail/${Uri.encode(courseId)}"
+    fun runShare(runId: String) = "run_share/${Uri.encode(runId)}"
 
     fun runResult(runId: String, elapsedSeconds: Int, distanceKm: Float) =
         "$RUN_RESULT/${Uri.encode(runId)}/$elapsedSeconds/$distanceKm"

@@ -43,6 +43,7 @@ import com.runway.android.ui.course.CreateCourseDialog
 @Composable
 fun RunResultScreen(
     onBackToHome: () -> Unit,
+    onShareImage: (runId: String) -> Unit = {},
     viewModel: RunResultViewModel = hiltViewModel(),
 ) {
     // 코스 생성 성공 시 홈으로 이동 (Phase B-9에서 CourseDetail로 대체 예정)
@@ -209,6 +210,19 @@ fun RunResultScreen(
                     onClick = { viewModel.onShowCreateDialog() },
                     enabled = viewModel.runId != null,
                 )
+            }
+            if (viewModel.runId != null) {
+                TextButton(
+                    onClick = { onShareImage(viewModel.runId) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "공유 이미지 만들기",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
             TextButton(
                 onClick = onBackToHome,

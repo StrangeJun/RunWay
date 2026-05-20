@@ -25,6 +25,7 @@ public class CourseController {
 
     private final CourseService courseService;
     private final CourseReportService courseReportService;
+    private final com.runway.course.service.CourseRatingService courseRatingService;
 
     @Operation(summary = "러닝 기록 기반 코스 생성", security = @SecurityRequirement(name = "bearerAuth"))
     @PostMapping("/from-run/{runId}")
@@ -129,5 +130,16 @@ public class CourseController {
         CourseReportResponse data = courseReportService.reportCourse(
                 principal.getUserId(), courseId, request);
         return ResponseEntity.ok(ApiResponse.success("신고가 접수되었습니다.", data));
+    }
+
+    @Operation(summary = "코스 평점 등록/수정", security = @SecurityRequirement(name = "bearerAuth"))
+    @PostMapping("/{courseId}/ratings")
+    public ResponseEntity<ApiResponse<CourseRatingResponse>> rateCourse(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID courseId,
+            @Valid @RequestBody CourseRatingRequest request) {
+        CourseRatingResponse data = courseRatingService.rateCourse(
+                principal.getUserId(), courseId, request);
+        return ResponseEntity.ok(ApiResponse.success("평점이 등록되었습니다.", data));
     }
 }

@@ -8,6 +8,7 @@ import com.runway.course.domain.CoursePoint;
 import com.runway.course.domain.enums.CourseStatus;
 import com.runway.course.dto.*;
 import com.runway.course.repository.CoursePointRepository;
+import com.runway.course.repository.CourseRatingRepository;
 import com.runway.course.repository.CourseRepository;
 import com.runway.run.domain.RunningPoint;
 import com.runway.run.domain.enums.RunningRecordStatus;
@@ -41,6 +42,7 @@ public class CourseService {
 
     private final CourseRepository courseRepository;
     private final CoursePointRepository coursePointRepository;
+    private final CourseRatingRepository courseRatingRepository;
     private final RunningRecordRepository runningRecordRepository;
     private final RunningPointRepository runningPointRepository;
     private final UserRepository userRepository;
@@ -213,7 +215,9 @@ public class CourseService {
         Course course = findVisibleCourse(courseId, userId);
         User creator = userRepository.findById(course.getCreatorId())
                 .orElseThrow(() -> new RunwayException(ErrorCode.USER_NOT_FOUND));
-        return CourseDetailResponse.from(course, creator, course.isOwnedBy(userId));
+        Double avgRating = courseRatingRepository.findAvgRatingByCourseId(courseId);
+        long ratingCount = courseRatingRepository.countByCourseId(courseId);
+        return CourseDetailResponse.from(course, creator, course.isOwnedBy(userId), avgRating, ratingCount);
     }
 
     @Transactional(readOnly = true)
