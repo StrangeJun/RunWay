@@ -18,6 +18,7 @@ object RunwayRoutes {
     const val RUN_SHARE = "run_share/{runId}"
     const val STATS = "stats"
     const val ACHIEVEMENTS = "achievements"
+    const val REMINDER = "reminder"
 
     fun courseDetail(courseId: String) = "course_detail/${Uri.encode(courseId)}"
     fun runShare(runId: String) = "run_share/${Uri.encode(runId)}"

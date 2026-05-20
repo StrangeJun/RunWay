@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,6 +44,7 @@ fun ProfileScreen(
     onNavigateToRunDetail: (String) -> Unit = {},
     onNavigateToStats: () -> Unit = {},
     onNavigateToAchievements: () -> Unit = {},
+    onNavigateToReminder: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     Column(
@@ -214,6 +216,15 @@ fun ProfileScreen(
             icon = Icons.Filled.Route,
             label = "내 코스",
             onClick = onNavigateToCourses,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ─── Reminder 메뉴 ───
+        ProfileMenuItem(
+            icon = Icons.Filled.NotificationsActive,
+            label = "러닝 리마인더",
+            onClick = onNavigateToReminder,
         )
 
         Spacer(modifier = Modifier.height(12.dp))

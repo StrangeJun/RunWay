@@ -27,6 +27,7 @@ import com.runway.android.ui.leaderboard.CourseLeaderboardScreen
 import com.runway.android.ui.onboarding.OnboardingScreen
 import com.runway.android.ui.running.RunResultScreen
 import com.runway.android.ui.running.RunningTrackingScreen
+import com.runway.android.ui.reminder.ReminderScreen
 import com.runway.android.ui.running.history.MyRunsScreen
 import com.runway.android.ui.running.history.RunDetailScreen
 import com.runway.android.ui.stats.StatsScreen
@@ -129,6 +130,7 @@ fun RunwayNavGraph() {
                 },
                 onNavigateToStats = { navController.navigate(RunwayRoutes.STATS) },
                 onNavigateToAchievements = { navController.navigate(RunwayRoutes.ACHIEVEMENTS) },
+                onNavigateToReminder = { navController.navigate(RunwayRoutes.REMINDER) },
             )
         }
 
@@ -272,6 +274,12 @@ fun RunwayNavGraph() {
 
         composable(RunwayRoutes.ACHIEVEMENTS) {
             AchievementsScreen(onBack = { navController.popBackStack() })
+        }
+
+        // ─── 리마인더 ───
+
+        composable(RunwayRoutes.REMINDER) {
+            ReminderScreen(onBack = { navController.popBackStack() })
         }
     }
 }
