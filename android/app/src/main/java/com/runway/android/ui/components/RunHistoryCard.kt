@@ -31,6 +31,9 @@ data class RunHistoryItem(
     val pace: String,
     val status: String,
     val calories: Int?,
+    val localDate: java.time.LocalDate? = null,
+    val rawDistanceMeters: Double? = null,
+    val rawDurationSeconds: Int? = null,
 )
 
 @Composable
