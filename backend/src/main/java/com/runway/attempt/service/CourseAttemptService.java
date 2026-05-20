@@ -98,6 +98,10 @@ public class CourseAttemptService {
 
         Instant endedAt = request.getEndedAt() != null ? request.getEndedAt() : Instant.now();
 
+        if (!endedAt.isAfter(attempt.getStartedAt())) {
+            throw new RunwayException(ErrorCode.INVALID_REQUEST, "종료 시각은 시작 시각 이후여야 합니다.");
+        }
+
         // 코스 조회 (검증에도 필요하므로 먼저 fetch)
         Course course = courseRepository.findByIdAndDeletedAtIsNull(attempt.getCourseId())
                 .orElseThrow(() -> new RunwayException(ErrorCode.COURSE_NOT_FOUND));
@@ -127,15 +131,23 @@ public class CourseAttemptService {
         com.runway.attempt.domain.enums.AttemptVerificationStatus verificationStatus =
                 com.runway.attempt.domain.enums.AttemptVerificationStatus.VERIFIED;
 
-        // 코스 거리 대비 70% 미만 → UNVERIFIED
-        if (course.getDistanceMeters() > 0
+        // GPS 포인트 < 2개 → 경로 재구성 불가, 검증 보류
+        if (points.size() < 2) {
+            verificationStatus = com.runway.attempt.domain.enums.AttemptVerificationStatus.PENDING;
+            log.info("Attempt marked unverified: insufficient GPS points. count={} attemptId={}",
+                    points.size(), attemptId);
+        }
+
+        // 코스 거리 대비 70% 미만 → PENDING
+        if (verificationStatus == com.runway.attempt.domain.enums.AttemptVerificationStatus.VERIFIED
+                && course.getDistanceMeters() > 0
                 && request.getDistanceMeters() < course.getDistanceMeters() * 0.7) {
             verificationStatus = com.runway.attempt.domain.enums.AttemptVerificationStatus.PENDING;
             log.info("Attempt marked unverified (distance coverage): attempted={}m course={}m attemptId={}",
                     request.getDistanceMeters(), course.getDistanceMeters(), attemptId);
         }
 
-        // 시작/종료 지점 500m 이상 이탈 → UNVERIFIED
+        // 시작/종료 지점 500m 이상 이탈 → PENDING
         if (verificationStatus == com.runway.attempt.domain.enums.AttemptVerificationStatus.VERIFIED
                 && !points.isEmpty()) {
             RunningPoint firstPt = points.get(0);

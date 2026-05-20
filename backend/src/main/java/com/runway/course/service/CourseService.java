@@ -293,7 +293,7 @@ public class CourseService {
         }
         // 간격 샘플링: 첫 점과 끝 점은 항상 포함
         List<RunningPoint> result = new ArrayList<>();
-        int step = all.size() / MAX_COURSE_POINTS;
+        int step = Math.max(1, (int) Math.ceil((double) all.size() / MAX_COURSE_POINTS));
         for (int i = 0; i < all.size(); i++) {
             if (i == 0 || i == all.size() - 1 || i % step == 0) {
                 result.add(all.get(i));
