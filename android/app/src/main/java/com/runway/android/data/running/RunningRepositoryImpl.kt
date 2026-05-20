@@ -7,6 +7,7 @@ import com.runway.android.data.running.model.FinishRunRequest
 import com.runway.android.data.running.model.FinishRunResponse
 import com.runway.android.data.running.model.PersonalRecordsResponse
 import com.runway.android.data.running.model.RunDetailResponse
+import com.runway.android.data.running.model.RunningStatsResponse
 import com.runway.android.data.running.model.RunStatusResponse
 import com.runway.android.data.running.model.RunSummaryResponse
 import com.runway.android.data.running.model.SavePointsRequest
@@ -49,4 +50,7 @@ class RunningRepositoryImpl @Inject constructor(
 
     override suspend fun getPersonalRecords(): NetworkResult<PersonalRecordsResponse> =
         safeApiCall { runningApi.getPersonalRecords() }
+
+    override suspend fun getRunningStats(period: String): NetworkResult<RunningStatsResponse> =
+        safeApiCall { runningApi.getRunningStats(period) }
 }

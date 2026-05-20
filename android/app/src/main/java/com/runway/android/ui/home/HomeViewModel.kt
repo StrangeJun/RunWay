@@ -107,10 +107,31 @@ class HomeViewModel @Inject constructor(
             }
 
             val runsResult = runningRepository.getMyRuns(page = 0, size = 20)
+            val statsResult = runningRepository.getRunningStats("weekly")
+
             if (runsResult is NetworkResult.Success) {
-                val runs = runsResult.data.content
-                recentRuns = runs.map { it.toRecentRun() }
-                weeklyStats = calculateWeeklyStats(runs)
+                recentRuns = runsResult.data.content.map { it.toRecentRun() }
+            }
+
+            if (statsResult is NetworkResult.Success) {
+                val s = statsResult.data
+                val distKm = if (s.totalDistanceMeters < 1000)
+                    "${s.totalDistanceMeters.toInt()} m"
+                else "%.1f".format(s.totalDistanceMeters / 1000.0)
+                val pace = if (s.averagePaceSecondsPerKm > 0)
+                    "%d'%02d\"".format(s.averagePaceSecondsPerKm / 60, s.averagePaceSecondsPerKm % 60)
+                else "--'--\""
+                val streakSuffix = if (s.currentStreakDays > 0) " · ${s.currentStreakDays}day streak" else ""
+                weeklyStats = WeeklyStats(
+                    distanceKm = if (s.totalDistanceMeters < 1000) "%.2f".format(s.totalDistanceMeters / 1000.0)
+                                 else "%.1f".format(s.totalDistanceMeters / 1000.0),
+                    runs = "${s.totalRuns}$streakSuffix",
+                    avgPace = pace,
+                    calories = s.totalCaloriesBurned.toString(),
+                )
+            } else if (runsResult is NetworkResult.Success) {
+                // fallback: 기존 로컬 계산
+                weeklyStats = calculateWeeklyStats(runsResult.data.content)
             }
             isLoadingRuns = false
         }

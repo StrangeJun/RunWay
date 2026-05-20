@@ -6,6 +6,7 @@ import com.runway.android.data.running.model.FinishRunRequest
 import com.runway.android.data.running.model.FinishRunResponse
 import com.runway.android.data.running.model.PersonalRecordsResponse
 import com.runway.android.data.running.model.RunDetailResponse
+import com.runway.android.data.running.model.RunningStatsResponse
 import com.runway.android.data.running.model.RunStatusResponse
 import com.runway.android.data.running.model.RunSummaryResponse
 import com.runway.android.data.running.model.SavePointsRequest
@@ -55,4 +56,9 @@ interface RunningApi {
 
     @GET("api/runs/me/records")
     suspend fun getPersonalRecords(): ApiResponse<PersonalRecordsResponse>
+
+    @GET("api/runs/me/stats")
+    suspend fun getRunningStats(
+        @Query("period") period: String = "monthly",
+    ): ApiResponse<RunningStatsResponse>
 }

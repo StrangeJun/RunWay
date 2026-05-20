@@ -17,4 +17,8 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
 
     Page<Course> findByCreatorIdAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(
             UUID creatorId, CourseStatus status, Pageable pageable);
+
+    long countByCreatorIdAndDeletedAtIsNull(UUID creatorId);
+
+    Optional<Course> findFirstByCreatorIdAndDeletedAtIsNullOrderByCreatedAtAsc(UUID creatorId);
 }

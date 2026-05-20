@@ -18,6 +18,7 @@ import javax.inject.Inject
 data class ProfileStats(
     val totalRuns: Long,
     val totalDistanceKm: String,
+    val currentStreakDays: Int = 0,
 )
 
 @HiltViewModel
@@ -48,9 +49,11 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             val profileDeferred = async { userRepository.getMe() }
             val recordsDeferred = async { runningRepository.getPersonalRecords() }
+            val statsDeferred = async { runningRepository.getRunningStats("all") }
 
             val profileResult = profileDeferred.await()
             val recordsResult = recordsDeferred.await()
+            val statsResult = statsDeferred.await()
 
             if (profileResult is NetworkResult.Success) {
                 nickname = profileResult.data.nickname
@@ -59,15 +62,18 @@ class ProfileViewModel @Inject constructor(
                 profileError = true
             }
 
+            val currentStreak = if (statsResult is NetworkResult.Success) statsResult.data.currentStreakDays else 0
+
             if (recordsResult is NetworkResult.Success) {
                 val r = recordsResult.data
                 stats = ProfileStats(
                     totalRuns = r.totalCompletedRuns,
                     totalDistanceKm = "%.1f".format(r.totalDistanceMeters / 1000.0),
+                    currentStreakDays = currentStreak,
                 )
                 personalRecords = r
             } else {
-                stats = ProfileStats(totalRuns = 0L, totalDistanceKm = "0.0")
+                stats = ProfileStats(totalRuns = 0L, totalDistanceKm = "0.0", currentStreakDays = currentStreak)
             }
 
             isLoading = false
