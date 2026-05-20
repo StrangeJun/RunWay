@@ -71,7 +71,7 @@ fun RunResultScreen(
                     .padding(horizontal = 20.dp, vertical = 12.dp),
             ) {
                 Text(
-                    text = "Run complete",
+                    text = "러닝 완료",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.align(Alignment.Center),
@@ -106,7 +106,7 @@ fun RunResultScreen(
                     )
                 }
                 Text(
-                    text = "Free run",
+                    text = "자유 런",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -171,7 +171,7 @@ fun RunResultScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             RunwayPrimaryButton(
-                text = "Create course from this run",
+                text = "이 러닝으로 코스 만들기",
                 onClick = { viewModel.onShowCreateDialog() },
                 enabled = viewModel.runId != null,
             )
@@ -180,7 +180,7 @@ fun RunResultScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    text = "Back to Home",
+                    text = "홈으로",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

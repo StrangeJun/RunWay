@@ -44,7 +44,7 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = "Profile",
+            text = "프로필",
             style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.align(Alignment.Start),
@@ -113,13 +113,13 @@ fun ProfileScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Total runs: ${s.totalRuns}",
+                            text = "총 러닝  ${s.totalRuns}회",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Total distance: ${s.totalDistanceKm} km",
+                            text = "총 거리  ${s.totalDistanceKm} km",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
@@ -156,7 +156,7 @@ fun ProfileScreen(
                         modifier = Modifier.size(20.dp),
                     )
                     Text(
-                        text = "My Runs",
+                        text = "내 러닝",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
@@ -180,7 +180,7 @@ fun ProfileScreen(
             onClick = { viewModel.logout(onLogout) },
         ) {
             Text(
-                text = "Log out",
+                text = "로그아웃",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier

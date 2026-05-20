@@ -99,7 +99,7 @@ fun DiscoverScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Discover courses",
+                        text = "코스 탐색",
                         style = MaterialTheme.typography.headlineLarge,
                         color = MaterialTheme.colorScheme.onBackground,
                     )

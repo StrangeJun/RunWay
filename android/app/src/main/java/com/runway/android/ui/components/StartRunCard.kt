@@ -57,12 +57,12 @@ fun StartRunCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Start running",
+                    text = "러닝 시작",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "Free run · GPS ready",
+                    text = "자유 러닝 · GPS 준비",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

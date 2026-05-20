@@ -68,7 +68,7 @@ fun SignupScreen(
         // ─── Header ───
         Column(modifier = Modifier.padding(horizontal = 28.dp, vertical = 16.dp)) {
             Text(
-                text = "Join the run.",
+                text = "함께 달려요.",
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground,
             )
@@ -76,7 +76,7 @@ fun SignupScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Create your account and start exploring routes.",
+                text = "계정을 만들고 코스를 탐색해보세요.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -89,7 +89,7 @@ fun SignupScreen(
             RunwayTextField(
                 value = viewModel.email,
                 onValueChange = viewModel::onEmailChange,
-                label = "Email",
+                label = "이메일",
                 placeholder = "your@email.com",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 isError = viewModel.error != null,
@@ -100,7 +100,7 @@ fun SignupScreen(
             RunwayTextField(
                 value = viewModel.password,
                 onValueChange = viewModel::onPasswordChange,
-                label = "Password",
+                label = "비밀번호",
                 placeholder = "••••••••",
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -112,8 +112,8 @@ fun SignupScreen(
             RunwayTextField(
                 value = viewModel.nickname,
                 onValueChange = viewModel::onNicknameChange,
-                label = "Nickname",
-                placeholder = "Your runner name",
+                label = "닉네임",
+                placeholder = "러너 이름을 입력하세요",
                 isError = viewModel.error != null,
             )
         }
@@ -132,7 +132,7 @@ fun SignupScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             RunwayLoadingButton(
-                text = "Create account",
+                text = "회원가입",
                 onClick = viewModel::signup,
                 isLoading = viewModel.isLoading,
             )
@@ -140,7 +140,7 @@ fun SignupScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "By creating an account, you agree to our Terms of Service and Privacy Policy.",
+                text = "가입하면 서비스 이용약관 및 개인정보처리방침에 동의하게 됩니다.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth(),

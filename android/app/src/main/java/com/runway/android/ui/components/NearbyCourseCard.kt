@@ -71,7 +71,7 @@ fun NearbyCourseCard(
                     )
                     Spacer(modifier = Modifier.width(2.dp))
                     Text(
-                        text = "${course.distanceAway} away · ${course.lengthKm}",
+                        text = "${course.distanceAway} 거리 · ${course.lengthKm}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

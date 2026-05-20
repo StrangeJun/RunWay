@@ -50,7 +50,7 @@ private val DUMMY_ENTRIES = listOf(
     LeaderboardEntry(7, "noor.r", "24:30", 3),
 )
 
-private val FILTERS = listOf("All time", "This month", "Friends")
+private val FILTERS = listOf("전체 기간", "이번 달", "친구")
 
 @Composable
 fun LeaderboardScreen() {
@@ -64,13 +64,13 @@ fun LeaderboardScreen() {
         item {
             Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                 Text(
-                    text = "Leaderboard",
+                    text = "리더보드",
                     style = MaterialTheme.typography.headlineLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Riverside Loop · 5.2 km",
+                    text = "코스 리더보드",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -270,7 +270,7 @@ private fun RankRow(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "${entry.completions} completions",
+                    text = "${entry.completions}회 완주",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

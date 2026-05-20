@@ -11,8 +11,8 @@ enum class MainTab(
     val icon: ImageVector,
     val label: String,
 ) {
-    HOME(Icons.Filled.Home, "Home"),
-    DISCOVER(Icons.Filled.Explore, "Discover"),
-    LEADERBOARD(Icons.Filled.EmojiEvents, "Ranks"),
-    PROFILE(Icons.Filled.Person, "Me"),
+    HOME(Icons.Filled.Home, "홈"),
+    DISCOVER(Icons.Filled.Explore, "탐색"),
+    LEADERBOARD(Icons.Filled.EmojiEvents, "랭킹"),
+    PROFILE(Icons.Filled.Person, "내 정보"),
 }
