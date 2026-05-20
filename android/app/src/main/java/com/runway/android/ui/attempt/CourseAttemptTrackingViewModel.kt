@@ -2,6 +2,10 @@ package com.runway.android.ui.attempt
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -76,6 +80,10 @@ class CourseAttemptTrackingViewModel @Inject constructor(
         private set
     var currentLocationPoint by mutableStateOf<MapPoint?>(null)
         private set
+    var isAutoPaused by mutableStateOf(false)
+        private set
+    var milestoneMessage by mutableStateOf<String?>(null)
+        private set
 
     private var lastSpeedMps by mutableStateOf<Float?>(null)
 
@@ -112,6 +120,8 @@ class CourseAttemptTrackingViewModel @Inject constructor(
 
     private var stateObserveJob: Job? = null
     private var batchJob: Job? = null
+    private var milestoneCollectJob: Job? = null
+    private var milestoneDisplayJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -154,9 +164,36 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                 elapsedSeconds = state.elapsedSeconds
                 distanceKm = state.distanceMeters / 1000.0
                 lastSpeedMps = state.currentSpeedMps
+                isAutoPaused = state.isAutoPaused
                 currentLocationPoint = state.lastLocation?.let { MapPoint(it.latitude, it.longitude) }
             }
         }
+
+        milestoneCollectJob = viewModelScope.launch {
+            manager.milestoneFlow.collect { km -> triggerMilestone(km) }
+        }
+    }
+
+    private fun triggerMilestone(km: Int) {
+        vibrate()
+        milestoneDisplayJob?.cancel()
+        milestoneMessage = "${km}km 완료 · 현재 페이스 $paceText /km"
+        milestoneDisplayJob = viewModelScope.launch {
+            delay(4_000)
+            milestoneMessage = null
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun vibrate() {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+        } else {
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+        vibrator.vibrate(
+            VibrationEffect.createWaveform(longArrayOf(0, 200, 100, 200), -1)
+        )
     }
 
     private fun startBatchSaving() {
@@ -202,7 +239,6 @@ class CourseAttemptTrackingViewModel @Inject constructor(
         val distance = distanceKm
 
         viewModelScope.launch {
-            // Drain in-memory → Room then flush all Room points
             pendingPointQueue.add(runningRecordId, manager.consumePoints())
             repeat(3) {
                 val batch = pendingPointQueue.dequeue(runningRecordId, 50)
@@ -263,6 +299,8 @@ class CourseAttemptTrackingViewModel @Inject constructor(
     private fun stopServiceAndJobs() {
         stateObserveJob?.cancel()
         batchJob?.cancel()
+        milestoneCollectJob?.cancel()
+        milestoneDisplayJob?.cancel()
         manager.stop()
         context.startService(
             Intent(context, RunTrackingService::class.java).apply {

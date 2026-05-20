@@ -34,6 +34,7 @@ import com.runway.android.core.util.formatRunDateFull
 import com.runway.android.core.util.formatTime
 import com.runway.android.ui.components.RouteMapView
 import com.runway.android.ui.components.RunDetailMetricGrid
+import com.runway.android.ui.components.RunSplitsCard
 
 @Composable
 fun RunDetailScreen(
@@ -153,6 +154,11 @@ fun RunDetailScreen(
                                 .height(220.dp)
                                 .clip(MaterialTheme.shapes.extraLarge),
                         )
+                    }
+
+                    // ─── 1km 구간 기록 ───
+                    item {
+                        RunSplitsCard(splits = viewModel.splits)
                     }
                 }
             }

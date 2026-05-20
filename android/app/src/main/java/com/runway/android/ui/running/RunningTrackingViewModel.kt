@@ -2,6 +2,10 @@ package com.runway.android.ui.running
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -10,6 +14,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.runway.android.core.location.GpsStatus
 import com.runway.android.core.result.NetworkResult
+import com.runway.android.core.tracking.PauseReason
 import com.runway.android.core.tracking.PendingPointQueue
 import com.runway.android.core.tracking.RunTrackingAction
 import com.runway.android.core.tracking.RunTrackingManager
@@ -40,7 +45,7 @@ data class RunResult(
     val distanceKm: Float,
 )
 
-enum class RunningState { RUNNING, PAUSED }
+enum class RunningState { RUNNING, PAUSED, AUTO_PAUSED }
 
 @HiltViewModel
 class RunningTrackingViewModel @Inject constructor(
@@ -65,6 +70,8 @@ class RunningTrackingViewModel @Inject constructor(
     var isFinishing by mutableStateOf(false)
         private set
     var finishError by mutableStateOf<String?>(null)
+        private set
+    var milestoneMessage by mutableStateOf<String?>(null)
         private set
 
     private var lastSpeedMps by mutableStateOf<Float?>(null)
@@ -103,6 +110,8 @@ class RunningTrackingViewModel @Inject constructor(
 
     private var stateObserveJob: Job? = null
     private var batchJob: Job? = null
+    private var milestoneCollectJob: Job? = null
+    private var milestoneDisplayJob: Job? = null
 
     init {
         startRun()
@@ -129,9 +138,39 @@ class RunningTrackingViewModel @Inject constructor(
                 elapsedSeconds = state.elapsedSeconds
                 distanceKm = state.distanceMeters / 1000.0
                 lastSpeedMps = state.currentSpeedMps
-                runningState = if (state.isPaused) RunningState.PAUSED else RunningState.RUNNING
+                runningState = when {
+                    state.isAutoPaused -> RunningState.AUTO_PAUSED
+                    state.isPaused -> RunningState.PAUSED
+                    else -> RunningState.RUNNING
+                }
             }
         }
+
+        milestoneCollectJob = viewModelScope.launch {
+            manager.milestoneFlow.collect { km -> triggerMilestone(km) }
+        }
+    }
+
+    private fun triggerMilestone(km: Int) {
+        vibrate()
+        milestoneDisplayJob?.cancel()
+        milestoneMessage = "${km}km 완료 · 현재 페이스 $paceText /km"
+        milestoneDisplayJob = viewModelScope.launch {
+            delay(4_000)
+            milestoneMessage = null
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun vibrate() {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+        } else {
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+        vibrator.vibrate(
+            VibrationEffect.createWaveform(longArrayOf(0, 200, 100, 200), -1)
+        )
     }
 
     private fun startRun() {
@@ -204,11 +243,14 @@ class RunningTrackingViewModel @Inject constructor(
     }
 
     fun resume() {
+        val wasAutoPaused = manager.state.value.isAutoPaused
         manager.resume()
-        val rid = runId ?: return
-        viewModelScope.launch {
-            if (runningRepository.resumeRun(rid) !is NetworkResult.Success) {
-                manager.pause()
+        if (!wasAutoPaused) {
+            val rid = runId ?: return
+            viewModelScope.launch {
+                if (runningRepository.resumeRun(rid) !is NetworkResult.Success) {
+                    manager.pause()
+                }
             }
         }
     }
@@ -224,7 +266,6 @@ class RunningTrackingViewModel @Inject constructor(
 
         viewModelScope.launch {
             if (currentRunId != null) {
-                // Drain in-memory → Room then flush all Room points
                 pendingPointQueue.add(currentRunId, manager.consumePoints())
                 repeat(3) {
                     val batch = pendingPointQueue.dequeue(currentRunId, 50)
@@ -275,6 +316,8 @@ class RunningTrackingViewModel @Inject constructor(
     private fun stopServiceAndJobs() {
         stateObserveJob?.cancel()
         batchJob?.cancel()
+        milestoneCollectJob?.cancel()
+        milestoneDisplayJob?.cancel()
         manager.stop()
         context.startService(
             Intent(context, RunTrackingService::class.java).apply {
