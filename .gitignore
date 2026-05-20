@@ -50,5 +50,5 @@ docker-data/
 !**/gradle/wrapper/gradle-wrapper.jar
 !**/gradle/wrapper/gradle-wrapper.properties
 
-# ─── Do NOT ignore (docs must be committed) ──────────────
-!docs/*.md
+# ─── Docs (로컬 전용, 커밋 제외) ─────────────────────────
+docs/
