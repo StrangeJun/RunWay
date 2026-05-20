@@ -5,10 +5,12 @@ import android.net.Uri
 object RunwayRoutes {
     const val LOGIN = "login"
     const val SIGNUP = "signup"
+    const val ONBOARDING = "onboarding"
     const val MAIN = "main"
     const val RUNNING = "running"
     const val RUN_RESULT = "run_result"
     const val MY_RUNS = "my_runs"
+    const val MY_COURSES = "my_courses"
     const val RUN_DETAIL = "run_detail/{runId}"
     const val COURSE_DETAIL = "course_detail/{courseId}"
     const val COURSE_ATTEMPT = "course_attempt/{courseId}/{courseAttemptId}/{runningRecordId}"

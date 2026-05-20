@@ -20,7 +20,9 @@ import com.runway.android.ui.attempt.CourseAttemptTrackingScreen
 import com.runway.android.ui.auth.login.LoginScreen
 import com.runway.android.ui.auth.signup.SignupScreen
 import com.runway.android.ui.course.detail.CourseDetailScreen
+import com.runway.android.ui.course.my.MyCoursesScreen
 import com.runway.android.ui.leaderboard.CourseLeaderboardScreen
+import com.runway.android.ui.onboarding.OnboardingScreen
 import com.runway.android.ui.running.RunResultScreen
 import com.runway.android.ui.running.RunningTrackingScreen
 import com.runway.android.ui.running.history.MyRunsScreen
@@ -30,8 +32,9 @@ import com.runway.android.ui.running.history.RunDetailScreen
 fun RunwayNavGraph() {
     val mainViewModel: MainViewModel = hiltViewModel()
     val isLoggedIn by mainViewModel.isLoggedIn.collectAsState()
+    val isOnboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
 
-    if (isLoggedIn == null) {
+    if (isLoggedIn == null || isOnboardingCompleted == null) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -40,10 +43,13 @@ fun RunwayNavGraph() {
         return
     }
 
-    val startDestination = if (isLoggedIn == true) RunwayRoutes.MAIN else RunwayRoutes.LOGIN
+    val startDestination = when {
+        isLoggedIn == false -> RunwayRoutes.LOGIN
+        isOnboardingCompleted == false -> RunwayRoutes.ONBOARDING
+        else -> RunwayRoutes.MAIN
+    }
     val navController = rememberNavController()
 
-    // Refresh Token 만료 시 로그인 화면으로 리다이렉트
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn == false) {
             val currentRoute = navController.currentDestination?.route
@@ -68,7 +74,9 @@ fun RunwayNavGraph() {
             LoginScreen(
                 onNavigateToSignup = { navController.navigate(RunwayRoutes.SIGNUP) },
                 onLoginSuccess = {
-                    navController.navigate(RunwayRoutes.MAIN) {
+                    val dest = if (mainViewModel.isOnboardingCompleted.value == false)
+                        RunwayRoutes.ONBOARDING else RunwayRoutes.MAIN
+                    navController.navigate(dest) {
                         popUpTo(0) { inclusive = true }
                     }
                 },
@@ -81,6 +89,18 @@ fun RunwayNavGraph() {
                 onSignupSuccess = {
                     navController.navigate(RunwayRoutes.LOGIN) {
                         popUpTo(RunwayRoutes.SIGNUP) { inclusive = true }
+                    }
+                },
+            )
+        }
+
+        // ─── Onboarding ───
+
+        composable(RunwayRoutes.ONBOARDING) {
+            OnboardingScreen(
+                onComplete = {
+                    navController.navigate(RunwayRoutes.MAIN) {
+                        popUpTo(0) { inclusive = true }
                     }
                 },
             )
@@ -100,6 +120,7 @@ fun RunwayNavGraph() {
                     navController.navigate(RunwayRoutes.courseDetail(courseId))
                 },
                 onNavigateToMyRuns = { navController.navigate(RunwayRoutes.MY_RUNS) },
+                onNavigateToCourses = { navController.navigate(RunwayRoutes.MY_COURSES) },
             )
         }
 
@@ -190,6 +211,17 @@ fun RunwayNavGraph() {
             arguments = listOf(navArgument("runId") { type = NavType.StringType }),
         ) {
             RunDetailScreen(onBack = { navController.popBackStack() })
+        }
+
+        // ─── 내 코스 목록 (BottomNav 없음) ───
+
+        composable(RunwayRoutes.MY_COURSES) {
+            MyCoursesScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToCourseDetail = { courseId ->
+                    navController.navigate(RunwayRoutes.courseDetail(courseId))
+                },
+            )
         }
 
         // ─── 코스 리더보드 (BottomNav 없음) ───

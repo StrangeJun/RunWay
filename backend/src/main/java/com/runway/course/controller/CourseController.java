@@ -4,6 +4,7 @@ import com.runway.common.response.ApiResponse;
 import com.runway.common.response.PageResponse;
 import com.runway.common.security.UserPrincipal;
 import com.runway.course.dto.*;
+import com.runway.course.service.CourseReportService;
 import com.runway.course.service.CourseService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -23,6 +24,7 @@ import java.util.UUID;
 public class CourseController {
 
     private final CourseService courseService;
+    private final CourseReportService courseReportService;
 
     @Operation(summary = "러닝 기록 기반 코스 생성", security = @SecurityRequirement(name = "bearerAuth"))
     @PostMapping("/from-run/{runId}")
@@ -115,5 +117,16 @@ public class CourseController {
         CourseStatusResponse data = courseService.archiveCourse(
                 principal.getUserId(), courseId);
         return ResponseEntity.ok(ApiResponse.success("코스가 보관 처리되었습니다.", data));
+    }
+
+    @Operation(summary = "코스 신고", security = @SecurityRequirement(name = "bearerAuth"))
+    @PostMapping("/{courseId}/reports")
+    public ResponseEntity<ApiResponse<CourseReportResponse>> reportCourse(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID courseId,
+            @Valid @RequestBody CourseReportRequest request) {
+        CourseReportResponse data = courseReportService.reportCourse(
+                principal.getUserId(), courseId, request);
+        return ResponseEntity.ok(ApiResponse.success("신고가 접수되었습니다.", data));
     }
 }

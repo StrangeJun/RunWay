@@ -18,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
@@ -71,6 +72,32 @@ fun CourseDetailScreen(
         )
     }
 
+    // 신고 성공 다이얼로그
+    if (viewModel.reportSuccess) {
+        AlertDialog(
+            onDismissRequest = viewModel::clearReportSuccess,
+            title = { Text("신고 접수 완료") },
+            text = { Text("신고가 접수되었습니다. 검토 후 조치하겠습니다.") },
+            confirmButton = {
+                TextButton(onClick = viewModel::clearReportSuccess) { Text("확인") }
+            },
+        )
+    }
+
+    // 신고 다이얼로그
+    if (viewModel.showReportDialog) {
+        ReportCourseDialog(
+            selectedReason = viewModel.reportReason,
+            onReasonChange = viewModel::onReportReasonChange,
+            description = viewModel.reportDescription,
+            onDescriptionChange = viewModel::onReportDescriptionChange,
+            isSubmitting = viewModel.isSubmittingReport,
+            errorMessage = viewModel.reportError,
+            onConfirm = viewModel::submitReport,
+            onDismiss = viewModel::dismissReportDialog,
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -88,6 +115,15 @@ fun CourseDetailScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "뒤로 가기",
                             tint = MaterialTheme.colorScheme.onBackground,
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = viewModel::openReportDialog) {
+                        Icon(
+                            imageVector = Icons.Filled.Flag,
+                            contentDescription = "신고",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 },
