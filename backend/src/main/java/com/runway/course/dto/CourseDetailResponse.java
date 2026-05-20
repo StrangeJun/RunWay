@@ -42,7 +42,14 @@ public class CourseDetailResponse {
         }
     }
 
-    public static CourseDetailResponse from(Course course, User creator) {
+    public static CourseDetailResponse from(Course course, User creator, boolean isOwner) {
+        GeoPoint startPoint = isOwner
+                ? new GeoPoint(course.getStartLocation().getY(), course.getStartLocation().getX())
+                : null;
+        GeoPoint endPoint = isOwner
+                ? new GeoPoint(course.getEndLocation().getY(), course.getEndLocation().getX())
+                : null;
+
         return CourseDetailResponse.builder()
                 .courseId(course.getId())
                 .name(course.getName())
@@ -53,12 +60,8 @@ public class CourseDetailResponse {
                 .attemptCount(course.getAttemptCount())
                 .completionCount(course.getCompletionCount())
                 .creator(CreatorDto.from(creator))
-                .startPoint(new GeoPoint(
-                        course.getStartLocation().getY(),
-                        course.getStartLocation().getX()))
-                .endPoint(new GeoPoint(
-                        course.getEndLocation().getY(),
-                        course.getEndLocation().getX()))
+                .startPoint(startPoint)
+                .endPoint(endPoint)
                 .createdAt(course.getCreatedAt())
                 .updatedAt(course.getUpdatedAt())
                 .build();

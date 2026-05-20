@@ -30,6 +30,11 @@ public class RunningService {
 
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
 
+    // Stale-record policy (Phase 2): running_records with status IN_PROGRESS or PAUSED
+    // older than 24 hours should be auto-abandoned by a scheduled task. This prevents
+    // orphaned records from client crashes or network loss. Implement in Phase 2 with
+    // @Scheduled(cron = "0 0 3 * * *") and batch UPDATE ... WHERE started_at < now() - interval '24 hours'.
+
     private final RunningRecordRepository runningRecordRepository;
     private final RunningPointRepository runningPointRepository;
 
@@ -101,6 +106,16 @@ public class RunningService {
 
         if (!request.getEndedAt().isAfter(record.getStartedAt())) {
             throw new RunwayException(ErrorCode.INVALID_REQUEST, "종료 시각은 시작 시각 이후여야 합니다.");
+        }
+
+        // 12 m/s (43.2 km/h) 초과는 인간 러닝으로 물리적으로 불가능한 속도
+        if (request.getDistanceMeters() != null && request.getDurationSeconds() != null) {
+            boolean zeroTime = request.getDurationSeconds() == 0;
+            boolean hasDistance = request.getDistanceMeters() > 0;
+            boolean tooFast = !zeroTime && (request.getDistanceMeters() / request.getDurationSeconds() > 12.0);
+            if ((zeroTime && hasDistance) || tooFast) {
+                throw new RunwayException(ErrorCode.IMPOSSIBLE_SPEED);
+            }
         }
 
         // running_points로 LineString 생성 — 2개 이상 포인트가 있어야 함
