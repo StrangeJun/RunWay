@@ -10,6 +10,7 @@ import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.attempt.model.StartAttemptRequest
 import com.runway.android.data.course.model.CourseDetailResponse
 import com.runway.android.data.course.model.CoursePointResponse
+import com.runway.android.data.course.model.CourseRatingRequest
 import com.runway.android.data.course.model.CourseReportRequest
 import com.runway.android.domain.attempt.CourseAttemptRepository
 import com.runway.android.domain.course.CourseRepository
@@ -61,6 +62,19 @@ class CourseDetailViewModel @Inject constructor(
     var reportError by mutableStateOf<String?>(null)
         private set
     var reportSuccess by mutableStateOf(false)
+        private set
+
+    var showRateDialog by mutableStateOf(false)
+        private set
+    var ratingValue by mutableStateOf(0)
+        private set
+    var ratingComment by mutableStateOf("")
+        private set
+    var isSubmittingRating by mutableStateOf(false)
+        private set
+    var ratingError by mutableStateOf<String?>(null)
+        private set
+    var ratingSuccess by mutableStateOf(false)
         private set
 
     private val _navigateToAttempt = MutableSharedFlow<AttemptStartedEvent>()
@@ -125,6 +139,56 @@ class CourseDetailViewModel @Inject constructor(
                 is NetworkResult.NetworkError -> reportError = "네트워크 연결을 확인해 주세요."
             }
             isSubmittingReport = false
+        }
+    }
+
+    fun openRateDialog() {
+        ratingValue = 0
+        ratingComment = ""
+        ratingError = null
+        showRateDialog = true
+    }
+
+    fun dismissRateDialog() {
+        if (!isSubmittingRating) showRateDialog = false
+    }
+
+    fun onRatingValueChange(value: Int) {
+        ratingValue = value
+        ratingError = null
+    }
+
+    fun onRatingCommentChange(value: String) {
+        ratingComment = value
+    }
+
+    fun clearRatingSuccess() {
+        ratingSuccess = false
+    }
+
+    fun submitRating() {
+        if (isSubmittingRating || ratingValue == 0) return
+        isSubmittingRating = true
+        ratingError = null
+
+        viewModelScope.launch {
+            when (val result = courseRepository.rateCourse(
+                courseId = courseId,
+                request = CourseRatingRequest(
+                    rating = ratingValue,
+                    comment = ratingComment.trim().ifBlank { null },
+                ),
+            )) {
+                is NetworkResult.Success -> {
+                    ratingSuccess = true
+                    showRateDialog = false
+                    // 평균 평점 반영을 위해 상세 정보 새로고침
+                    load()
+                }
+                is NetworkResult.ApiError -> ratingError = result.message
+                is NetworkResult.NetworkError -> ratingError = "네트워크 연결을 확인해 주세요."
+            }
+            isSubmittingRating = false
         }
     }
 

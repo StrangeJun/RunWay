@@ -4,6 +4,8 @@ import com.runway.android.core.model.PageResponse
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.course.model.CourseDetailResponse
 import com.runway.android.data.course.model.CoursePointsResponse
+import com.runway.android.data.course.model.CourseRatingRequest
+import com.runway.android.data.course.model.CourseRatingResponse
 import com.runway.android.data.course.model.CourseReportRequest
 import com.runway.android.data.course.model.CourseReportResponse
 import com.runway.android.data.course.model.CourseResponse
@@ -40,4 +42,6 @@ interface CourseRepository {
     suspend fun getCoursePoints(courseId: String): NetworkResult<CoursePointsResponse>
 
     suspend fun reportCourse(courseId: String, request: CourseReportRequest): NetworkResult<CourseReportResponse>
+
+    suspend fun rateCourse(courseId: String, request: CourseRatingRequest): NetworkResult<CourseRatingResponse>
 }

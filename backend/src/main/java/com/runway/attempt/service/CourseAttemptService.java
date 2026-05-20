@@ -98,13 +98,21 @@ public class CourseAttemptService {
 
         Instant endedAt = request.getEndedAt() != null ? request.getEndedAt() : Instant.now();
 
-        // running_record 완료 처리
+        if (!endedAt.isAfter(attempt.getStartedAt())) {
+            throw new RunwayException(ErrorCode.INVALID_REQUEST, "종료 시각은 시작 시각 이후여야 합니다.");
+        }
+
+        // 코스 조회 (검증에도 필요하므로 먼저 fetch)
+        Course course = courseRepository.findByIdAndDeletedAtIsNull(attempt.getCourseId())
+                .orElseThrow(() -> new RunwayException(ErrorCode.COURSE_NOT_FOUND));
+
+        // running_record 완료 처리 + 경로 수집
+        List<RunningPoint> points = List.of();
         if (attempt.getRunningRecordId() != null) {
             RunningRecord record = runningRecordRepository.findById(attempt.getRunningRecordId())
                     .orElseThrow(() -> new RunwayException(ErrorCode.RUN_NOT_FOUND));
 
-            // running_points 로 LineString 경로 생성
-            List<RunningPoint> points = runningPointRepository
+            points = runningPointRepository
                     .findByRunningRecordIdOrderBySequenceAsc(attempt.getRunningRecordId());
             if (points.size() >= 2) {
                 Coordinate[] coords = points.stream()
@@ -119,12 +127,48 @@ public class CourseAttemptService {
                     request.getAvgHeartRateBpm());
         }
 
-        // course_attempt 완료 처리 (Phase 1: verification_status = verified 자동 설정)
-        attempt.complete(endedAt, request.getDurationSeconds(), request.getDistanceMeters());
+        // ─── 기록 무결성 검증 ───
+        com.runway.attempt.domain.enums.AttemptVerificationStatus verificationStatus =
+                com.runway.attempt.domain.enums.AttemptVerificationStatus.VERIFIED;
+
+        // GPS 포인트 < 2개 → 경로 재구성 불가, 검증 보류
+        if (points.size() < 2) {
+            verificationStatus = com.runway.attempt.domain.enums.AttemptVerificationStatus.PENDING;
+            log.info("Attempt marked unverified: insufficient GPS points. count={} attemptId={}",
+                    points.size(), attemptId);
+        }
+
+        // 코스 거리 대비 70% 미만 → PENDING
+        if (verificationStatus == com.runway.attempt.domain.enums.AttemptVerificationStatus.VERIFIED
+                && course.getDistanceMeters() > 0
+                && request.getDistanceMeters() < course.getDistanceMeters() * 0.7) {
+            verificationStatus = com.runway.attempt.domain.enums.AttemptVerificationStatus.PENDING;
+            log.info("Attempt marked unverified (distance coverage): attempted={}m course={}m attemptId={}",
+                    request.getDistanceMeters(), course.getDistanceMeters(), attemptId);
+        }
+
+        // 시작/종료 지점 500m 이상 이탈 → PENDING
+        if (verificationStatus == com.runway.attempt.domain.enums.AttemptVerificationStatus.VERIFIED
+                && !points.isEmpty()) {
+            RunningPoint firstPt = points.get(0);
+            RunningPoint lastPt = points.get(points.size() - 1);
+            double startDist = haversineMeters(
+                    course.getStartLocation().getY(), course.getStartLocation().getX(),
+                    firstPt.getLocation().getY(), firstPt.getLocation().getX());
+            double endDist = haversineMeters(
+                    course.getEndLocation().getY(), course.getEndLocation().getX(),
+                    lastPt.getLocation().getY(), lastPt.getLocation().getX());
+            if (startDist > 500 || endDist > 500) {
+                verificationStatus = com.runway.attempt.domain.enums.AttemptVerificationStatus.PENDING;
+                log.info("Attempt marked unverified (proximity): startDist={}m endDist={}m attemptId={}",
+                        startDist, endDist, attemptId);
+            }
+        }
+
+        // course_attempt 완료 처리
+        attempt.complete(endedAt, request.getDurationSeconds(), request.getDistanceMeters(), verificationStatus);
 
         // courses.completion_count 증가 (동일 트랜잭션)
-        Course course = courseRepository.findByIdAndDeletedAtIsNull(attempt.getCourseId())
-                .orElseThrow(() -> new RunwayException(ErrorCode.COURSE_NOT_FOUND));
         course.incrementCompletionCount();
 
         log.info("Attempt finished: attemptId={} courseId={} durationSeconds={}",
@@ -236,6 +280,16 @@ public class CourseAttemptService {
     }
 
     // --- private helpers ---
+
+    private static double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
+        final double R = 6_371_000.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                 + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                 * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
 
     private jakarta.persistence.Query buildQuery(String sql, List<Object> params) {
         jakarta.persistence.Query query = entityManager.createNativeQuery(sql);

@@ -38,7 +38,8 @@ object NetworkModule {
 
     private fun buildLoggingInterceptor(): HttpLoggingInterceptor =
         HttpLoggingInterceptor().apply {
-            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+            // HEADERS: URL·상태코드·헤더만 기록. BODY는 JWT 응답 페이로드 전체가 로그에 노출됨.
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.HEADERS
             else HttpLoggingInterceptor.Level.NONE
         }
 

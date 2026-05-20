@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -81,6 +82,32 @@ fun CourseDetailScreen(
             confirmButton = {
                 TextButton(onClick = viewModel::clearReportSuccess) { Text("확인") }
             },
+        )
+    }
+
+    // 평가 성공 다이얼로그
+    if (viewModel.ratingSuccess) {
+        AlertDialog(
+            onDismissRequest = viewModel::clearRatingSuccess,
+            title = { Text("평가 완료") },
+            text = { Text("평가해 주셔서 감사합니다.") },
+            confirmButton = {
+                TextButton(onClick = viewModel::clearRatingSuccess) { Text("확인") }
+            },
+        )
+    }
+
+    // 평가 다이얼로그
+    if (viewModel.showRateDialog) {
+        RateCourseDialog(
+            selectedRating = viewModel.ratingValue,
+            onRatingChange = viewModel::onRatingValueChange,
+            comment = viewModel.ratingComment,
+            onCommentChange = viewModel::onRatingCommentChange,
+            isSubmitting = viewModel.isSubmittingRating,
+            errorMessage = viewModel.ratingError,
+            onConfirm = viewModel::submitRating,
+            onDismiss = viewModel::dismissRateDialog,
         )
     }
 
@@ -293,6 +320,59 @@ private fun CourseDetailContent(
                 StatItem(label = "거리", value = formatDistance(course.distanceMeters))
                 StatItem(label = "도전", value = "${course.attemptCount}회")
                 StatItem(label = "완주", value = "${course.completionCount}회")
+            }
+
+            // ─── 평점 행 ───
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Star,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    if (course.avgRating != null && (course.ratingCount ?: 0L) > 0) {
+                        Text(
+                            text = "%.1f".format(course.avgRating),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                        Text(
+                            text = " (${course.ratingCount}개)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Text(
+                            text = "아직 평가 없음",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                androidx.compose.material3.Surface(
+                    onClick = viewModel::openRateDialog,
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.surface,
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp, MaterialTheme.colorScheme.outline
+                    ),
+                ) {
+                    Text(
+                        text = "평가하기",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
             }
 
             // ─── 설명 ───

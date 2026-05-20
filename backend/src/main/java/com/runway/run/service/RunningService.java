@@ -61,21 +61,15 @@ public class RunningService {
             throw new RunwayException(ErrorCode.INVALID_RUN_STATUS);
         }
 
-        List<RunningPoint> points = request.getPoints().stream()
-                .map(p -> RunningPoint.builder()
-                        .runningRecordId(runId)
-                        .sequence(p.getSequence())
-                        // JTS Coordinate: x = longitude, y = latitude
-                        .location(GEOMETRY_FACTORY.createPoint(new Coordinate(p.getLongitude(), p.getLatitude())))
-                        .altitudeMeters(p.getAltitudeMeters())
-                        .speedMps(p.getSpeedMps())
-                        .recordedAt(p.getRecordedAt())
-                        .build())
-                .toList();
-
-        runningPointRepository.saveAll(points);
-        log.info("Points saved: runId={} count={}", runId, points.size());
-        return new SavePointsResponse(runId, points.size());
+        int count = request.getPoints().size();
+        for (SavePointsRequest.PointData p : request.getPoints()) {
+            runningPointRepository.insertIgnoreConflict(
+                    runId, p.getSequence(), p.getLatitude(), p.getLongitude(),
+                    p.getAltitudeMeters(), p.getSpeedMps(), p.getRecordedAt()
+            );
+        }
+        log.info("Points saved (upsert): runId={} count={}", runId, count);
+        return new SavePointsResponse(runId, count);
     }
 
     @Transactional

@@ -41,29 +41,44 @@ class TokenAuthenticator @Inject constructor(
             return null
         }
 
-        val refreshToken = tokenDataStore.getRefreshTokenBlocking() ?: run {
-            runBlocking { tokenDataStore.clearTokens() }
-            return null
-        }
+        // synchronized: 동시 401 응답이 여러 스레드에서 동시에 진입하면
+        // 첫 번째 스레드만 reissue를 실행하고, 이후 스레드는 이미 갱신된 토큰을 재사용한다.
+        synchronized(this) {
+            val requestToken = response.request.header("Authorization")
+                ?.removePrefix("Bearer ")?.trim()
+            val currentToken = tokenDataStore.getAccessTokenBlocking()
 
-        val newTokens = runBlocking {
-            runCatching {
-                authApi.reissue(ReissueRequest(refreshToken)).data
-            }.getOrNull()
-        }
+            // 다른 스레드가 이미 토큰을 갱신한 경우 — 새 토큰으로 즉시 재시도
+            if (currentToken != null && currentToken != requestToken) {
+                return response.request.newBuilder()
+                    .header("Authorization", "Bearer $currentToken")
+                    .build()
+            }
 
-        if (newTokens == null) {
-            runBlocking { tokenDataStore.clearTokens() }
-            return null
-        }
+            val refreshToken = tokenDataStore.getRefreshTokenBlocking() ?: run {
+                runBlocking { tokenDataStore.clearTokens() }
+                return null
+            }
 
-        runBlocking {
-            tokenDataStore.saveTokens(newTokens.accessToken, newTokens.refreshToken)
-        }
+            val newTokens = runBlocking {
+                runCatching {
+                    authApi.reissue(ReissueRequest(refreshToken)).data
+                }.getOrNull()
+            }
 
-        return response.request.newBuilder()
-            .header("Authorization", "Bearer ${newTokens.accessToken}")
-            .build()
+            if (newTokens == null) {
+                runBlocking { tokenDataStore.clearTokens() }
+                return null
+            }
+
+            runBlocking {
+                tokenDataStore.saveTokens(newTokens.accessToken, newTokens.refreshToken)
+            }
+
+            return response.request.newBuilder()
+                .header("Authorization", "Bearer ${newTokens.accessToken}")
+                .build()
+        }
     }
 
     // 같은 URL에 대한 연속 재시도 횟수 계산 (OkHttp 내부 패턴)

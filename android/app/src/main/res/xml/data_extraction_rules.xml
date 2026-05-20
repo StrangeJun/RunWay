@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <!-- JWT 토큰이 저장된 DataStore를 클라우드 백업 및 기기 이전에서 제외한다 (API 31+) -->
+    <cloud-backup>
+        <exclude domain="file" path="datastore/runway_auth.preferences_pb"/>
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="datastore/runway_auth.preferences_pb"/>
+    </device-transfer>
+</data-extraction-rules>

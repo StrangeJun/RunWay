@@ -18,6 +18,7 @@ import androidx.navigation.navArgument
 import com.runway.android.ui.MainViewModel
 import com.runway.android.ui.attempt.CourseAttemptTrackingScreen
 import com.runway.android.ui.auth.login.LoginScreen
+import com.runway.android.ui.share.RunShareImageScreen
 import com.runway.android.ui.auth.signup.SignupScreen
 import com.runway.android.ui.course.detail.CourseDetailScreen
 import com.runway.android.ui.course.my.MyCoursesScreen
@@ -154,6 +155,9 @@ fun RunwayNavGraph() {
                 onBackToHome = {
                     navController.popBackStack(RunwayRoutes.MAIN, inclusive = false)
                 },
+                onShareImage = { runId ->
+                    navController.navigate(RunwayRoutes.runShare(runId))
+                },
             )
         }
 
@@ -213,7 +217,12 @@ fun RunwayNavGraph() {
             route = RunwayRoutes.RUN_DETAIL,
             arguments = listOf(navArgument("runId") { type = NavType.StringType }),
         ) {
-            RunDetailScreen(onBack = { navController.popBackStack() })
+            RunDetailScreen(
+                onBack = { navController.popBackStack() },
+                onShareImage = { runId ->
+                    navController.navigate(RunwayRoutes.runShare(runId))
+                },
+            )
         }
 
         // ─── 내 코스 목록 (BottomNav 없음) ───
@@ -234,6 +243,17 @@ fun RunwayNavGraph() {
             arguments = listOf(navArgument("courseId") { type = NavType.StringType }),
         ) {
             CourseLeaderboardScreen(
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        // ─── 공유 이미지 생성 (BottomNav 없음) ───
+
+        composable(
+            route = RunwayRoutes.RUN_SHARE,
+            arguments = listOf(navArgument("runId") { type = NavType.StringType }),
+        ) {
+            RunShareImageScreen(
                 onBack = { navController.popBackStack() },
             )
         }

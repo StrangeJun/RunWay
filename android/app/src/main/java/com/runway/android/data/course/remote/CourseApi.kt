@@ -4,6 +4,8 @@ import com.runway.android.core.model.ApiResponse
 import com.runway.android.core.model.PageResponse
 import com.runway.android.data.course.model.CourseDetailResponse
 import com.runway.android.data.course.model.CoursePointsResponse
+import com.runway.android.data.course.model.CourseRatingRequest
+import com.runway.android.data.course.model.CourseRatingResponse
 import com.runway.android.data.course.model.CourseReportRequest
 import com.runway.android.data.course.model.CourseReportResponse
 import com.runway.android.data.course.model.CourseResponse
@@ -58,4 +60,10 @@ interface CourseApi {
         @Path("courseId") courseId: String,
         @Body request: CourseReportRequest,
     ): ApiResponse<CourseReportResponse>
+
+    @POST("api/courses/{courseId}/ratings")
+    suspend fun rateCourse(
+        @Path("courseId") courseId: String,
+        @Body request: CourseRatingRequest,
+    ): ApiResponse<CourseRatingResponse>
 }

@@ -240,14 +240,20 @@ class CourseAttemptTrackingViewModel @Inject constructor(
 
         viewModelScope.launch {
             pendingPointQueue.add(runningRecordId, manager.consumePoints())
-            repeat(3) {
+            // 큐가 빌 때까지 업로드. 연속 실패 10회 시 중단 (서버/네트워크 문제).
+            var failures = 0
+            while (failures < 10) {
                 val batch = pendingPointQueue.dequeue(runningRecordId, 50)
-                if (batch.isNotEmpty()) {
-                    val r = runningRepository.savePoints(
-                        runningRecordId,
-                        SavePointsRequest(batch.map { it.toRunPointRequest() }),
-                    )
-                    if (r is NetworkResult.Success) pendingPointQueue.deleteByIds(batch.map { it.id })
+                if (batch.isEmpty()) break
+                val r = runningRepository.savePoints(
+                    runningRecordId,
+                    SavePointsRequest(batch.map { it.toRunPointRequest() }),
+                )
+                if (r is NetworkResult.Success) {
+                    pendingPointQueue.deleteByIds(batch.map { it.id })
+                    failures = 0
+                } else {
+                    failures++
                 }
             }
 
