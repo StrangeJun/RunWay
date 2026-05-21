@@ -17,6 +17,7 @@ import com.runway.android.ui.auth.login.LoginScreen
 import com.runway.android.ui.share.RunShareImageScreen
 import com.runway.android.ui.auth.signup.SignupScreen
 import com.runway.android.ui.course.detail.CourseDetailScreen
+import com.runway.android.ui.course.detail.CourseMapDetailScreen
 import com.runway.android.ui.course.my.MyCoursesScreen
 import com.runway.android.ui.leaderboard.CourseLeaderboardScreen
 import com.runway.android.ui.onboarding.OnboardingScreen
@@ -185,6 +186,20 @@ fun RunwayNavGraph() {
                 onNavigateToLeaderboard = { courseId ->
                     navController.navigate(RunwayRoutes.courseLeaderboard(courseId))
                 },
+                onNavigateToMap = { courseId ->
+                    navController.navigate(RunwayRoutes.courseMapDetail(courseId))
+                },
+            )
+        }
+
+        // ─── 코스 전체 지도 (BottomNav 없음) ───
+
+        composable(
+            route = RunwayRoutes.COURSE_MAP_DETAIL,
+            arguments = listOf(navArgument("courseId") { type = NavType.StringType }),
+        ) {
+            CourseMapDetailScreen(
+                onBack = { navController.popBackStack() },
             )
         }
 

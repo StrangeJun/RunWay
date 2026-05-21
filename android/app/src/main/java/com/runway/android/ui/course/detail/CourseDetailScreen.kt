@@ -2,6 +2,7 @@ package com.runway.android.ui.course.detail
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,6 +59,7 @@ fun CourseDetailScreen(
     onBack: () -> Unit,
     onNavigateToAttempt: (courseId: String, courseAttemptId: String, runningRecordId: String) -> Unit,
     onNavigateToLeaderboard: (courseId: String) -> Unit,
+    onNavigateToMap: (courseId: String) -> Unit = {},
     viewModel: CourseDetailViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -207,6 +209,7 @@ fun CourseDetailScreen(
                     CourseDetailContent(
                         viewModel = viewModel,
                         onNavigateToLeaderboard = onNavigateToLeaderboard,
+                        onNavigateToMap = onNavigateToMap,
                     )
             }
         }
@@ -262,6 +265,7 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
 private fun CourseDetailContent(
     viewModel: CourseDetailViewModel,
     onNavigateToLeaderboard: (courseId: String) -> Unit,
+    onNavigateToMap: (courseId: String) -> Unit,
 ) {
     val course = viewModel.courseDetail ?: return
 
@@ -270,14 +274,35 @@ private fun CourseDetailContent(
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
     ) {
-        // ─── Route preview ───
-        RouteMapView(
-            points = viewModel.coursePoints.map { MapPoint(it.latitude, it.longitude) },
+        // ─── Route preview (클릭 → 전체 지도) ───
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(220.dp)
-                .clip(MaterialTheme.shapes.medium),
-        )
+                .clip(MaterialTheme.shapes.medium)
+                .clickable { onNavigateToMap(viewModel.courseId) },
+        ) {
+            RouteMapView(
+                points = viewModel.coursePoints.map { MapPoint(it.latitude, it.longitude) },
+                modifier = Modifier.fillMaxSize(),
+            )
+            // "자세히 보기" badge
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(10.dp),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            ) {
+                Text(
+                    text = "지도 자세히 보기",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                )
+            }
+        }
 
         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
             Spacer(modifier = Modifier.height(20.dp))
