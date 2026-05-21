@@ -11,7 +11,9 @@ import com.runway.android.data.course.model.CourseReportResponse
 import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.data.course.model.CreateCourseFromRunRequest
 import com.runway.android.data.course.model.NearbyCourseItem
+import com.runway.android.data.course.model.ParticipatedCourseItem
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
@@ -66,4 +68,26 @@ interface CourseApi {
         @Path("courseId") courseId: String,
         @Body request: CourseRatingRequest,
     ): ApiResponse<CourseRatingResponse>
+
+    @GET("api/courses/favorites")
+    suspend fun getFavoriteCourses(
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): ApiResponse<PageResponse<CourseResponse>>
+
+    @GET("api/courses/participated")
+    suspend fun getParticipatedCourses(
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): ApiResponse<PageResponse<ParticipatedCourseItem>>
+
+    @POST("api/courses/{courseId}/favorite")
+    suspend fun addFavorite(
+        @Path("courseId") courseId: String,
+    ): ApiResponse<Unit>
+
+    @DELETE("api/courses/{courseId}/favorite")
+    suspend fun removeFavorite(
+        @Path("courseId") courseId: String,
+    ): ApiResponse<Unit>
 }

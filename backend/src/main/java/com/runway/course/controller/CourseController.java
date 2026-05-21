@@ -16,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+import org.springframework.http.HttpStatus;
 
 @Tag(name = "Course", description = "코스 API")
 @RestController
@@ -68,6 +69,28 @@ public class CourseController {
         PageResponse<CourseResponse> data = courseService.getMyCourses(
                 principal.getUserId(), status, page, size);
         return ResponseEntity.ok(ApiResponse.success("내 코스 목록 조회에 성공했습니다.", data));
+    }
+
+    @Operation(summary = "즐겨찾기 코스 목록 조회", security = @SecurityRequirement(name = "bearerAuth"))
+    @GetMapping("/favorites")
+    public ResponseEntity<ApiResponse<PageResponse<CourseResponse>>> getFavoriteCourses(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PageResponse<CourseResponse> data = courseService.getFavoriteCourses(
+                principal.getUserId(), page, size);
+        return ResponseEntity.ok(ApiResponse.success("즐겨찾기 코스 목록 조회에 성공했습니다.", data));
+    }
+
+    @Operation(summary = "참여한 코스 목록 조회", security = @SecurityRequirement(name = "bearerAuth"))
+    @GetMapping("/participated")
+    public ResponseEntity<ApiResponse<PageResponse<ParticipatedCourseItem>>> getParticipatedCourses(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PageResponse<ParticipatedCourseItem> data = courseService.getParticipatedCourses(
+                principal.getUserId(), page, size);
+        return ResponseEntity.ok(ApiResponse.success("참여한 코스 목록 조회에 성공했습니다.", data));
     }
 
     @Operation(summary = "코스 상세 조회", security = @SecurityRequirement(name = "bearerAuth"))
@@ -141,5 +164,24 @@ public class CourseController {
         CourseRatingResponse data = courseRatingService.rateCourse(
                 principal.getUserId(), courseId, request);
         return ResponseEntity.ok(ApiResponse.success("평점이 등록되었습니다.", data));
+    }
+
+    @Operation(summary = "코스 즐겨찾기 추가", security = @SecurityRequirement(name = "bearerAuth"))
+    @PostMapping("/{courseId}/favorite")
+    public ResponseEntity<ApiResponse<Void>> addFavorite(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID courseId) {
+        courseService.addFavorite(principal.getUserId(), courseId);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("즐겨찾기에 추가되었습니다.", null));
+    }
+
+    @Operation(summary = "코스 즐겨찾기 제거", security = @SecurityRequirement(name = "bearerAuth"))
+    @DeleteMapping("/{courseId}/favorite")
+    public ResponseEntity<ApiResponse<Void>> removeFavorite(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID courseId) {
+        courseService.removeFavorite(principal.getUserId(), courseId);
+        return ResponseEntity.ok(ApiResponse.success("즐겨찾기에서 제거되었습니다.", null));
     }
 }

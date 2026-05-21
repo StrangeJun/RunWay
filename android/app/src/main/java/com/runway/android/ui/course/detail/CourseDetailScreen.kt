@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -68,6 +69,18 @@ fun CourseDetailScreen(
         viewModel.navigateToAttempt.collect { event ->
             onNavigateToAttempt(event.courseId, event.courseAttemptId, event.runningRecordId)
         }
+    }
+
+    // 즐겨찾기 에러 다이얼로그
+    if (viewModel.favoriteError != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::clearFavoriteError,
+            title = { Text("즐겨찾기 오류") },
+            text = { Text(viewModel.favoriteError!!) },
+            confirmButton = {
+                TextButton(onClick = viewModel::clearFavoriteError) { Text("확인") }
+            },
+        )
     }
 
     // 도전 시작 실패 다이얼로그
@@ -155,6 +168,17 @@ fun CourseDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = viewModel::toggleFavorite,
+                        enabled = !viewModel.isFavoriteToggling,
+                    ) {
+                        Icon(
+                            imageVector = if (viewModel.isFavorited) Icons.Filled.Star else Icons.Filled.StarBorder,
+                            contentDescription = if (viewModel.isFavorited) "즐겨찾기 해제" else "즐겨찾기 추가",
+                            tint = if (viewModel.isFavorited) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     IconButton(
                         onClick = {
                             val detail = viewModel.courseDetail

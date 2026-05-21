@@ -25,6 +25,7 @@ public class CourseDetailResponse {
     private CreatorDto creator;
     private GeoPoint startPoint;
     private GeoPoint endPoint;
+    private Boolean isFavorited;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -45,7 +46,7 @@ public class CourseDetailResponse {
     }
 
     public static CourseDetailResponse from(Course course, User creator, boolean isOwner,
-                                             Double avgRating, Long ratingCount) {
+                                             Double avgRating, Long ratingCount, boolean isFavorited) {
         GeoPoint startPoint = isOwner
                 ? new GeoPoint(course.getStartLocation().getY(), course.getStartLocation().getX())
                 : null;
@@ -64,6 +65,7 @@ public class CourseDetailResponse {
                 .completionCount(course.getCompletionCount())
                 .avgRating(avgRating)
                 .ratingCount(ratingCount)
+                .isFavorited(isFavorited)
                 .creator(CreatorDto.from(creator))
                 .startPoint(startPoint)
                 .endPoint(endPoint)
