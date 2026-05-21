@@ -30,5 +30,6 @@ interface CourseAttemptRepository {
         courseId: String,
         page: Int = 0,
         size: Int = 50,
+        sortBy: String = "fastest_time",
     ): NetworkResult<LeaderboardResponse>
 }

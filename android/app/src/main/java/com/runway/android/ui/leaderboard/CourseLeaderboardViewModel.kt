@@ -27,6 +27,8 @@ class CourseLeaderboardViewModel @Inject constructor(
         private set
     var leaderboard by mutableStateOf<LeaderboardResponse?>(null)
         private set
+    var sortBy by mutableStateOf("fastest_time")
+        private set
 
     init {
         load()
@@ -34,11 +36,17 @@ class CourseLeaderboardViewModel @Inject constructor(
 
     fun refresh() = load()
 
+    fun updateSortBy(value: String) {
+        if (sortBy == value) return
+        sortBy = value
+        load()
+    }
+
     private fun load() {
         viewModelScope.launch {
             isLoading = true
             errorMessage = null
-            when (val result = courseAttemptRepository.getLeaderboard(courseId)) {
+            when (val result = courseAttemptRepository.getLeaderboard(courseId, sortBy = sortBy)) {
                 is NetworkResult.Success -> leaderboard = result.data
                 is NetworkResult.ApiError -> errorMessage = result.message
                 is NetworkResult.NetworkError -> errorMessage = "네트워크 연결을 확인해 주세요."

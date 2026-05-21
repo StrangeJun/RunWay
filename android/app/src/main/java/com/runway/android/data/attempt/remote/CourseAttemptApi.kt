@@ -39,5 +39,6 @@ interface CourseAttemptApi {
         @Path("courseId") courseId: String,
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 50,
+        @Query("sortBy") sortBy: String = "fastest_time",
     ): ApiResponse<LeaderboardResponse>
 }

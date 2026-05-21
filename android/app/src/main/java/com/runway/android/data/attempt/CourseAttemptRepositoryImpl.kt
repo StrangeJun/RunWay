@@ -41,6 +41,7 @@ class CourseAttemptRepositoryImpl @Inject constructor(
         courseId: String,
         page: Int,
         size: Int,
+        sortBy: String,
     ): NetworkResult<LeaderboardResponse> =
-        safeApiCall { courseAttemptApi.getLeaderboard(courseId, page, size) }
+        safeApiCall { courseAttemptApi.getLeaderboard(courseId, page, size, sortBy) }
 }

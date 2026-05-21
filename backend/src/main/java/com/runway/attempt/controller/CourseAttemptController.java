@@ -63,9 +63,10 @@ public class CourseAttemptController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID courseId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(defaultValue = "fastest_time") String sortBy) {
         LeaderboardResponse data = courseAttemptService.getLeaderboard(
-                principal.getUserId(), courseId, page, size);
+                principal.getUserId(), courseId, page, size, sortBy);
         return ResponseEntity.ok(ApiResponse.success("코스 리더보드 조회가 완료되었습니다.", data));
     }
 

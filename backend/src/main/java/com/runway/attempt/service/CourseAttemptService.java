@@ -204,22 +204,26 @@ public class CourseAttemptService {
     }
 
     @Transactional(readOnly = true)
-    public LeaderboardResponse getLeaderboard(UUID userId, UUID courseId, int page, int size) {
+    public LeaderboardResponse getLeaderboard(UUID userId, UUID courseId, int page, int size, String sortBy) {
         Course course = courseRepository.findByIdAndDeletedAtIsNull(courseId)
                 .orElseThrow(() -> new RunwayException(ErrorCode.COURSE_NOT_FOUND));
         if (!course.isVisibleTo(userId)) {
             throw new RunwayException(ErrorCode.FORBIDDEN);
         }
 
-        // CTE + RANK() OVER 로 유저별 최단 완주 시간 기준 랭킹 계산
-        String dataSql = """
+        boolean byCompletions = "most_completions".equalsIgnoreCase(sortBy);
+        String rankOrder = byCompletions
+                ? "ORDER BY COUNT(*) DESC, MIN(ca.duration_seconds) ASC"
+                : "ORDER BY MIN(ca.duration_seconds) ASC";
+
+        String dataSql = String.format("""
                 WITH ranked AS (
                     SELECT
                         u.id               AS user_id,
                         u.nickname         AS nickname,
                         MIN(ca.duration_seconds) AS best_time_seconds,
                         COUNT(*)           AS completion_count,
-                        RANK() OVER (ORDER BY MIN(ca.duration_seconds) ASC) AS rank
+                        RANK() OVER (%s) AS rank
                     FROM course_attempts ca
                     JOIN users u ON ca.user_id = u.id
                     WHERE ca.course_id = ?
@@ -230,7 +234,7 @@ public class CourseAttemptService {
                 SELECT * FROM ranked
                 ORDER BY rank ASC
                 LIMIT ? OFFSET ?
-                """;
+                """, rankOrder);
 
         String countSql = """
                 SELECT COUNT(DISTINCT ca.user_id)
@@ -239,6 +243,19 @@ public class CourseAttemptService {
                   AND ca.status = 'completed'
                   AND ca.verification_status = 'verified'
                 """;
+
+        String myRankSql = String.format("""
+                SELECT ranked.rank FROM (
+                    SELECT ca.user_id,
+                           RANK() OVER (%s) AS rank
+                    FROM course_attempts ca
+                    WHERE ca.course_id = ?
+                      AND ca.status = 'completed'
+                      AND ca.verification_status = 'verified'
+                    GROUP BY ca.user_id
+                ) ranked
+                WHERE ranked.user_id = ?
+                """, rankOrder);
 
         List<Object> dataParams = new ArrayList<>();
         dataParams.add(courseId);
@@ -252,6 +269,10 @@ public class CourseAttemptService {
         long total = ((Number) buildQuery(countSql, List.of(courseId)).getSingleResult()).longValue();
         int totalPages = size == 0 ? 0 : (int) Math.ceil((double) total / size);
 
+        @SuppressWarnings("unchecked")
+        List<Object> myRankRows = buildQuery(myRankSql, List.of(courseId, userId)).getResultList();
+        Long myRank = myRankRows.isEmpty() ? null : ((Number) myRankRows.get(0)).longValue();
+
         return LeaderboardResponse.builder()
                 .courseId(courseId)
                 .items(items)
@@ -260,6 +281,8 @@ public class CourseAttemptService {
                 .totalElements(total)
                 .totalPages(totalPages)
                 .hasNext(page < totalPages - 1)
+                .sortBy(byCompletions ? "most_completions" : "fastest_time")
+                .myRank(myRank)
                 .build();
     }
 

@@ -23,11 +23,15 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -40,6 +44,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.data.attempt.model.LeaderboardItem
+import com.runway.android.data.attempt.model.LeaderboardResponse
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -131,7 +136,9 @@ fun CourseLeaderboardScreen(
                 }
 
                 viewModel.leaderboard != null -> LeaderboardContent(
-                    items = viewModel.leaderboard!!.items,
+                    leaderboard = viewModel.leaderboard!!,
+                    sortBy = viewModel.sortBy,
+                    onSortChange = viewModel::updateSortBy,
                 )
             }
         }
@@ -139,58 +146,108 @@ fun CourseLeaderboardScreen(
 }
 
 @Composable
-private fun LeaderboardContent(items: List<LeaderboardItem>) {
-    if (items.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    imageVector = Icons.Filled.EmojiEvents,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(48.dp),
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "아직 완주 기록이 없습니다",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "이 코스의 첫 번째 완주자가 되어보세요!",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+private fun LeaderboardContent(
+    leaderboard: LeaderboardResponse,
+    sortBy: String,
+    onSortChange: (String) -> Unit,
+) {
+    val items = leaderboard.items
+    Column {
+        // 정렬 필터 탭
+        val tabs = listOf("fastest_time" to "빠른 시간 순", "most_completions" to "완주 횟수 순")
+        val selectedIndex = tabs.indexOfFirst { it.first == sortBy }.coerceAtLeast(0)
+        TabRow(
+            selectedTabIndex = selectedIndex,
+            containerColor = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.primary,
+        ) {
+            tabs.forEachIndexed { index, (key, label) ->
+                Tab(
+                    selected = selectedIndex == index,
+                    onClick = { onSortChange(key) },
+                    text = { Text(label, style = MaterialTheme.typography.labelMedium) },
                 )
             }
         }
-        return
-    }
 
-    LazyColumn(
-        contentPadding = PaddingValues(bottom = 24.dp),
-    ) {
-        // ─── 시상대 (top 3) ───
-        if (items.size >= 2) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Podium(
-                    items = items.take(3),
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                )
-                Spacer(modifier = Modifier.height(20.dp))
+        // 내 순위 배너
+        leaderboard.myRank?.let { rank ->
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "내 순위",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    Text(
+                        text = "${rank}위",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        }
+
+        if (items.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Filled.EmojiEvents,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(48.dp),
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "아직 완주 기록이 없습니다",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "이 코스의 첫 번째 완주자가 되어보세요!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(bottom = 24.dp),
+            ) {
+                // ─── 시상대 (top 3) ───
+                if (items.size >= 2) {
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Podium(
+                            items = items.take(3),
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                    }
+                }
+
+                // ─── 나머지 순위 ───
+                items(if (items.size >= 2) items.drop(3) else items) { item ->
+                    RankRow(
+                        item = item,
+                        modifier = Modifier
+                            .padding(horizontal = 20.dp)
+                            .padding(bottom = 8.dp),
+                    )
+                }
             }
         }
-
-        // ─── 나머지 순위 ───
-        items(if (items.size >= 2) items.drop(3) else items) { item ->
-            RankRow(
-                item = item,
-                modifier = Modifier
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 8.dp),
-            )
-        }
-    }
+    } // Column 닫기
 }
 
 @Composable
