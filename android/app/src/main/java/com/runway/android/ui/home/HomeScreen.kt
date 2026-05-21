@@ -40,6 +40,7 @@ fun HomeScreen(
 ) {
     LaunchedEffect(Unit) {
         viewModel.tryLoadNearbyCourses()
+        viewModel.tryLoadWeather()
     }
 
     val heroHeight = LocalConfiguration.current.screenHeightDp.dp * 0.79f

@@ -11,6 +11,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import com.runway.android.BuildConfig
@@ -78,23 +80,37 @@ class HomeViewModel @Inject constructor(
         loadNearbyCoursesIfPermitted()
     }
 
+    // Called separately from HomeScreen to trigger weather load independently
+    fun tryLoadWeather() {
+        if (weatherInfo != null) return
+        loadWeatherIfPermitted()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun loadWeatherIfPermitted() {
+        if (!hasLocationPermission()) return
+        viewModelScope.launch {
+            try {
+                val cts = CancellationTokenSource()
+                val location = fusedLocationClient
+                    .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token)
+                    .await() ?: return@launch
+                fetchWeatherData(location.latitude, location.longitude)
+            } catch (_: Exception) { }
+        }
+    }
+
     @SuppressLint("MissingPermission")
     private fun loadNearbyCoursesIfPermitted() {
-        val hasFine = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        val hasCoarse = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        if (!hasFine && !hasCoarse) return
+        if (!hasLocationPermission()) return
 
         viewModelScope.launch {
             isLoadingNearbyCourses = true
             try {
-                val location = fusedLocationClient.lastLocation.await() ?: return@launch
-
-                // Fetch weather concurrently while nearby courses load
-                launch { fetchWeatherData(location.latitude, location.longitude) }
+                val cts = CancellationTokenSource()
+                val location = fusedLocationClient
+                    .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token)
+                    .await() ?: return@launch
 
                 when (val result = courseRepository.getNearbyCourses(
                     latitude = location.latitude,
@@ -232,6 +248,12 @@ class HomeViewModel @Inject constructor(
         } ?: "--'--\""
 
         return RecentRun(runId = runId, day = dateLabel, distanceKm = distKm, pace = pace, duration = dur)
+    }
+
+    private fun hasLocationPermission(): Boolean {
+        val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        return fine || coarse
     }
 
     private fun buildGreeting(): String {
