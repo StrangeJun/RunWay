@@ -3,6 +3,7 @@ package com.runway.android.ui.navigation
 import android.net.Uri
 
 object RunwayRoutes {
+    const val SPLASH = "splash"
     const val LOGIN = "login"
     const val SIGNUP = "signup"
     const val ONBOARDING = "onboarding"

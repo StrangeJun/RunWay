@@ -1,14 +1,9 @@
 package com.runway.android.ui.navigation
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -30,6 +25,7 @@ import com.runway.android.ui.running.RunningTrackingScreen
 import com.runway.android.ui.reminder.ReminderScreen
 import com.runway.android.ui.running.history.MyRunsScreen
 import com.runway.android.ui.running.history.RunDetailScreen
+import com.runway.android.ui.splash.RunwaySplashScreen
 import com.runway.android.ui.stats.StatsScreen
 
 @Composable
@@ -37,27 +33,13 @@ fun RunwayNavGraph() {
     val mainViewModel: MainViewModel = hiltViewModel()
     val isLoggedIn by mainViewModel.isLoggedIn.collectAsState()
     val isOnboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
-
-    if (isLoggedIn == null || isOnboardingCompleted == null) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
-        )
-        return
-    }
-
-    val startDestination = when {
-        isLoggedIn == false -> RunwayRoutes.LOGIN
-        isOnboardingCompleted == false -> RunwayRoutes.ONBOARDING
-        else -> RunwayRoutes.MAIN
-    }
     val navController = rememberNavController()
 
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn == false) {
             val currentRoute = navController.currentDestination?.route
             if (currentRoute != null &&
+                currentRoute != RunwayRoutes.SPLASH &&
                 currentRoute != RunwayRoutes.LOGIN &&
                 currentRoute != RunwayRoutes.SIGNUP
             ) {
@@ -70,8 +52,25 @@ fun RunwayNavGraph() {
 
     NavHost(
         navController = navController,
-        startDestination = startDestination,
+        startDestination = RunwayRoutes.SPLASH,
     ) {
+        composable(RunwayRoutes.SPLASH) {
+            RunwaySplashScreen(
+                onAnimationFinished = {
+                    val destination = when {
+                        isLoggedIn == false -> RunwayRoutes.LOGIN
+                        isLoggedIn == true && isOnboardingCompleted == false -> RunwayRoutes.ONBOARDING
+                        isLoggedIn == true && isOnboardingCompleted == true -> RunwayRoutes.MAIN
+                        else -> RunwayRoutes.LOGIN
+                    }
+                    navController.navigate(destination) {
+                        popUpTo(RunwayRoutes.SPLASH) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+
         // ─── Auth ───
 
         composable(RunwayRoutes.LOGIN) {
