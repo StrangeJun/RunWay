@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.runway.android.core.map.MapPoint
+import com.runway.android.ui.home.RunGoal
 
 private val HeroScrim = Color(0xFF0A0B10)
 private val LimeGreen = Color(0xFFA4E168)
@@ -36,6 +37,7 @@ private val PillBg = Color(0x1EFFFFFF)
 fun RunHeroSection(
     onStartRun: () -> Unit,
     onSetGoal: () -> Unit = {},
+    selectedGoal: RunGoal? = null,
     weatherInfo: WeatherInfo? = null,
     currentLocation: MapPoint? = null,
     hasLocationPermission: Boolean = false,
@@ -114,12 +116,17 @@ fun RunHeroSection(
             Surface(
                 onClick = onSetGoal,
                 shape = RoundedCornerShape(50),
-                color = PillBg,
+                color = if (selectedGoal != null) LimeGreen.copy(alpha = 0.18f) else PillBg,
             ) {
                 Text(
-                    text = "목표 설정",
+                    text = when (selectedGoal) {
+                        is RunGoal.TimeGoal -> "⏱ ${selectedGoal.label()}"
+                        is RunGoal.DistanceGoal -> "📍 ${selectedGoal.label()}"
+                        is RunGoal.IntervalGoal -> "⚡ ${selectedGoal.label()}"
+                        null -> "목표 설정"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.60f),
+                    color = if (selectedGoal != null) LimeGreen else Color.White.copy(alpha = 0.60f),
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                 )
             }

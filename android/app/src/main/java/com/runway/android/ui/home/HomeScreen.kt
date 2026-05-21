@@ -44,6 +44,16 @@ fun HomeScreen(
         viewModel.tryLoadWeather()
     }
 
+    if (viewModel.showGoalSheet) {
+        GoalSetupSheet(
+            onDismiss = viewModel::closeGoalSheet,
+            onConfirm = { goal ->
+                viewModel.setGoal(goal)
+                onStartRun()
+            },
+        )
+    }
+
     val heroHeight = LocalConfiguration.current.screenHeightDp.dp * 0.79f
 
     LazyColumn(
@@ -57,7 +67,8 @@ fun HomeScreen(
         item {
             RunHeroSection(
                 onStartRun = onStartRun,
-                onSetGoal = onSetGoal,
+                onSetGoal = viewModel::openGoalSheet,
+                selectedGoal = viewModel.selectedGoal,
                 weatherInfo = viewModel.weatherInfo,
                 currentLocation = viewModel.currentLocation,
                 hasLocationPermission = viewModel.locationPermissionGranted,

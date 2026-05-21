@@ -73,9 +73,20 @@ class HomeViewModel @Inject constructor(
         private set
     var currentLocation by mutableStateOf<MapPoint?>(null)
         private set
+    var selectedGoal by mutableStateOf<RunGoal?>(null)
+        private set
+    var showGoalSheet by mutableStateOf(false)
 
     val locationPermissionGranted: Boolean
         get() = hasLocationPermission()
+
+    fun openGoalSheet()  { showGoalSheet = true }
+    fun closeGoalSheet() { showGoalSheet = false }
+    fun setGoal(goal: RunGoal) {
+        selectedGoal = goal
+        showGoalSheet = false
+    }
+    fun clearGoal() { selectedGoal = null }
 
     init {
         loadData()
