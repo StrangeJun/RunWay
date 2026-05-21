@@ -12,6 +12,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.runway.android.ui.MainViewModel
 import com.runway.android.ui.achievements.AchievementsScreen
+import com.runway.android.ui.home.HomeViewModel
+import com.runway.android.ui.running.history.MyRunsViewModel
 import com.runway.android.ui.permission.PermissionScreen
 import com.runway.android.ui.attempt.CourseAttemptTrackingScreen
 import com.runway.android.ui.auth.login.LoginScreen
@@ -125,7 +127,17 @@ fun RunwayNavGraph() {
 
         // ─── Main shell (BottomNav 포함) ───
 
-        composable(RunwayRoutes.MAIN) {
+        composable(RunwayRoutes.MAIN) { backStackEntry ->
+            val homeViewModel: HomeViewModel = hiltViewModel()
+            val deletedRunId by backStackEntry.savedStateHandle
+                .getStateFlow<String?>("deletedRunId", null)
+                .collectAsState()
+            LaunchedEffect(deletedRunId) {
+                deletedRunId?.let {
+                    homeViewModel.removeRecentRun(it)
+                    backStackEntry.savedStateHandle.remove<String>("deletedRunId")
+                }
+            }
             MainScaffold(
                 onStartRun = { navController.navigate(RunwayRoutes.RUNNING) },
                 onLogout = {
@@ -144,6 +156,7 @@ fun RunwayNavGraph() {
                 onNavigateToStats = { navController.navigate(RunwayRoutes.STATS) },
                 onNavigateToAchievements = { navController.navigate(RunwayRoutes.ACHIEVEMENTS) },
                 onNavigateToReminder = { navController.navigate(RunwayRoutes.REMINDER) },
+                homeViewModel = homeViewModel,
             )
         }
 
@@ -238,12 +251,23 @@ fun RunwayNavGraph() {
 
         // ─── 내 러닝 기록 목록 (BottomNav 없음) ───
 
-        composable(RunwayRoutes.MY_RUNS) {
+        composable(RunwayRoutes.MY_RUNS) { backStackEntry ->
+            val myRunsViewModel: MyRunsViewModel = hiltViewModel()
+            val deletedRunId by backStackEntry.savedStateHandle
+                .getStateFlow<String?>("deletedRunId", null)
+                .collectAsState()
+            LaunchedEffect(deletedRunId) {
+                deletedRunId?.let {
+                    myRunsViewModel.removeRunLocally(it)
+                    backStackEntry.savedStateHandle.remove<String>("deletedRunId")
+                }
+            }
             MyRunsScreen(
                 onBack = { navController.popBackStack() },
                 onNavigateToDetail = { runId ->
                     navController.navigate(RunwayRoutes.runDetail(runId))
                 },
+                viewModel = myRunsViewModel,
             )
         }
 
@@ -255,6 +279,12 @@ fun RunwayNavGraph() {
         ) {
             RunDetailScreen(
                 onBack = { navController.popBackStack() },
+                onDeleted = { deletedRunId ->
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("deletedRunId", deletedRunId)
+                    navController.popBackStack()
+                },
                 onShareImage = { runId ->
                     navController.navigate(RunwayRoutes.runShare(runId))
                 },

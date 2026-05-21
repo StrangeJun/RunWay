@@ -14,6 +14,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.ui.components.RunwayBottomNav
 import com.runway.android.ui.discover.DiscoverScreen
 import com.runway.android.ui.home.HomeScreen
+import com.runway.android.ui.home.HomeViewModel
 import com.runway.android.ui.course.library.CoursesLibraryScreen
 import com.runway.android.ui.profile.ProfileScreen
 import com.runway.android.ui.tracking.TrackingRecoveryDialog
@@ -30,6 +31,7 @@ fun MainScaffold(
     onNavigateToStats: () -> Unit = {},
     onNavigateToAchievements: () -> Unit = {},
     onNavigateToReminder: () -> Unit = {},
+    homeViewModel: HomeViewModel = hiltViewModel(),
 ) {
     val recoveryViewModel: TrackingRecoveryViewModel = hiltViewModel()
 
@@ -56,6 +58,7 @@ fun MainScaffold(
                     onNavigateToCourseDetail = onNavigateToCourseDetail,
                     onNavigateToDiscover = { currentTabOrdinal = MainTab.DISCOVER.ordinal },
                     onNavigateToRunDetail = onNavigateToRunDetail,
+                    viewModel = homeViewModel,
                 )
                 MainTab.DISCOVER -> DiscoverScreen(
                     onNavigateToCourseDetail = onNavigateToCourseDetail,

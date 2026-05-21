@@ -83,6 +83,10 @@ class HomeViewModel @Inject constructor(
 
     fun openGoalSheet()  { showGoalSheet = true }
     fun closeGoalSheet() { showGoalSheet = false }
+
+    fun removeRecentRun(runId: String) {
+        recentRuns = recentRuns.filterNot { it.runId == runId }
+    }
     fun setGoal(goal: RunGoal) {
         selectedGoal = goal
         showGoalSheet = false

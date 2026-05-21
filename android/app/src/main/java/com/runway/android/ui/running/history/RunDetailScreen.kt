@@ -61,14 +61,18 @@ import com.runway.android.ui.components.RunSplitsCard
 @Composable
 fun RunDetailScreen(
     onBack: () -> Unit,
+    onDeleted: (runId: String) -> Unit = {},
     onShareImage: (runId: String) -> Unit = {},
     viewModel: RunDetailViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
 
-    // 삭제 완료 시 자동 뒤로가기
+    // 삭제 완료 시 콜백 호출 후 뒤로가기
     LaunchedEffect(viewModel.isDeleted) {
-        if (viewModel.isDeleted) onBack()
+        if (viewModel.isDeleted) {
+            onDeleted(viewModel.runId)
+            onBack()
+        }
     }
 
     // 삭제 확인 다이얼로그

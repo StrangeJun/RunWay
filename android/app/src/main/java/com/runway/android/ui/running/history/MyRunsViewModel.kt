@@ -88,6 +88,10 @@ class MyRunsViewModel @Inject constructor(
         }
     }
 
+    fun removeRunLocally(runId: String) {
+        allRuns = allRuns.filterNot { it.runId == runId }
+    }
+
     fun previousMonth() {
         selectedMonth = selectedMonth.minusMonths(1)
         selectedDate = null
