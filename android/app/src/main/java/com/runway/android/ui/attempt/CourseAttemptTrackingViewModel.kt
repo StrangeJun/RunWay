@@ -25,6 +25,7 @@ import com.runway.android.core.tracking.RunTrackingService
 import com.runway.android.core.tracking.TrackingSessionSnapshot
 import com.runway.android.core.tracking.TrackingSessionStore
 import com.runway.android.core.tracking.toRunPointRequest
+import com.runway.android.core.util.formatDuration
 import com.runway.android.data.attempt.model.AbandonAttemptRequest
 import com.runway.android.data.attempt.model.FinishAttemptRequest
 import com.runway.android.data.running.model.SavePointsRequest
@@ -101,7 +102,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
     private var cadenceSpm by mutableStateOf<Int?>(null)
 
     val timerText: String
-        get() = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
+        get() = formatDuration(elapsedSeconds)
 
     val distanceText: String
         get() = "%.2f".format(distanceKm)
@@ -130,7 +131,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
 
     val courseProgressPercent: Int
         get() = if (courseDistanceMeters > 1.0) {
-            ((distanceKm * 1000.0 / courseDistanceMeters) * 100.0).toInt().coerceIn(0, 999)
+            ((distanceKm * 1000.0 / courseDistanceMeters) * 100.0).toInt().coerceIn(0, 100)
         } else {
             0
         }

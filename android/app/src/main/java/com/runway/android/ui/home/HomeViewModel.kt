@@ -26,6 +26,7 @@ import com.runway.android.core.map.MapPoint
 import com.runway.android.ui.components.RecentRun
 import com.runway.android.ui.components.WeatherInfo
 import com.runway.android.ui.components.WeeklyStats
+import com.runway.android.core.util.formatDuration
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -263,7 +264,7 @@ class HomeViewModel @Inject constructor(
         }.getOrDefault("")
 
         val distKm = "%.2f".format((distanceMeters ?: 0.0) / 1000.0)
-        val dur = durationSeconds?.let { "%02d:%02d".format(it / 60, it % 60) } ?: "--:--"
+        val dur = formatDuration(durationSeconds)
         val pace = avgPaceSecondsPerKm?.let { secs ->
             "%d'%02d\"".format(secs / 60, secs % 60)
         } ?: "--'--\""

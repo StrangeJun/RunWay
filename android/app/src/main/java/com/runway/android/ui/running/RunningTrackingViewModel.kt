@@ -27,6 +27,7 @@ import com.runway.android.data.running.model.FinishRunRequest
 import com.runway.android.data.running.model.SavePointsRequest
 import com.runway.android.data.running.model.StartRunRequest
 import com.runway.android.domain.running.RunningRepository
+import com.runway.android.core.util.formatDuration
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -78,7 +79,7 @@ class RunningTrackingViewModel @Inject constructor(
     private var cadenceSpm by mutableStateOf<Int?>(null)
 
     val timerText: String
-        get() = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
+        get() = formatDuration(elapsedSeconds)
 
     val distanceText: String
         get() = "%.2f".format(distanceKm)

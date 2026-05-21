@@ -424,9 +424,10 @@ private fun IntervalGoalContent(
         SectionDivider()
 
         IntervalSection(title = "총 반복 횟수") {
+            val setValues = remember { (1..20).toList() }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 WheelPicker(
-                    values = (1..20).toList(),
+                    values = setValues,
                     selectedValue = sets,
                     onValueChange = onSetsChange,
                     label = { it.toString() },
@@ -514,9 +515,11 @@ private fun TimeWheelPicker(
     onHoursChange: (Int) -> Unit,
     onMinutesChange: (Int) -> Unit,
 ) {
+    val hourValues = remember { (0..5).toList() }
+    val minuteValues = remember { (0..59).toList() }
     WheelFrame {
         WheelPicker(
-            values = (0..5).toList(),
+            values = hourValues,
             selectedValue = hours,
             onValueChange = onHoursChange,
             label = { it.toString() },
@@ -524,7 +527,7 @@ private fun TimeWheelPicker(
         )
         UnitLabel("시간")
         WheelPicker(
-            values = (0..59).toList(),
+            values = minuteValues,
             selectedValue = minutes,
             onValueChange = { onMinutesChange(it.coerceAtLeast(if (hours == 0) 1 else 0)) },
             label = { it.toString().padStart(2, '0') },
@@ -540,9 +543,10 @@ private fun MinuteWheelPicker(
     onMinutesChange: (Int) -> Unit,
     maxMinutes: Int,
 ) {
+    val minuteValues = remember(maxMinutes) { (1..maxMinutes).toList() }
     WheelFrame {
         WheelPicker(
-            values = (1..maxMinutes).toList(),
+            values = minuteValues,
             selectedValue = minutes.coerceIn(1, maxMinutes),
             onValueChange = onMinutesChange,
             label = { it.toString() },
@@ -560,9 +564,11 @@ private fun DistanceWheelPicker(
     onDecimalChange: (Int) -> Unit,
     maxKm: Int = 50,
 ) {
+    val kmValues = remember(maxKm) { (0..maxKm).toList() }
+    val decimalValues = remember { (0..99).toList() }
     WheelFrame {
         WheelPicker(
-            values = (0..maxKm).toList(),
+            values = kmValues,
             selectedValue = km.coerceIn(0, maxKm),
             onValueChange = { value ->
                 onKmChange(value)
@@ -580,7 +586,7 @@ private fun DistanceWheelPicker(
             modifier = Modifier.padding(horizontal = 2.dp),
         )
         WheelPicker(
-            values = (0..99).toList(),
+            values = decimalValues,
             selectedValue = decimal.coerceIn(0, 99),
             onValueChange = { value ->
                 onDecimalChange(value)
@@ -600,9 +606,11 @@ private fun PaceWheelPicker(
 ) {
     val minutes = (seconds / 60).coerceIn(3, 12)
     val sec = ((seconds % 60) / 5 * 5).coerceIn(0, 55)
+    val minuteValues = remember { (3..12).toList() }
+    val secondValues = remember { (0..55 step 5).toList() }
     WheelFrame {
         WheelPicker(
-            values = (3..12).toList(),
+            values = minuteValues,
             selectedValue = minutes,
             onValueChange = { onSecondsChange(it * 60 + sec) },
             label = { it.toString() },
@@ -610,7 +618,7 @@ private fun PaceWheelPicker(
         )
         UnitLabel("분")
         WheelPicker(
-            values = (0..55 step 5).toList(),
+            values = secondValues,
             selectedValue = sec,
             onValueChange = { onSecondsChange(minutes * 60 + it) },
             label = { it.toString().padStart(2, '0') },

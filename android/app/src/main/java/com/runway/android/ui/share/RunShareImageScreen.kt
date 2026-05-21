@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.share.ShareTemplate
+import com.runway.android.core.util.formatDuration
 import com.runway.android.data.running.model.RunDetailResponse
 import java.time.Instant
 import java.time.ZoneId
@@ -345,8 +346,7 @@ private fun formatPreviewDate(isoDate: String?): String {
 }
 
 private fun formatPreviewDuration(seconds: Int?): String {
-    if (seconds == null) return "--:--"
-    return "%d:%02d".format(seconds / 60, seconds % 60)
+    return formatDuration(seconds)
 }
 
 private fun formatPreviewPace(secsPerKm: Int?): String {
