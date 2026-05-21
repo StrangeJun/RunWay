@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.runway.course.util.CoursePrivacyUtils;
 
+import java.time.Instant;
 import java.util.*;
 
 @Slf4j
@@ -411,8 +412,8 @@ public class CourseService {
                 .endPoint(new GeoPoint(((Number) row[8]).doubleValue(), ((Number) row[9]).doubleValue()))
                 .attemptCount(((Number) row[10]).intValue())
                 .completionCount(((Number) row[11]).intValue())
-                .createdAt(row[12] != null ? ((java.sql.Timestamp) row[12]).toInstant() : null)
-                .updatedAt(row[13] != null ? ((java.sql.Timestamp) row[13]).toInstant() : null)
+                .createdAt(toInstant(row[12]))
+                .updatedAt(toInstant(row[13]))
                 .build();
     }
 
@@ -427,8 +428,16 @@ public class CourseService {
                 .attemptCountByMe(((Number) row[6]).intValue())
                 .completionCountByMe(((Number) row[7]).intValue())
                 .bestTimeSecondsByMe(row[8] != null ? ((Number) row[8]).intValue() : null)
-                .lastAttemptAt(row[9] != null ? ((java.sql.Timestamp) row[9]).toInstant() : null)
+                .lastAttemptAt(toInstant(row[9]))
                 .build();
+    }
+
+    private static Instant toInstant(Object val) {
+        if (val == null) return null;
+        if (val instanceof Instant i) return i;
+        if (val instanceof java.sql.Timestamp ts) return ts.toInstant();
+        if (val instanceof java.time.OffsetDateTime odt) return odt.toInstant();
+        return null;
     }
 
     private Course findOwnedCourse(UUID courseId, UUID userId) {
