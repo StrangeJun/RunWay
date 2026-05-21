@@ -232,7 +232,7 @@ class CourseDetailViewModel @Inject constructor(
             val pointsDeferred = async { courseRepository.getCoursePoints(courseId) }
             val leaderboardDeferred = async {
                 isLoadingLeaderboard = true
-                courseAttemptRepository.getLeaderboard(courseId, limit = 5)
+                courseAttemptRepository.getLeaderboard(courseId, page = 0, size = 5)
             }
 
             when (val result = detailDeferred.await()) {

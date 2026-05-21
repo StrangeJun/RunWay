@@ -338,7 +338,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
         viewModelScope.launch {
             courseAttemptRepository.abandonAttempt(
                 attemptId = courseAttemptId,
-                request = AbandonAttemptRequest(abandonedAt = Instant.now().toString()),
+                request = AbandonAttemptRequest(endedAt = Instant.now().toString()),
             )
             sessionStore.clearSnapshot()
             pendingPointQueue.deleteByRunningRecordId(runningRecordId)
@@ -368,7 +368,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
             appScope.launch {
                 courseAttemptRepository.abandonAttempt(
                     attemptId = courseAttemptId,
-                    request = AbandonAttemptRequest(abandonedAt = Instant.now().toString()),
+                    request = AbandonAttemptRequest(endedAt = Instant.now().toString()),
                 )
                 sessionStore.clearSnapshot()
                 pendingPointQueue.deleteByRunningRecordId(runningRecordId)

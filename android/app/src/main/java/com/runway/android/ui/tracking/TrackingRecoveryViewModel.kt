@@ -37,6 +37,8 @@ class TrackingRecoveryViewModel @Inject constructor(
         private set
     var isVisible by mutableStateOf(false)
         private set
+    var recoveryError by mutableStateOf<String?>(null)
+        private set
 
     init {
         viewModelScope.launch {
@@ -51,11 +53,12 @@ class TrackingRecoveryViewModel @Inject constructor(
         val snap = snapshot ?: return
         if (isRecovering) return
         isRecovering = true
+        recoveryError = null
 
         viewModelScope.launch {
             // Best-effort upload persisted points
             repeat(3) {
-                val batch = pendingPointQueue.dequeue(snap.runningRecordId, 50)
+                val batch = pendingPointQueue.dequeue(snap.runningRecordId, 20)
                 if (batch.isNotEmpty()) {
                     val r = runningRepository.savePoints(
                         snap.runningRecordId,
@@ -67,8 +70,8 @@ class TrackingRecoveryViewModel @Inject constructor(
                 }
             }
 
-            if (snap.courseAttemptId != null) {
-                val distKm = snap.distanceMeters / 1000.0
+            val distKm = snap.distanceMeters / 1000.0
+            val result = if (snap.courseAttemptId != null) {
                 courseAttemptRepository.finishAttempt(
                     attemptId = snap.courseAttemptId,
                     request = FinishAttemptRequest(
@@ -80,7 +83,6 @@ class TrackingRecoveryViewModel @Inject constructor(
                     ),
                 )
             } else {
-                val distKm = snap.distanceMeters / 1000.0
                 runningRepository.finishRun(
                     runId = snap.runningRecordId,
                     request = FinishRunRequest(
@@ -93,7 +95,12 @@ class TrackingRecoveryViewModel @Inject constructor(
                 )
             }
 
-            cleanUp(snap.runningRecordId)
+            if (result is NetworkResult.Success) {
+                cleanUp(snap.runningRecordId)
+            } else {
+                recoveryError = "완료 처리에 실패했습니다. 다시 시도해 주세요."
+                isRecovering = false
+            }
         }
     }
 
@@ -101,17 +108,24 @@ class TrackingRecoveryViewModel @Inject constructor(
         val snap = snapshot ?: return
         if (isRecovering) return
         isRecovering = true
+        recoveryError = null
 
         viewModelScope.launch {
-            if (snap.courseAttemptId != null) {
+            val result = if (snap.courseAttemptId != null) {
                 courseAttemptRepository.abandonAttempt(
                     attemptId = snap.courseAttemptId,
-                    request = AbandonAttemptRequest(abandonedAt = Instant.now().toString()),
+                    request = AbandonAttemptRequest(endedAt = Instant.now().toString()),
                 )
             } else {
                 runningRepository.abandonRun(snap.runningRecordId)
             }
-            cleanUp(snap.runningRecordId)
+
+            if (result is NetworkResult.Success) {
+                cleanUp(snap.runningRecordId)
+            } else {
+                recoveryError = "포기 처리에 실패했습니다. 다시 시도해 주세요."
+                isRecovering = false
+            }
         }
     }
 

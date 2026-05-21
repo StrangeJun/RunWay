@@ -51,24 +51,53 @@ suspend fun <T : Any> safeApiCall(call: suspend () -> ApiResponse<T>): NetworkRe
             )
         }
     } catch (e: HttpException) {
-        val errorBody = e.response()?.errorBody()?.string()
-        if (errorBody != null) {
-            runCatching {
-                val json: JsonObject = JsonParser.parseString(errorBody).asJsonObject
-                NetworkResult.ApiError(
-                    statusCode = e.code(),
-                    errorCode = json.get("errorCode")?.takeIf { !it.isJsonNull }?.asString,
-                    message = json.get("message")?.asString ?: "HTTP ${e.code()}",
-                )
-            }.getOrElse {
-                NetworkResult.ApiError(e.code(), null, "HTTP ${e.code()}")
-            }
-        } else {
-            NetworkResult.ApiError(e.code(), null, "HTTP ${e.code()}")
-        }
+        parseHttpError(e)
     } catch (e: CancellationException) {
         throw e  // coroutine 취소 신호는 삼키지 않고 전파
     } catch (e: Exception) {
         NetworkResult.NetworkError(e)
+    }
+}
+
+/**
+ * ApiResponse<Unit> 엔드포인트(DELETE 등)용 helper.
+ * 백엔드가 data 필드를 null로 반환하므로 success=true 이면 성공으로 처리.
+ */
+suspend fun safeApiCallUnit(call: suspend () -> ApiResponse<Unit>): NetworkResult<Unit> {
+    return try {
+        val response = call()
+        if (response.success) {
+            NetworkResult.Success(Unit)
+        } else {
+            NetworkResult.ApiError(
+                statusCode = 0,
+                errorCode = response.errorCode,
+                message = response.message,
+            )
+        }
+    } catch (e: HttpException) {
+        parseHttpError(e)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        NetworkResult.NetworkError(e)
+    }
+}
+
+private fun parseHttpError(e: HttpException): NetworkResult.ApiError {
+    val errorBody = e.response()?.errorBody()?.string()
+    return if (errorBody != null) {
+        runCatching {
+            val json: JsonObject = JsonParser.parseString(errorBody).asJsonObject
+            NetworkResult.ApiError(
+                statusCode = e.code(),
+                errorCode = json.get("errorCode")?.takeIf { !it.isJsonNull }?.asString,
+                message = json.get("message")?.asString ?: "HTTP ${e.code()}",
+            )
+        }.getOrElse {
+            NetworkResult.ApiError(e.code(), null, "HTTP ${e.code()}")
+        }
+    } else {
+        NetworkResult.ApiError(e.code(), null, "HTTP ${e.code()}")
     }
 }

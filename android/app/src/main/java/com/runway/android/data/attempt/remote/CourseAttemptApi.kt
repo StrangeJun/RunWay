@@ -37,6 +37,7 @@ interface CourseAttemptApi {
     @GET("api/courses/{courseId}/leaderboard")
     suspend fun getLeaderboard(
         @Path("courseId") courseId: String,
-        @Query("limit") limit: Int? = null,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 50,
     ): ApiResponse<LeaderboardResponse>
 }

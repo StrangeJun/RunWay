@@ -3,6 +3,7 @@ package com.runway.android.data.running
 import com.runway.android.core.model.PageResponse
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.core.result.safeApiCall
+import com.runway.android.core.result.safeApiCallUnit
 import com.runway.android.data.running.model.FinishRunRequest
 import com.runway.android.data.running.model.FinishRunResponse
 import com.runway.android.data.running.model.PersonalRecordsResponse
@@ -56,8 +57,8 @@ class RunningRepositoryImpl @Inject constructor(
         safeApiCall { runningApi.getRunningStats(period) }
 
     override suspend fun deleteRun(runId: String): NetworkResult<Unit> =
-        safeApiCall { runningApi.deleteRun(runId) }
+        safeApiCallUnit { runningApi.deleteRun(runId) }
 
     override suspend fun trimRun(runId: String, targetDistanceMeters: Double): NetworkResult<Unit> =
-        safeApiCall { runningApi.trimRun(runId, TrimRunRequest(targetDistanceMeters)) }
+        safeApiCallUnit { runningApi.trimRun(runId, TrimRunRequest(targetDistanceMeters)) }
 }
