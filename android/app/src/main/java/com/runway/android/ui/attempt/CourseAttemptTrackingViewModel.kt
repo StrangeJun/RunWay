@@ -97,6 +97,8 @@ class CourseAttemptTrackingViewModel @Inject constructor(
         private set
     var nearestCourseDistanceMeters by mutableStateOf<Double?>(null)
         private set
+    var showDeviationWarning by mutableStateOf(false)
+        private set
 
     private var lastSpeedMps by mutableStateOf<Float?>(null)
     private var cadenceSpm by mutableStateOf<Int?>(null)
@@ -155,6 +157,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
 
     private var isDone = false
     private var serviceStarted = false
+    private var lastTrackStatus: CourseTrackStatus = CourseTrackStatus.UNKNOWN
 
     private var stateObserveJob: Job? = null
     private var batchJob: Job? = null
@@ -210,6 +213,16 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                 currentLocationPoint = state.lastLocation?.let { location ->
                     MapPoint(location.latitude, location.longitude).also { point ->
                         nearestCourseDistanceMeters = nearestDistanceToCourse(point, coursePoints)
+                        val currentStatus = trackStatus
+                        if (currentStatus != lastTrackStatus) {
+                            if (currentStatus == CourseTrackStatus.OFF_COURSE) {
+                                showDeviationWarning = true
+                                vibrateDeviation()
+                            } else if (lastTrackStatus == CourseTrackStatus.OFF_COURSE) {
+                                showDeviationWarning = false
+                            }
+                            lastTrackStatus = currentStatus
+                        }
                     }
                 }
             }
@@ -228,6 +241,22 @@ class CourseAttemptTrackingViewModel @Inject constructor(
             delay(4_000)
             milestoneMessage = null
         }
+    }
+
+    fun dismissDeviationWarning() {
+        showDeviationWarning = false
+    }
+
+    @Suppress("DEPRECATION")
+    private fun vibrateDeviation() {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+        } else {
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+        vibrator.vibrate(
+            VibrationEffect.createWaveform(longArrayOf(0, 300, 100, 300, 100, 300), -1)
+        )
     }
 
     @Suppress("DEPRECATION")
