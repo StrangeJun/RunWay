@@ -23,11 +23,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -42,7 +44,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -53,6 +57,7 @@ import com.runway.android.ui.components.LocationPermissionCard
 import com.runway.android.ui.components.RouteMapView
 import com.runway.android.ui.components.RunMetricCard
 import com.runway.android.ui.components.RunningControlButton
+import com.runway.android.ui.components.rememberBatteryOptimizationIgnored
 
 @Composable
 fun CourseAttemptTrackingScreen(
@@ -73,6 +78,7 @@ fun CourseAttemptTrackingScreen(
     var permissionDeniedPermanently by remember { mutableStateOf(false) }
     var showAbandonDialog by remember { mutableStateOf(false) }
     var showBatteryCard by remember { mutableStateOf(true) }
+    val isBatteryOptimizationIgnored = rememberBatteryOptimizationIgnored()
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -97,13 +103,21 @@ fun CourseAttemptTrackingScreen(
         val hasCoarse = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
+        val hasActivityRecognition = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACTIVITY_RECOGNITION,
+            ) == PackageManager.PERMISSION_GRANTED
 
-        if (hasFine || hasCoarse) {
+        if ((hasFine || hasCoarse) && hasActivityRecognition) {
             viewModel.startTracking()
         } else {
             val permissions = buildList {
                 add(Manifest.permission.ACCESS_FINE_LOCATION)
                 add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    add(Manifest.permission.ACTIVITY_RECOGNITION)
+                }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     add(Manifest.permission.POST_NOTIFICATIONS)
                 }
@@ -248,7 +262,7 @@ fun CourseAttemptTrackingScreen(
         }
 
         // ─── Battery optimization card ───
-        if (showBatteryCard && viewModel.gpsStatus == GpsStatus.ACTIVE) {
+        if (showBatteryCard && !isBatteryOptimizationIgnored && viewModel.gpsStatus == GpsStatus.ACTIVE) {
             BatteryOptimizationCard(
                 onDismiss = { showBatteryCard = false },
                 modifier = Modifier.padding(horizontal = 20.dp),
@@ -277,14 +291,17 @@ fun CourseAttemptTrackingScreen(
                 )
             }
         } else {
-            RouteMapView(
+            CourseMapPanel(
                 points = viewModel.coursePoints,
                 currentLocation = viewModel.currentLocationPoint,
+                trackStatus = viewModel.trackStatus,
+                nearestDistanceMeters = viewModel.nearestCourseDistanceMeters,
+                progressPercent = viewModel.courseProgressPercent,
+                remainingDistanceText = viewModel.remainingDistanceText,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .clip(MaterialTheme.shapes.extraLarge),
+                    .padding(horizontal = 20.dp),
             )
         }
 
@@ -346,6 +363,105 @@ fun CourseAttemptTrackingScreen(
         }
 
         Spacer(modifier = Modifier.height(44.dp))
+    }
+}
+
+@Composable
+private fun CourseMapPanel(
+    points: List<com.runway.android.core.map.MapPoint>,
+    currentLocation: com.runway.android.core.map.MapPoint?,
+    trackStatus: CourseTrackStatus,
+    nearestDistanceMeters: Double?,
+    progressPercent: Int,
+    remainingDistanceText: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        RouteMapView(
+            points = points,
+            currentLocation = currentLocation,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(28.dp)),
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, statusColor(trackStatus).copy(alpha = 0.45f)),
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column {
+                        Text(
+                            text = statusTitle(trackStatus),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = statusColor(trackStatus),
+                        )
+                        Text(
+                            text = statusDetail(trackStatus, nearestDistanceMeters),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = "${progressPercent}%",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "남은 ${remainingDistanceText}km",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                LinearProgressIndicator(
+                    progress = { (progressPercent / 100f).coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(CircleShape),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun statusColor(status: CourseTrackStatus): Color = when (status) {
+    CourseTrackStatus.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant
+    CourseTrackStatus.ON_COURSE -> MaterialTheme.colorScheme.primary
+    CourseTrackStatus.NEAR_COURSE -> com.runway.android.ui.theme.WarningYellow
+    CourseTrackStatus.OFF_COURSE -> MaterialTheme.colorScheme.error
+}
+
+private fun statusTitle(status: CourseTrackStatus): String = when (status) {
+    CourseTrackStatus.UNKNOWN -> "코스 확인 중"
+    CourseTrackStatus.ON_COURSE -> "코스 위를 달리는 중"
+    CourseTrackStatus.NEAR_COURSE -> "코스에서 조금 벗어남"
+    CourseTrackStatus.OFF_COURSE -> "코스 이탈"
+}
+
+private fun statusDetail(status: CourseTrackStatus, meters: Double?): String {
+    val distance = meters?.let { "%.0fm".format(it) } ?: "--m"
+    return when (status) {
+        CourseTrackStatus.UNKNOWN -> "현재 위치와 코스를 맞추고 있어요"
+        CourseTrackStatus.ON_COURSE -> "코스와의 거리 $distance"
+        CourseTrackStatus.NEAR_COURSE -> "코스와의 거리 $distance · 방향을 확인하세요"
+        CourseTrackStatus.OFF_COURSE -> "코스와의 거리 $distance · 지도에서 복귀 경로를 확인하세요"
     }
 }
 

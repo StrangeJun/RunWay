@@ -28,6 +28,7 @@ interface CourseAttemptRepository {
 
     suspend fun getLeaderboard(
         courseId: String,
-        limit: Int? = null,
+        page: Int = 0,
+        size: Int = 50,
     ): NetworkResult<LeaderboardResponse>
 }

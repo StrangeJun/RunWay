@@ -25,7 +25,7 @@ class PendingPointQueue @Inject constructor(
         })
     }
 
-    suspend fun dequeue(runningRecordId: String, batchSize: Int = 50): List<PendingRunPointEntity> =
+    suspend fun dequeue(runningRecordId: String, batchSize: Int = 20): List<PendingRunPointEntity> =
         dao.dequeue(runningRecordId, batchSize)
 
     suspend fun deleteByIds(ids: List<Long>) {

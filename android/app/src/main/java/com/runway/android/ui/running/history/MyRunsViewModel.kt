@@ -81,6 +81,13 @@ class MyRunsViewModel @Inject constructor(
         loadRuns()
     }
 
+    fun deleteRun(runId: String) {
+        viewModelScope.launch {
+            runningRepository.deleteRun(runId)
+            allRuns = allRuns.filterNot { it.runId == runId }
+        }
+    }
+
     fun previousMonth() {
         selectedMonth = selectedMonth.minusMonths(1)
         selectedDate = null

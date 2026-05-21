@@ -233,7 +233,7 @@ private fun PodiumSlot(item: LeaderboardItem, barHeight: Dp, isFirst: Boolean) {
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = item.nickname.first().uppercaseChar().toString(),
+                text = item.nickname.firstOrNull()?.uppercaseChar()?.toString() ?: "R",
                 style = MaterialTheme.typography.titleMedium,
                 color = if (isFirst) MaterialTheme.colorScheme.onPrimary
                 else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -316,7 +316,7 @@ private fun RankRow(item: LeaderboardItem, modifier: Modifier = Modifier) {
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = item.nickname.first().uppercaseChar().toString(),
+                    text = item.nickname.firstOrNull()?.uppercaseChar()?.toString() ?: "R",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

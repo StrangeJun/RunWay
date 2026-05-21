@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.Priority
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.course.model.NearbyCourseItem
 import com.runway.android.domain.course.CourseRepository
@@ -98,6 +99,9 @@ class DiscoverViewModel @Inject constructor(
             errorMessage = null
             try {
                 val location = fusedLocationClient.lastLocation.await()
+                    ?: fusedLocationClient.getCurrentLocation(
+                        Priority.PRIORITY_BALANCED_POWER_ACCURACY, null
+                    ).await()
                 if (location != null) {
                     currentLatitude = location.latitude
                     currentLongitude = location.longitude

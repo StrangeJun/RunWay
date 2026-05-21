@@ -8,13 +8,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Loop
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -24,14 +28,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.runway.android.data.course.model.GeoPoint
 import com.runway.android.data.course.model.NearbyCourseItem
 import com.runway.android.ui.discover.DiscoverViewModel
+
+private val BgTop = Color(0xFF0E1117)
+private val BgBottom = Color(0xFF161B26)
+private val StartGreen = Color(0xFF4ADE80)
+private val EndOrange = Color(0xFFFB923C)
 
 @Composable
 fun DiscoverCourseCard(
@@ -52,20 +65,41 @@ fun DiscoverCourseCard(
     ) {
         Column {
             Box {
-                CourseRoutePreview(
-                    variant = (course.courseId.hashCode() and 0x7FFFFFFF) % 3,
+                SportyCourseCanvas(
+                    routePoints = course.routePoints,
+                    courseId = course.courseId,
+                    accentColor = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(88.dp)
+                        .height(108.dp)
                         .clip(MaterialTheme.shapes.extraLarge),
                 )
-                // 품질 배지
+                // 거리 배지 — 좌상단
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(10.dp),
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color.White.copy(alpha = 0.10f),
+                ) {
+                    Text(
+                        text = formatDistance(course.distanceMeters),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            letterSpacing = 0.5.sp,
+                        ),
+                        color = Color.White.copy(alpha = 0.90f),
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                    )
+                }
+                // 품질 배지 — 우상단
                 if (isPopular || isNew) {
                     Surface(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(8.dp),
-                        shape = MaterialTheme.shapes.small,
+                            .padding(10.dp),
+                        shape = RoundedCornerShape(6.dp),
                         color = if (isPopular) MaterialTheme.colorScheme.tertiary
                         else MaterialTheme.colorScheme.secondary,
                     ) {
@@ -106,7 +140,9 @@ fun DiscoverCourseCard(
                                     imageVector = Icons.Filled.Loop,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.padding(end = 2.dp).height(12.dp),
+                                    modifier = Modifier
+                                        .padding(end = 2.dp)
+                                        .height(12.dp),
                                 )
                                 Text(
                                     text = "루프",
@@ -137,14 +173,129 @@ fun DiscoverCourseCard(
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                val rateText = if (course.attemptCount > 0)
-                    " · 완주율 ${(completionRate * 100).toInt()}%"
-                else ""
-                Text(
-                    text = "도전 ${course.attemptCount}회 · 완주 ${course.completionCount}회$rateText",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val rateText = if (course.attemptCount > 0)
+                        " · 완주율 ${(completionRate * 100).toInt()}%"
+                    else ""
+                    Text(
+                        text = "도전 ${course.attemptCount}회 · 완주 ${course.completionCount}회$rateText",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (course.avgRating != null && course.ratingCount != null && course.ratingCount > 0) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Star,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(12.dp),
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text(
+                                text = "%.1f".format(course.avgRating),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text(
+                                text = "(${course.ratingCount})",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SportyCourseCanvas(
+    routePoints: List<GeoPoint>,
+    courseId: String,
+    accentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier.background(
+        Brush.verticalGradient(listOf(BgTop, BgBottom))
+    )) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            val pad = 16.dp.toPx()
+
+            // 도트 그리드
+            val dotStep = 22.dp.toPx()
+            val dotR = 1.dp.toPx()
+            var xi = dotStep
+            while (xi < w) {
+                var yi = dotStep
+                while (yi < h) {
+                    drawCircle(Color.White.copy(alpha = 0.055f), dotR, Offset(xi, yi))
+                    yi += dotStep
+                }
+                xi += dotStep
+            }
+
+            if (routePoints.size < 2) return@Canvas
+
+            // GPS 좌표 → 캔버스 좌표 투영 (종횡비 유지, 중앙 정렬)
+            val minLat = routePoints.minOf { it.latitude }
+            val maxLat = routePoints.maxOf { it.latitude }
+            val minLon = routePoints.minOf { it.longitude }
+            val maxLon = routePoints.maxOf { it.longitude }
+            val latSpan = (maxLat - minLat).coerceAtLeast(0.0001)
+            val lonSpan = (maxLon - minLon).coerceAtLeast(0.0001)
+
+            val drawW = w - pad * 2
+            val drawH = h - pad * 2
+            val scaleByLat = drawH / latSpan
+            val scaleByLon = drawW / lonSpan
+            val scale = minOf(scaleByLat, scaleByLon)
+
+            val projW = lonSpan * scale
+            val projH = latSpan * scale
+            val offsetX = pad + (drawW - projW) / 2f
+            val offsetY = pad + (drawH - projH) / 2f
+
+            fun project(pt: com.runway.android.data.course.model.GeoPoint) = Offset(
+                x = (offsetX + (pt.longitude - minLon) * scale).toFloat(),
+                y = (offsetY + (maxLat - pt.latitude) * scale).toFloat(),
+            )
+
+            val offsets = routePoints.map { project(it) }
+
+            val path = Path().apply {
+                moveTo(offsets.first().x, offsets.first().y)
+                offsets.drop(1).forEach { lineTo(it.x, it.y) }
+            }
+
+            // 글로우 레이어
+            drawPath(path, accentColor.copy(alpha = 0.07f), style = Stroke(28.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawPath(path, accentColor.copy(alpha = 0.18f), style = Stroke(12.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawPath(path, accentColor.copy(alpha = 0.40f), style = Stroke(5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            // 메인 라인
+            drawPath(path, accentColor.copy(alpha = 0.95f), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+
+            // 출발점 (초록)
+            val start = offsets.first()
+            drawCircle(StartGreen.copy(alpha = 0.25f), 9.dp.toPx(), start)
+            drawCircle(StartGreen.copy(alpha = 0.60f), 5.dp.toPx(), start)
+            drawCircle(StartGreen, 3.dp.toPx(), start)
+
+            // 도착점 (주황)
+            val end = offsets.last()
+            if (end != start) {
+                drawCircle(EndOrange.copy(alpha = 0.25f), 9.dp.toPx(), end)
+                drawCircle(EndOrange.copy(alpha = 0.60f), 5.dp.toPx(), end)
+                drawCircle(EndOrange, 3.dp.toPx(), end)
             }
         }
     }
@@ -153,59 +304,4 @@ fun DiscoverCourseCard(
 private fun formatDistance(meters: Double): String = when {
     meters >= 1000 -> "%.1f km".format(meters / 1000)
     else -> "${meters.toInt()} m"
-}
-
-@Composable
-private fun CourseRoutePreview(
-    variant: Int,
-    modifier: Modifier = Modifier,
-) {
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val bgColor = MaterialTheme.colorScheme.surfaceVariant
-
-    Canvas(modifier = modifier.background(bgColor)) {
-        val w = size.width
-        val h = size.height
-
-        val gridColor = primaryColor.copy(alpha = 0.12f)
-        val gridStep = 20.dp.toPx()
-        var xi = 0f
-        while (xi <= w) { drawLine(gridColor, Offset(xi, 0f), Offset(xi, h), 1f); xi += gridStep }
-        var yi = 0f
-        while (yi <= h) { drawLine(gridColor, Offset(0f, yi), Offset(w, yi), 1f); yi += gridStep }
-
-        val strokePx = 2.5.dp.toPx()
-        val dotPx = 5.dp.toPx()
-        val ringPx = 2.dp.toPx()
-        val path = Path()
-        val startPt: Offset
-        val endPt: Offset
-
-        when (variant % 3) {
-            0 -> {
-                startPt = Offset(w * 0.10f, h * 0.72f)
-                endPt = Offset(w * 0.88f, h * 0.28f)
-                path.moveTo(startPt.x, startPt.y)
-                path.cubicTo(w * 0.30f, h * 0.15f, w * 0.62f, h * 0.92f, endPt.x, endPt.y)
-            }
-            1 -> {
-                startPt = Offset(w * 0.12f, h * 0.55f)
-                endPt = Offset(w * 0.85f, h * 0.48f)
-                path.moveTo(startPt.x, startPt.y)
-                path.cubicTo(w * 0.35f, h * 0.08f, w * 0.62f, h * 0.92f, endPt.x, endPt.y)
-            }
-            else -> {
-                startPt = Offset(w * 0.06f, h * 0.65f)
-                endPt = Offset(w * 0.94f, h * 0.35f)
-                path.moveTo(startPt.x, startPt.y)
-                path.cubicTo(w * 0.28f, h * 0.08f, w * 0.5f, h * 0.92f, w * 0.72f, h * 0.2f)
-                path.cubicTo(w * 0.82f, h * 0.08f, w * 0.9f, h * 0.55f, endPt.x, endPt.y)
-            }
-        }
-
-        drawPath(path, primaryColor, style = Stroke(strokePx, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        drawCircle(primaryColor, dotPx, startPt)
-        drawCircle(Color.White, dotPx, endPt)
-        drawCircle(color = primaryColor, radius = dotPx - ringPx, center = endPt, style = Stroke(ringPx))
-    }
 }

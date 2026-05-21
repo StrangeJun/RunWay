@@ -23,11 +23,14 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -110,7 +113,78 @@ fun ProfileScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (viewModel.isEditing) {
+                // ─── 편집 모드 ───
+                OutlinedTextField(
+                    value = viewModel.editNickname,
+                    onValueChange = viewModel::updateEditNickname,
+                    label = { Text("닉네임") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = viewModel.editBio,
+                    onValueChange = viewModel::updateEditBio,
+                    label = { Text("소개") },
+                    minLines = 2,
+                    maxLines = 4,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (viewModel.saveError != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = viewModel.saveError!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TextButton(
+                        onClick = viewModel::cancelEditing,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("취소")
+                    }
+                    Button(
+                        onClick = viewModel::saveProfile,
+                        enabled = !viewModel.isSaving,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        if (viewModel.isSaving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        } else {
+                            Text("저장")
+                        }
+                    }
+                }
+            } else {
+                // ─── 표시 모드 ───
+                if (viewModel.bio.isNotEmpty()) {
+                    Text(
+                        text = viewModel.bio,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                TextButton(onClick = viewModel::startEditing) {
+                    Text("편집", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             viewModel.stats?.let { s ->
                 Surface(

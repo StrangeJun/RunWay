@@ -3,6 +3,7 @@ package com.runway.android.ui.navigation
 import android.net.Uri
 
 object RunwayRoutes {
+    const val SPLASH = "splash"
     const val LOGIN = "login"
     const val SIGNUP = "signup"
     const val ONBOARDING = "onboarding"
@@ -15,6 +16,7 @@ object RunwayRoutes {
     const val COURSE_DETAIL = "course_detail/{courseId}"
     const val COURSE_ATTEMPT = "course_attempt/{courseId}/{courseAttemptId}/{runningRecordId}"
     const val COURSE_LEADERBOARD = "course_leaderboard/{courseId}"
+    const val COURSE_MAP_DETAIL = "course_map_detail/{courseId}"
     const val RUN_SHARE = "run_share/{runId}"
     const val STATS = "stats"
     const val ACHIEVEMENTS = "achievements"
@@ -35,4 +37,5 @@ object RunwayRoutes {
     ) = "course_attempt/${Uri.encode(courseId)}/${Uri.encode(courseAttemptId)}/${Uri.encode(runningRecordId)}"
 
     fun courseLeaderboard(courseId: String) = "course_leaderboard/${Uri.encode(courseId)}"
+    fun courseMapDetail(courseId: String) = "course_map_detail/${Uri.encode(courseId)}"
 }

@@ -53,7 +53,7 @@ class ReminderReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        const val NOTIFICATION_ID = 1001
+        const val NOTIFICATION_ID = 1002
         const val EXTRA_DAY_LABEL = "day_label"
         const val EXTRA_DAY_OF_WEEK = "day_of_week"
         const val EXTRA_HOUR = "hour"

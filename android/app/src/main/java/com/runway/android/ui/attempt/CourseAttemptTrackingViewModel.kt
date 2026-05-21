@@ -2,6 +2,7 @@ package com.runway.android.ui.attempt
 
 import android.content.Context
 import android.content.Intent
+import android.location.Location
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -24,6 +25,7 @@ import com.runway.android.core.tracking.RunTrackingService
 import com.runway.android.core.tracking.TrackingSessionSnapshot
 import com.runway.android.core.tracking.TrackingSessionStore
 import com.runway.android.core.tracking.toRunPointRequest
+import com.runway.android.core.util.formatDuration
 import com.runway.android.data.attempt.model.AbandonAttemptRequest
 import com.runway.android.data.attempt.model.FinishAttemptRequest
 import com.runway.android.data.running.model.SavePointsRequest
@@ -45,6 +47,13 @@ import javax.inject.Named
 sealed class AttemptNavEvent {
     data class NavigateToLeaderboard(val courseId: String) : AttemptNavEvent()
     object NavigateBack : AttemptNavEvent()
+}
+
+enum class CourseTrackStatus {
+    UNKNOWN,
+    ON_COURSE,
+    NEAR_COURSE,
+    OFF_COURSE,
 }
 
 @HiltViewModel
@@ -84,11 +93,16 @@ class CourseAttemptTrackingViewModel @Inject constructor(
         private set
     var milestoneMessage by mutableStateOf<String?>(null)
         private set
+    var courseDistanceMeters by mutableStateOf(0.0)
+        private set
+    var nearestCourseDistanceMeters by mutableStateOf<Double?>(null)
+        private set
 
     private var lastSpeedMps by mutableStateOf<Float?>(null)
+    private var cadenceSpm by mutableStateOf<Int?>(null)
 
     val timerText: String
-        get() = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
+        get() = formatDuration(elapsedSeconds)
 
     val distanceText: String
         get() = "%.2f".format(distanceKm)
@@ -110,6 +124,30 @@ class CourseAttemptTrackingViewModel @Inject constructor(
             } else {
                 "%.1f".format(distanceKm / (elapsedSeconds / 3600.0))
             }
+        }
+
+    val cadenceText: String
+        get() = cadenceSpm?.takeIf { it > 0 }?.toString() ?: "--"
+
+    val courseProgressPercent: Int
+        get() = if (courseDistanceMeters > 1.0) {
+            ((distanceKm * 1000.0 / courseDistanceMeters) * 100.0).toInt().coerceIn(0, 100)
+        } else {
+            0
+        }
+
+    val remainingDistanceText: String
+        get() {
+            val remainingMeters = (courseDistanceMeters - distanceKm * 1000.0).coerceAtLeast(0.0)
+            return "%.2f".format(remainingMeters / 1000.0)
+        }
+
+    val trackStatus: CourseTrackStatus
+        get() = when (val meters = nearestCourseDistanceMeters) {
+            null -> CourseTrackStatus.UNKNOWN
+            in 0.0..30.0 -> CourseTrackStatus.ON_COURSE
+            in 30.0..80.0 -> CourseTrackStatus.NEAR_COURSE
+            else -> CourseTrackStatus.OFF_COURSE
         }
 
     private val _navEvent = MutableSharedFlow<AttemptNavEvent>()
@@ -136,7 +174,10 @@ class CourseAttemptTrackingViewModel @Inject constructor(
         }
         viewModelScope.launch {
             when (val r = courseRepository.getCoursePoints(courseId)) {
-                is NetworkResult.Success -> coursePoints = r.data.points.map { MapPoint(it.latitude, it.longitude) }
+                is NetworkResult.Success -> {
+                    coursePoints = r.data.points.map { MapPoint(it.latitude, it.longitude) }
+                    courseDistanceMeters = calculateCourseDistance(coursePoints)
+                }
                 else -> {}
             }
         }
@@ -164,8 +205,13 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                 elapsedSeconds = state.elapsedSeconds
                 distanceKm = state.distanceMeters / 1000.0
                 lastSpeedMps = state.currentSpeedMps
+                cadenceSpm = state.cadenceSpm
                 isAutoPaused = state.isAutoPaused
-                currentLocationPoint = state.lastLocation?.let { MapPoint(it.latitude, it.longitude) }
+                currentLocationPoint = state.lastLocation?.let { location ->
+                    MapPoint(location.latitude, location.longitude).also { point ->
+                        nearestCourseDistanceMeters = nearestDistanceToCourse(point, coursePoints)
+                    }
+                }
             }
         }
 
@@ -292,7 +338,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
         viewModelScope.launch {
             courseAttemptRepository.abandonAttempt(
                 attemptId = courseAttemptId,
-                request = AbandonAttemptRequest(abandonedAt = Instant.now().toString()),
+                request = AbandonAttemptRequest(endedAt = Instant.now().toString()),
             )
             sessionStore.clearSnapshot()
             pendingPointQueue.deleteByRunningRecordId(runningRecordId)
@@ -322,11 +368,35 @@ class CourseAttemptTrackingViewModel @Inject constructor(
             appScope.launch {
                 courseAttemptRepository.abandonAttempt(
                     attemptId = courseAttemptId,
-                    request = AbandonAttemptRequest(abandonedAt = Instant.now().toString()),
+                    request = AbandonAttemptRequest(endedAt = Instant.now().toString()),
                 )
                 sessionStore.clearSnapshot()
                 pendingPointQueue.deleteByRunningRecordId(runningRecordId)
             }
         }
     }
+}
+
+private fun calculateCourseDistance(points: List<MapPoint>): Double {
+    if (points.size < 2) return 0.0
+    return points.zipWithNext().sumOf { (from, to) ->
+        distanceMeters(from, to)
+    }
+}
+
+private fun nearestDistanceToCourse(current: MapPoint, course: List<MapPoint>): Double? {
+    if (course.isEmpty()) return null
+    return course.minOf { point -> distanceMeters(current, point) }
+}
+
+private fun distanceMeters(from: MapPoint, to: MapPoint): Double {
+    val result = FloatArray(1)
+    Location.distanceBetween(
+        from.latitude,
+        from.longitude,
+        to.latitude,
+        to.longitude,
+        result,
+    )
+    return result[0].toDouble()
 }

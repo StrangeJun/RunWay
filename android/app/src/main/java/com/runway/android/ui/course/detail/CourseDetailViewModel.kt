@@ -7,6 +7,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.runway.android.core.result.NetworkResult
+import com.runway.android.data.attempt.model.LeaderboardItem
 import com.runway.android.data.attempt.model.StartAttemptRequest
 import com.runway.android.data.course.model.CourseDetailResponse
 import com.runway.android.data.course.model.CoursePointResponse
@@ -44,6 +45,10 @@ class CourseDetailViewModel @Inject constructor(
     var courseDetail by mutableStateOf<CourseDetailResponse?>(null)
         private set
     var coursePoints by mutableStateOf<List<CoursePointResponse>>(emptyList())
+        private set
+    var previewLeaderboard by mutableStateOf<List<LeaderboardItem>>(emptyList())
+        private set
+    var isLoadingLeaderboard by mutableStateOf(false)
         private set
 
     var isStartingAttempt by mutableStateOf(false)
@@ -225,6 +230,10 @@ class CourseDetailViewModel @Inject constructor(
 
             val detailDeferred = async { courseRepository.getCourseDetail(courseId) }
             val pointsDeferred = async { courseRepository.getCoursePoints(courseId) }
+            val leaderboardDeferred = async {
+                isLoadingLeaderboard = true
+                courseAttemptRepository.getLeaderboard(courseId, page = 0, size = 5)
+            }
 
             when (val result = detailDeferred.await()) {
                 is NetworkResult.Success -> courseDetail = result.data
@@ -236,6 +245,12 @@ class CourseDetailViewModel @Inject constructor(
                 is NetworkResult.Success -> coursePoints = result.data.points
                 else -> { /* points 로드 실패는 detail 표시에 영향 없음 */ }
             }
+
+            when (val result = leaderboardDeferred.await()) {
+                is NetworkResult.Success -> previewLeaderboard = result.data.items.take(5)
+                else -> { /* 리더보드 로드 실패 시 조용히 빈 상태 유지 */ }
+            }
+            isLoadingLeaderboard = false
 
             isLoading = false
         }

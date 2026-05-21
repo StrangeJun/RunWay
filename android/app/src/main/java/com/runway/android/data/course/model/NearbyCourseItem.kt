@@ -8,9 +8,12 @@ data class NearbyCourseItem(
     val distanceMeters: Double,
     val isLoop: Boolean,
     val startPoint: GeoPoint,
-    val endPoint: GeoPoint,
+    val endPoint: GeoPoint?,
     val attemptCount: Int,
     val completionCount: Int,
     val distanceFromMeMeters: Double,
     val createdAt: String,
+    val avgRating: Double?,
+    val ratingCount: Long?,
+    val routePoints: List<GeoPoint> = emptyList(),
 )

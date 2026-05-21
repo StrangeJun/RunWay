@@ -1,6 +1,8 @@
 package com.runway.android.ui.components
 
+import android.content.Context
 import android.content.Intent
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
@@ -20,10 +22,41 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+
+@Composable
+fun rememberBatteryOptimizationIgnored(): Boolean {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var ignored by remember {
+        mutableStateOf(context.isBatteryOptimizationIgnored())
+    }
+
+    DisposableEffect(context, lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                ignored = context.isBatteryOptimizationIgnored()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    return ignored
+}
 
 @Composable
 fun BatteryOptimizationCard(
@@ -78,4 +111,9 @@ fun BatteryOptimizationCard(
             }
         }
     }
+}
+
+private fun Context.isBatteryOptimizationIgnored(): Boolean {
+    val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+    return powerManager.isIgnoringBatteryOptimizations(packageName)
 }

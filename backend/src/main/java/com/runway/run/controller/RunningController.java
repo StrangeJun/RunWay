@@ -127,4 +127,14 @@ public class RunningController {
         runningService.deleteRun(principal.getUserId(), runId);
         return ResponseEntity.ok(ApiResponse.success("러닝 기록이 삭제되었습니다."));
     }
+
+    @Operation(summary = "러닝 기록 거리 단축 (줄이기만 가능)", security = @SecurityRequirement(name = "bearerAuth"))
+    @PatchMapping("/{runId}/trim")
+    public ResponseEntity<ApiResponse<Void>> trimRun(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID runId,
+            @RequestBody RunTrimRequest request) {
+        runningService.trimRun(principal.getUserId(), runId, request.getTargetDistanceMeters());
+        return ResponseEntity.ok(ApiResponse.success("러닝 기록이 수정되었습니다."));
+    }
 }

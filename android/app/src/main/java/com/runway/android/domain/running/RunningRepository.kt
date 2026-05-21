@@ -25,4 +25,6 @@ interface RunningRepository {
     suspend fun getRunDetail(runId: String): NetworkResult<RunDetailResponse>
     suspend fun getPersonalRecords(): NetworkResult<PersonalRecordsResponse>
     suspend fun getRunningStats(period: String = "monthly"): NetworkResult<RunningStatsResponse>
+    suspend fun deleteRun(runId: String): NetworkResult<Unit>
+    suspend fun trimRun(runId: String, targetDistanceMeters: Double): NetworkResult<Unit>
 }

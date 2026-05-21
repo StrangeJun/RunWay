@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.running.model.PersonalRecordsResponse
+import com.runway.android.data.user.model.UpdateProfileRequest
 import com.runway.android.domain.auth.AuthRepository
 import com.runway.android.domain.running.RunningRepository
 import com.runway.android.domain.user.UserRepository
@@ -32,6 +33,8 @@ class ProfileViewModel @Inject constructor(
         private set
     var email by mutableStateOf("")
         private set
+    var bio by mutableStateOf("")
+        private set
     var stats by mutableStateOf<ProfileStats?>(null)
         private set
     var personalRecords by mutableStateOf<PersonalRecordsResponse?>(null)
@@ -39,6 +42,18 @@ class ProfileViewModel @Inject constructor(
     var isLoading by mutableStateOf(true)
         private set
     var profileError by mutableStateOf(false)
+        private set
+
+    // 편집 상태
+    var isEditing by mutableStateOf(false)
+        private set
+    var editNickname by mutableStateOf("")
+        private set
+    var editBio by mutableStateOf("")
+        private set
+    var isSaving by mutableStateOf(false)
+        private set
+    var saveError by mutableStateOf<String?>(null)
         private set
 
     init {
@@ -58,6 +73,7 @@ class ProfileViewModel @Inject constructor(
             if (profileResult is NetworkResult.Success) {
                 nickname = profileResult.data.nickname
                 email = profileResult.data.email
+                bio = profileResult.data.bio ?: ""
             } else {
                 profileError = true
             }
@@ -77,6 +93,52 @@ class ProfileViewModel @Inject constructor(
             }
 
             isLoading = false
+        }
+    }
+
+    fun startEditing() {
+        editNickname = nickname
+        editBio = bio
+        saveError = null
+        isEditing = true
+    }
+
+    fun cancelEditing() {
+        isEditing = false
+        saveError = null
+    }
+
+    fun updateEditNickname(value: String) { editNickname = value }
+    fun updateEditBio(value: String) { editBio = value }
+
+    fun saveProfile() {
+        val trimmedNickname = editNickname.trim()
+        if (trimmedNickname.isBlank()) {
+            saveError = "닉네임을 입력해 주세요."
+            return
+        }
+        viewModelScope.launch {
+            isSaving = true
+            saveError = null
+            when (val result = userRepository.updateMe(
+                UpdateProfileRequest(
+                    nickname = trimmedNickname,
+                    profileImageUrl = null,
+                    bio = editBio.trim().ifEmpty { null },
+                )
+            )) {
+                is NetworkResult.Success -> {
+                    nickname = result.data.nickname
+                    bio = result.data.bio ?: ""
+                    isEditing = false
+                }
+                is NetworkResult.ApiError -> saveError = when (result.errorCode) {
+                    "DUPLICATED_NICKNAME" -> "이미 사용 중인 닉네임입니다."
+                    else -> "저장에 실패했습니다."
+                }
+                is NetworkResult.NetworkError -> saveError = "네트워크 연결을 확인해 주세요."
+            }
+            isSaving = false
         }
     }
 

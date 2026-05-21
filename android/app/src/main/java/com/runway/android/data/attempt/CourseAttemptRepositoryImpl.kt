@@ -39,7 +39,8 @@ class CourseAttemptRepositoryImpl @Inject constructor(
 
     override suspend fun getLeaderboard(
         courseId: String,
-        limit: Int?,
+        page: Int,
+        size: Int,
     ): NetworkResult<LeaderboardResponse> =
-        safeApiCall { courseAttemptApi.getLeaderboard(courseId, limit) }
+        safeApiCall { courseAttemptApi.getLeaderboard(courseId, page, size) }
 }

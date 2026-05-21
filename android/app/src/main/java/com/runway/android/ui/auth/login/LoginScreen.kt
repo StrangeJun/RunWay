@@ -108,18 +108,6 @@ fun LoginScreen(
                 isError = viewModel.error != null,
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            TextButton(
-                onClick = {},
-                modifier = Modifier.align(Alignment.End),
-            ) {
-                Text(
-                    text = "비밀번호를 잊으셨나요?",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
 
         // ─── Error ───

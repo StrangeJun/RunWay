@@ -18,17 +18,24 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -140,18 +147,70 @@ fun MyRunsScreen(
                             }
                         }
                     } else {
-                        items(viewModel.runs) { item ->
-                            Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
-                                RunHistoryCard(
-                                    item = item,
-                                    onClick = { onNavigateToDetail(item.runId) },
-                                )
+                        items(viewModel.runs, key = { it.runId }) { item ->
+                            SwipeToDeleteCard(
+                                onDelete = { viewModel.deleteRun(item.runId) },
+                            ) {
+                                Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+                                    RunHistoryCard(
+                                        item = item,
+                                        onClick = { onNavigateToDetail(item.runId) },
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeToDeleteCard(
+    onDelete: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val state = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                onDelete()
+                true
+            } else false
+        },
+        positionalThreshold = { it * 0.4f },
+    )
+    LaunchedEffect(state.currentValue) {
+        if (state.currentValue == SwipeToDismissBoxValue.Settled) return@LaunchedEffect
+    }
+    SwipeToDismissBox(
+        state = state,
+        backgroundContent = {
+            if (state.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 20.dp, vertical = 4.dp)
+                        .background(
+                            MaterialTheme.colorScheme.errorContainer,
+                            MaterialTheme.shapes.extraLarge,
+                        ),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "삭제",
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(end = 24.dp),
+                    )
+                }
+            }
+        },
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true,
+    ) {
+        content()
     }
 }
 
