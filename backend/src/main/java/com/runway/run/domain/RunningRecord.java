@@ -98,6 +98,18 @@ public class RunningRecord {
         this.endedAt = endedAt != null ? endedAt : Instant.now();
     }
 
+    public void trim(double targetDistanceMeters) {
+        double ratio = targetDistanceMeters / this.distanceMeters;
+        this.durationSeconds = (int) Math.round(this.durationSeconds * ratio);
+        this.distanceMeters = targetDistanceMeters;
+        this.avgPaceSecondsPerKm = targetDistanceMeters > 0
+                ? (int) Math.round(this.durationSeconds / (targetDistanceMeters / 1000.0))
+                : this.avgPaceSecondsPerKm;
+        if (this.caloriesBurned != null) {
+            this.caloriesBurned = (int) Math.round(this.caloriesBurned * ratio);
+        }
+    }
+
     public void updatePath(LineString path) {
         this.path = path;
     }

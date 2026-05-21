@@ -13,8 +13,11 @@ import com.runway.android.data.running.model.SavePointsRequest
 import com.runway.android.data.running.model.SavePointsResponse
 import com.runway.android.data.running.model.StartRunRequest
 import com.runway.android.data.running.model.StartRunResponse
+import com.runway.android.data.running.model.TrimRunRequest
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -61,4 +64,13 @@ interface RunningApi {
     suspend fun getRunningStats(
         @Query("period") period: String = "monthly",
     ): ApiResponse<RunningStatsResponse>
+
+    @DELETE("api/runs/{runId}")
+    suspend fun deleteRun(@Path("runId") runId: String): ApiResponse<Unit>
+
+    @PATCH("api/runs/{runId}/trim")
+    suspend fun trimRun(
+        @Path("runId") runId: String,
+        @Body request: TrimRunRequest,
+    ): ApiResponse<Unit>
 }

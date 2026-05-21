@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Getter
-@Builder
+@Builder(toBuilder = true)
 public class NearbyCourseItem {
 
     private UUID courseId;

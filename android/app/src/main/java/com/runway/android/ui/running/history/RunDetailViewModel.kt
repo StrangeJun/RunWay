@@ -35,10 +35,61 @@ class RunDetailViewModel @Inject constructor(
         private set
     var hasError by mutableStateOf(false)
         private set
+    var showDeleteDialog by mutableStateOf(false)
+    var showTrimDialog by mutableStateOf(false)
+    var trimTargetKm by mutableStateOf(0f)
+    var isActionLoading by mutableStateOf(false)
+        private set
+    var isDeleted by mutableStateOf(false)
+        private set
+    var actionError by mutableStateOf<String?>(null)
+
+    val maxTrimKm: Float get() = ((detail?.distanceMeters ?: 0.0) / 1000.0).toFloat()
 
     init {
         loadDetail()
     }
+
+    fun openDeleteDialog() { showDeleteDialog = true }
+    fun dismissDeleteDialog() { showDeleteDialog = false }
+    fun openTrimDialog() {
+        trimTargetKm = maxTrimKm
+        showTrimDialog = true
+    }
+    fun dismissTrimDialog() { showTrimDialog = false }
+
+    fun confirmDelete() {
+        viewModelScope.launch {
+            isActionLoading = true
+            showDeleteDialog = false
+            val result = runningRepository.deleteRun(runId)
+            if (result is com.runway.android.core.result.NetworkResult.Success) {
+                isDeleted = true
+            } else {
+                actionError = "삭제에 실패했습니다."
+            }
+            isActionLoading = false
+        }
+    }
+
+    fun confirmTrim() {
+        val targetMeters = (trimTargetKm * 1000.0).toDouble()
+        viewModelScope.launch {
+            isActionLoading = true
+            showTrimDialog = false
+            when (runningRepository.trimRun(runId, targetMeters)) {
+                is com.runway.android.core.result.NetworkResult.Success -> {
+                    isLoading = true
+                    detail = null
+                    loadDetail()
+                }
+                else -> actionError = "수정에 실패했습니다."
+            }
+            isActionLoading = false
+        }
+    }
+
+    fun clearActionError() { actionError = null }
 
     fun retry() {
         isLoading = true

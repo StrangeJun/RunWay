@@ -323,8 +323,58 @@ public class RunningService {
     public void deleteRun(UUID userId, UUID runId) {
         RunningRecord record = findOwnedRecord(runId, userId);
         runningRecordRepository.delete(record);
-        // DB의 ON DELETE CASCADE가 running_points를 자동으로 삭제함
         log.info("Run deleted: runId={}", runId);
+    }
+
+    @Transactional
+    public void trimRun(UUID userId, UUID runId, double targetDistanceMeters) {
+        RunningRecord record = findOwnedRecord(runId, userId);
+
+        if (record.getDistanceMeters() == null || record.getDistanceMeters() <= 0) {
+            throw new RunwayException(ErrorCode.INVALID_REQUEST, "기록된 거리가 없습니다.");
+        }
+        if (targetDistanceMeters <= 0 || targetDistanceMeters >= record.getDistanceMeters()) {
+            throw new RunwayException(ErrorCode.INVALID_REQUEST,
+                    "수정 거리는 0보다 크고 현재 기록(" +
+                    String.format("%.1f", record.getDistanceMeters() / 1000.0) + "km)보다 작아야 합니다.");
+        }
+
+        // 포인트 조회 후 커트 지점 계산
+        List<RunningPoint> points = runningPointRepository
+                .findByRunningRecordIdOrderBySequenceAsc(runId);
+
+        double cumulative = 0.0;
+        int cutoffSeq = -1;
+        for (int i = 1; i < points.size(); i++) {
+            RunningPoint prev = points.get(i - 1);
+            RunningPoint curr = points.get(i);
+            cumulative += haversineMeters(
+                    prev.getLocation().getY(), prev.getLocation().getX(),
+                    curr.getLocation().getY(), curr.getLocation().getX()
+            );
+            if (cumulative >= targetDistanceMeters) {
+                cutoffSeq = curr.getSequence();
+                break;
+            }
+        }
+
+        if (cutoffSeq > 0) {
+            runningPointRepository.deleteByRunningRecordIdAndSequenceGreaterThan(runId, cutoffSeq);
+        }
+
+        record.trim(targetDistanceMeters);
+        log.info("Run trimmed: runId={}, targetDistanceMeters={}", runId, targetDistanceMeters);
+    }
+
+    private static double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
+        final double R = 6_371_000.0;
+        double phi1 = Math.toRadians(lat1);
+        double phi2 = Math.toRadians(lat2);
+        double dPhi = Math.toRadians(lat2 - lat1);
+        double dLambda = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dPhi / 2) * Math.sin(dPhi / 2)
+                + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLambda / 2) * Math.sin(dLambda / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     private RunningRecord findOwnedRecord(UUID runId, UUID userId) {

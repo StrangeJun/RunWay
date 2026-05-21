@@ -17,6 +17,13 @@ public interface RunningPointRepository extends JpaRepository<RunningPoint, UUID
     void deleteByRunningRecordId(UUID runningRecordId);
 
     @Modifying
+    @Query("DELETE FROM RunningPoint rp WHERE rp.runningRecordId = :runId AND rp.sequence > :seq")
+    void deleteByRunningRecordIdAndSequenceGreaterThan(
+            @Param("runId") UUID runId,
+            @Param("seq") int seq
+    );
+
+    @Modifying
     @Query(value = """
             INSERT INTO running_points
                 (id, running_record_id, sequence, location, altitude_meters, speed_mps, recorded_at)

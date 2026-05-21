@@ -14,6 +14,7 @@ import com.runway.android.data.running.model.SavePointsRequest
 import com.runway.android.data.running.model.SavePointsResponse
 import com.runway.android.data.running.model.StartRunRequest
 import com.runway.android.data.running.model.StartRunResponse
+import com.runway.android.data.running.model.TrimRunRequest
 import com.runway.android.data.running.remote.RunningApi
 import com.runway.android.domain.running.RunningRepository
 import javax.inject.Inject
@@ -53,4 +54,10 @@ class RunningRepositoryImpl @Inject constructor(
 
     override suspend fun getRunningStats(period: String): NetworkResult<RunningStatsResponse> =
         safeApiCall { runningApi.getRunningStats(period) }
+
+    override suspend fun deleteRun(runId: String): NetworkResult<Unit> =
+        safeApiCall { runningApi.deleteRun(runId) }
+
+    override suspend fun trimRun(runId: String, targetDistanceMeters: Double): NetworkResult<Unit> =
+        safeApiCall { runningApi.trimRun(runId, TrimRunRequest(targetDistanceMeters)) }
 }
