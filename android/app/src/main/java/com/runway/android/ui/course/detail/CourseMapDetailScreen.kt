@@ -7,6 +7,7 @@ import android.graphics.Typeface
 import android.location.Location
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -35,6 +36,7 @@ import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.JointType
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.RoundCap
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
@@ -43,6 +45,7 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.runway.android.R
 import com.runway.android.core.map.MapPoint
 import com.runway.android.core.map.toLatLngBounds
 
@@ -146,6 +149,11 @@ private fun CourseFullMap(
     val cameraPositionState = rememberCameraPositionState()
     val primaryColor = MaterialTheme.colorScheme.primary
     val primaryArgb = primaryColor.toArgb()
+    val isDark = isSystemInDarkTheme()
+    val mapStyleOptions = remember(isDark) {
+        if (isDark) runCatching { MapStyleOptions.loadRawResourceStyle(context, R.raw.map_style_dark) }.getOrNull()
+        else null
+    }
 
     val kmMarkers = remember(points) { calculateKmMarkers(points) }
     val returnPoint = remember(points, isLoop) {
@@ -164,7 +172,7 @@ private fun CourseFullMap(
     GoogleMap(
         modifier = Modifier.fillMaxSize(),
         cameraPositionState = cameraPositionState,
-        properties = MapProperties(isMyLocationEnabled = false),
+        properties = MapProperties(isMyLocationEnabled = false, mapStyleOptions = mapStyleOptions),
         uiSettings = MapUiSettings(
             zoomControlsEnabled = true,
             scrollGesturesEnabled = true,

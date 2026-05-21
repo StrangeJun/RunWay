@@ -2,6 +2,7 @@ package com.runway.android.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -13,11 +14,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.JointType
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.RoundCap
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
@@ -26,6 +29,7 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.runway.android.R
 import com.runway.android.core.map.MapPoint
 import com.runway.android.core.map.toLatLngBounds
 
@@ -53,6 +57,7 @@ private fun RouteGoogleMap(
     currentLocation: MapPoint?,
     modifier: Modifier,
 ) {
+    val context = LocalContext.current
     val latLngs = remember(points) { points.map { LatLng(it.latitude, it.longitude) } }
     val bounds = remember(points) { points.toLatLngBounds() }
     val cameraPositionState = rememberCameraPositionState()
@@ -60,11 +65,16 @@ private fun RouteGoogleMap(
     val currentLatLng = remember(currentLocation) {
         currentLocation?.let { LatLng(it.latitude, it.longitude) }
     }
+    val isDark = isSystemInDarkTheme()
+    val mapStyleOptions = remember(isDark) {
+        if (isDark) runCatching { MapStyleOptions.loadRawResourceStyle(context, R.raw.map_style_dark) }.getOrNull()
+        else null
+    }
 
     GoogleMap(
         modifier = modifier,
         cameraPositionState = cameraPositionState,
-        properties = MapProperties(isMyLocationEnabled = false),
+        properties = MapProperties(isMyLocationEnabled = false, mapStyleOptions = mapStyleOptions),
         uiSettings = MapUiSettings(
             zoomControlsEnabled = false,
             scrollGesturesEnabled = false,

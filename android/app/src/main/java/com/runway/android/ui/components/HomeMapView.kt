@@ -1,6 +1,7 @@
 package com.runway.android.ui.components
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -31,8 +32,10 @@ fun HomeMapView(
         position = CameraPosition.fromLatLngZoom(LatLng(37.5665, 126.9780), 13f)
     }
 
-    val mapStyleOptions = remember {
-        runCatching { MapStyleOptions.loadRawResourceStyle(context, R.raw.map_style_dark) }.getOrNull()
+    val isDark = isSystemInDarkTheme()
+    val mapStyleOptions = remember(isDark) {
+        if (isDark) runCatching { MapStyleOptions.loadRawResourceStyle(context, R.raw.map_style_dark) }.getOrNull()
+        else null
     }
 
     LaunchedEffect(currentLocation) {
