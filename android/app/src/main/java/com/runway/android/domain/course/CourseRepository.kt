@@ -11,7 +11,9 @@ import com.runway.android.data.course.model.CourseReportResponse
 import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.data.course.model.CreateCourseFromRunRequest
 import com.runway.android.data.course.model.NearbyCourseItem
+import com.runway.android.data.course.model.CourseStatusResponse
 import com.runway.android.data.course.model.ParticipatedCourseItem
+import com.runway.android.data.course.model.PublishCourseRequest
 
 interface CourseRepository {
 
@@ -53,4 +55,6 @@ interface CourseRepository {
     suspend fun addFavorite(courseId: String): NetworkResult<Unit>
 
     suspend fun removeFavorite(courseId: String): NetworkResult<Unit>
+
+    suspend fun publishCourse(courseId: String, request: PublishCourseRequest): NetworkResult<CourseStatusResponse>
 }

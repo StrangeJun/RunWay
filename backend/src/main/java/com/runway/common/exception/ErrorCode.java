@@ -36,6 +36,8 @@ public enum ErrorCode {
     IMPOSSIBLE_SPEED(HttpStatus.CONFLICT, "기록된 속도가 물리적으로 불가능한 값입니다."),
     ALREADY_REPORTED(HttpStatus.CONFLICT, "이미 신고한 코스입니다."),
     INVALID_REPORT_REASON(HttpStatus.BAD_REQUEST, "유효하지 않은 신고 사유입니다."),
+    COURSE_PUBLISH_METADATA_REQUIRED(HttpStatus.UNPROCESSABLE_ENTITY, "공개에 필요한 메타데이터를 모두 입력해주세요."),
+    COURSE_PUBLISH_NOT_ENOUGH_COMPLETIONS(HttpStatus.UNPROCESSABLE_ENTITY, "공개하려면 이 코스를 10회 이상 완주해야 합니다."),
 
     // 500 Internal Server Error
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다.");

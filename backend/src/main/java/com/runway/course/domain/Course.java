@@ -1,5 +1,10 @@
 package com.runway.course.domain;
 
+import com.runway.course.domain.enums.CourseDifficulty;
+import com.runway.course.domain.enums.CourseRecommendedTime;
+import com.runway.course.domain.enums.CourseRiskLevel;
+import com.runway.course.domain.enums.CourseSlopeLevel;
+import com.runway.course.domain.enums.CourseSurfaceType;
 import com.runway.course.domain.enums.CourseStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -54,6 +59,24 @@ public class Course {
     @Column(columnDefinition = "geography(LineString,4326)")
     private LineString path;
 
+    @Column(name = "difficulty", length = 20)
+    private CourseDifficulty difficulty;
+
+    @Column(name = "slope_level", length = 20)
+    private CourseSlopeLevel slopeLevel;
+
+    @Column(name = "risk_level", length = 20)
+    private CourseRiskLevel riskLevel;
+
+    @Column(name = "surface_type", length = 20)
+    private CourseSurfaceType surfaceType;
+
+    @Column(name = "recommended_time", length = 20)
+    private CourseRecommendedTime recommendedTime;
+
+    @Column(name = "warnings", columnDefinition = "TEXT")
+    private String warnings;
+
     @Column(name = "attempt_count", nullable = false)
     private Integer attemptCount;
 
@@ -102,6 +125,24 @@ public class Course {
         this.name = name;
         this.description = description;
         this.isLoop = Boolean.TRUE.equals(isLoop);
+    }
+
+    public void updateMetadata(CourseDifficulty difficulty, CourseSlopeLevel slopeLevel,
+                               CourseRiskLevel riskLevel, CourseSurfaceType surfaceType,
+                               CourseRecommendedTime recommendedTime, String warnings,
+                               String description) {
+        this.difficulty = difficulty;
+        this.slopeLevel = slopeLevel;
+        this.riskLevel = riskLevel;
+        this.surfaceType = surfaceType;
+        this.recommendedTime = recommendedTime;
+        this.warnings = warnings;
+        if (description != null) this.description = description;
+    }
+
+    public boolean hasRequiredPublishMetadata() {
+        return difficulty != null && slopeLevel != null && riskLevel != null
+                && surfaceType != null && recommendedTime != null;
     }
 
     public void updatePath(LineString path) {

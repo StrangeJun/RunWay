@@ -1,6 +1,7 @@
 package com.runway.attempt.repository;
 
 import com.runway.attempt.domain.CourseAttempt;
+import com.runway.attempt.domain.enums.AttemptVerificationStatus;
 import com.runway.attempt.domain.enums.CourseAttemptStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,4 +21,8 @@ public interface CourseAttemptRepository extends JpaRepository<CourseAttempt, UU
 
     Optional<CourseAttempt> findFirstByUserIdAndStatusOrderByCompletedAtAsc(
             UUID userId, CourseAttemptStatus status);
+
+    long countByCourseIdAndUserIdAndStatusAndVerificationStatus(
+            UUID courseId, UUID userId,
+            CourseAttemptStatus status, AttemptVerificationStatus verificationStatus);
 }

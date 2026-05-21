@@ -26,6 +26,13 @@ public class CourseDetailResponse {
     private GeoPoint startPoint;
     private GeoPoint endPoint;
     private Boolean isFavorited;
+    private String difficulty;
+    private String slopeLevel;
+    private String riskLevel;
+    private String surfaceType;
+    private String recommendedTime;
+    private String warnings;
+    private Boolean isOwner;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -66,6 +73,13 @@ public class CourseDetailResponse {
                 .avgRating(avgRating)
                 .ratingCount(ratingCount)
                 .isFavorited(isFavorited)
+                .difficulty(course.getDifficulty() != null ? course.getDifficulty().getDbValue() : null)
+                .slopeLevel(course.getSlopeLevel() != null ? course.getSlopeLevel().getDbValue() : null)
+                .riskLevel(course.getRiskLevel() != null ? course.getRiskLevel().getDbValue() : null)
+                .surfaceType(course.getSurfaceType() != null ? course.getSurfaceType().getDbValue() : null)
+                .recommendedTime(course.getRecommendedTime() != null ? course.getRecommendedTime().getDbValue() : null)
+                .warnings(course.getWarnings())
+                .isOwner(isOwner)
                 .creator(CreatorDto.from(creator))
                 .startPoint(startPoint)
                 .endPoint(endPoint)

@@ -13,7 +13,9 @@ import com.runway.android.data.course.model.CourseReportResponse
 import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.data.course.model.CreateCourseFromRunRequest
 import com.runway.android.data.course.model.NearbyCourseItem
+import com.runway.android.data.course.model.CourseStatusResponse
 import com.runway.android.data.course.model.ParticipatedCourseItem
+import com.runway.android.data.course.model.PublishCourseRequest
 import com.runway.android.data.course.remote.CourseApi
 import com.runway.android.domain.course.CourseRepository
 import javax.inject.Inject
@@ -94,4 +96,7 @@ class CourseRepositoryImpl @Inject constructor(
 
     override suspend fun removeFavorite(courseId: String): NetworkResult<Unit> =
         safeApiCallUnit { courseApi.removeFavorite(courseId) }
+
+    override suspend fun publishCourse(courseId: String, request: PublishCourseRequest): NetworkResult<CourseStatusResponse> =
+        safeApiCall { courseApi.publishCourse(courseId, request) }
 }

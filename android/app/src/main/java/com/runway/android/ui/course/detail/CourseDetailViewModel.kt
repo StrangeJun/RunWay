@@ -13,6 +13,7 @@ import com.runway.android.data.course.model.CourseDetailResponse
 import com.runway.android.data.course.model.CoursePointResponse
 import com.runway.android.data.course.model.CourseRatingRequest
 import com.runway.android.data.course.model.CourseReportRequest
+import com.runway.android.data.course.model.PublishCourseRequest
 import com.runway.android.domain.attempt.CourseAttemptRepository
 import com.runway.android.domain.course.CourseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -74,6 +75,15 @@ class CourseDetailViewModel @Inject constructor(
     var reportError by mutableStateOf<String?>(null)
         private set
     var reportSuccess by mutableStateOf(false)
+        private set
+
+    var showPublishDialog by mutableStateOf(false)
+        private set
+    var isPublishing by mutableStateOf(false)
+        private set
+    var publishError by mutableStateOf<String?>(null)
+        private set
+    var publishSuccess by mutableStateOf(false)
         private set
 
     var showRateDialog by mutableStateOf(false)
@@ -201,6 +211,44 @@ class CourseDetailViewModel @Inject constructor(
                 is NetworkResult.NetworkError -> ratingError = "네트워크 연결을 확인해 주세요."
             }
             isSubmittingRating = false
+        }
+    }
+
+    fun openPublishDialog() {
+        publishError = null
+        publishSuccess = false
+        showPublishDialog = true
+    }
+
+    fun dismissPublishDialog() {
+        if (!isPublishing) showPublishDialog = false
+    }
+
+    fun clearPublishSuccess() {
+        publishSuccess = false
+    }
+
+    fun submitPublish(request: PublishCourseRequest) {
+        if (isPublishing) return
+        isPublishing = true
+        publishError = null
+
+        viewModelScope.launch {
+            when (val result = courseRepository.publishCourse(courseId, request)) {
+                is NetworkResult.Success -> {
+                    publishSuccess = true
+                    showPublishDialog = false
+                    load()
+                }
+                is NetworkResult.ApiError -> publishError = when (result.errorCode) {
+                    "COURSE_PUBLISH_METADATA_REQUIRED" -> "공개에 필요한 정보를 모두 입력해주세요."
+                    "COURSE_PUBLISH_NOT_ENOUGH_COMPLETIONS" -> "공개하려면 이 코스를 10회 이상 완주해야 합니다."
+                    "INVALID_COURSE_STATUS" -> "이미 공개된 코스입니다."
+                    else -> result.message
+                }
+                is NetworkResult.NetworkError -> publishError = "네트워크 연결을 확인해 주세요."
+            }
+            isPublishing = false
         }
     }
 
