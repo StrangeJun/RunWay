@@ -98,11 +98,16 @@ fun RunHeroSection(
                 .padding(horizontal = 20.dp),
         )
 
-        // ── 스크롤 유도 애니메이션 ───────────────────────────────────────────
+        // ── 스크롤 유도 애니메이션 (좌/우) ──────────────────────────────────
         ScrollHintIndicator(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 10.dp),
+                .align(Alignment.BottomStart)
+                .padding(start = 28.dp, bottom = 56.dp),
+        )
+        ScrollHintIndicator(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 28.dp, bottom = 56.dp),
         )
 
         // ── 시작 button + 목표 설정 ─────────────────────────────────────────
@@ -181,16 +186,16 @@ private fun ScrollHintIndicator(modifier: Modifier = Modifier) {
         Icon(
             imageVector = Icons.Filled.KeyboardArrowDown,
             contentDescription = null,
-            tint = Color.White.copy(alpha = alpha * 0.5f),
+            tint = Color.White.copy(alpha = alpha * 0.4f),
             modifier = Modifier
-                .size(20.dp)
-                .offset(y = (-4).dp),
+                .size(30.dp)
+                .offset(y = (-6).dp),
         )
         Icon(
             imageVector = Icons.Filled.KeyboardArrowDown,
             contentDescription = null,
             tint = Color.White.copy(alpha = alpha),
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(30.dp),
         )
     }
 }
