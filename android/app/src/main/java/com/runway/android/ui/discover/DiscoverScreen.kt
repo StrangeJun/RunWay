@@ -182,7 +182,7 @@ fun DiscoverScreen(
             }
         }
 
-        // ─── 반경 필터 ───
+        // ─── 반경 + 루프 필터 ───
         item {
             Spacer(modifier = Modifier.height(12.dp))
             LazyRow(
@@ -208,6 +208,23 @@ fun DiscoverScreen(
                         label = "루프",
                         selected = viewModel.isLoopFilter == true,
                         onClick = { viewModel.onIsLoopFilterChange(true) },
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+
+        // ─── 정렬 옵션 ───
+        item {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(CourseSortOption.entries) { option ->
+                    FilterChip(
+                        label = option.label,
+                        selected = viewModel.sortOption == option,
+                        onClick = { viewModel.onSortChange(option) },
                     )
                 }
             }

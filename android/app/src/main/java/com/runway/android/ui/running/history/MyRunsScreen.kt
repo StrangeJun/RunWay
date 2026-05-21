@@ -20,15 +20,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.runway.android.core.util.formatDistance
+import com.runway.android.core.util.formatDuration
 import com.runway.android.ui.components.RunHistoryCard
 
 @Composable
@@ -43,7 +48,7 @@ fun MyRunsScreen(
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding(),
     ) {
-        // ─── 상단 바 ───
+        // 상단 바
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -63,17 +68,8 @@ fun MyRunsScreen(
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
             )
-            if (!viewModel.isLoading && viewModel.totalCount > 0) {
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "${viewModel.totalCount}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
 
-        // ─── 콘텐츠 ───
         when {
             viewModel.isLoading -> {
                 Box(
@@ -104,31 +100,108 @@ fun MyRunsScreen(
                     }
                 }
             }
-            viewModel.runs.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "아직 러닝 기록이 없습니다.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
             else -> {
                 LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 24.dp),
                 ) {
-                    items(viewModel.runs) { item ->
-                        RunHistoryCard(
-                            item = item,
-                            onClick = { onNavigateToDetail(item.runId) },
+                    // 캘린더
+                    item {
+                        RunCalendar(
+                            selectedMonth = viewModel.selectedMonth,
+                            selectedDate = viewModel.selectedDate,
+                            datesWithRuns = viewModel.datesWithRuns,
+                            onPreviousMonth = viewModel::previousMonth,
+                            onNextMonth = viewModel::nextMonth,
+                            onDateSelected = viewModel::selectDate,
                         )
+                    }
+
+                    // 월 요약
+                    item {
+                        MonthlySummaryBar(summary = viewModel.monthlySummary)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+
+                    // 런 목록
+                    if (viewModel.runs.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 40.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = if (viewModel.selectedDate != null) "선택한 날짜에 러닝 기록이 없습니다."
+                                    else "이 달의 러닝 기록이 없습니다.",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    } else {
+                        items(viewModel.runs) { item ->
+                            Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+                                RunHistoryCard(
+                                    item = item,
+                                    onClick = { onNavigateToDetail(item.runId) },
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MonthlySummaryBar(
+    summary: MonthlySummary,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            SummaryStatItem(
+                label = "러닝",
+                value = "${summary.runCount}회",
+            )
+            SummaryStatItem(
+                label = "총 거리",
+                value = formatDistance(summary.totalDistanceMeters),
+            )
+            SummaryStatItem(
+                label = "총 시간",
+                value = formatDuration(summary.totalDurationSeconds),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryStatItem(
+    label: String,
+    value: String,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,6 +31,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.runway.android.data.course.model.NearbyCourseItem
+import com.runway.android.ui.discover.DiscoverViewModel
 
 @Composable
 fun DiscoverCourseCard(
@@ -37,6 +39,10 @@ fun DiscoverCourseCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {},
 ) {
+    val isPopular = DiscoverViewModel.isPopular(course)
+    val isNew = DiscoverViewModel.isNew(course)
+    val completionRate = DiscoverViewModel.completionRate(course)
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
@@ -45,13 +51,34 @@ fun DiscoverCourseCard(
         onClick = onClick,
     ) {
         Column {
-            CourseRoutePreview(
-                variant = (course.courseId.hashCode() and 0x7FFFFFFF) % 3,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(88.dp)
-                    .clip(MaterialTheme.shapes.extraLarge),
-            )
+            Box {
+                CourseRoutePreview(
+                    variant = (course.courseId.hashCode() and 0x7FFFFFFF) % 3,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(88.dp)
+                        .clip(MaterialTheme.shapes.extraLarge),
+                )
+                // 품질 배지
+                if (isPopular || isNew) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp),
+                        shape = MaterialTheme.shapes.small,
+                        color = if (isPopular) MaterialTheme.colorScheme.tertiary
+                        else MaterialTheme.colorScheme.secondary,
+                    ) {
+                        Text(
+                            text = if (isPopular) "🔥 인기" else "🆕 신규",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isPopular) MaterialTheme.colorScheme.onTertiary
+                            else MaterialTheme.colorScheme.onSecondary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        )
+                    }
+                }
+            }
 
             Column(modifier = Modifier.padding(14.dp)) {
                 Row(
@@ -110,8 +137,11 @@ fun DiscoverCourseCard(
 
                 Spacer(modifier = Modifier.height(2.dp))
 
+                val rateText = if (course.attemptCount > 0)
+                    " · 완주율 ${(completionRate * 100).toInt()}%"
+                else ""
                 Text(
-                    text = "도전 ${course.attemptCount}회 · 완주 ${course.completionCount}회",
+                    text = "도전 ${course.attemptCount}회 · 완주 ${course.completionCount}회$rateText",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )

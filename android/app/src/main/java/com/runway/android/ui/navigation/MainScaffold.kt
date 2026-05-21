@@ -29,6 +29,7 @@ fun MainScaffold(
     onNavigateToRunDetail: (String) -> Unit = {},
     onNavigateToStats: () -> Unit = {},
     onNavigateToAchievements: () -> Unit = {},
+    onNavigateToReminder: () -> Unit = {},
 ) {
     val recoveryViewModel: TrackingRecoveryViewModel = hiltViewModel()
 
@@ -66,6 +67,7 @@ fun MainScaffold(
                     onNavigateToRunDetail = onNavigateToRunDetail,
                     onNavigateToStats = onNavigateToStats,
                     onNavigateToAchievements = onNavigateToAchievements,
+                    onNavigateToReminder = onNavigateToReminder,
                 )
             }
 

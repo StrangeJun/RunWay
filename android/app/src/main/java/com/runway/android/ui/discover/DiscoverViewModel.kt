@@ -16,6 +16,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
+enum class CourseSortOption(val label: String) {
+    NEAREST("가까운 순"),
+    POPULAR("인기 순"),
+    COMPLETION_RATE("완주율 순"),
+}
+
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
     private val courseRepository: CourseRepository,
@@ -26,8 +32,6 @@ class DiscoverViewModel @Inject constructor(
         private set
     var errorMessage by mutableStateOf<String?>(null)
         private set
-    var courses by mutableStateOf<List<NearbyCourseItem>>(emptyList())
-        private set
     var radiusMeters by mutableStateOf(3000)
         private set
     var isLoopFilter by mutableStateOf<Boolean?>(null)
@@ -36,21 +40,36 @@ class DiscoverViewModel @Inject constructor(
         private set
     var keyword by mutableStateOf("")
         private set
+    var sortOption by mutableStateOf(CourseSortOption.NEAREST)
+        private set
 
+    private var rawCourses = listOf<NearbyCourseItem>()
     private var currentLatitude = 0.0
     private var currentLongitude = 0.0
+    private var hasLocation = false
     private var loadJob: Job? = null
+
+    val courses: List<NearbyCourseItem>
+        get() = when (sortOption) {
+            CourseSortOption.NEAREST -> rawCourses.sortedBy { it.distanceFromMeMeters }
+            CourseSortOption.POPULAR -> rawCourses.sortedByDescending { it.completionCount }
+            CourseSortOption.COMPLETION_RATE -> rawCourses.sortedByDescending { completionRate(it) }
+        }
+
+    fun onSortChange(option: CourseSortOption) {
+        sortOption = option
+    }
 
     fun onRadiusChange(meters: Int) {
         if (radiusMeters == meters) return
         radiusMeters = meters
-        if (currentLatitude != 0.0) loadCourses()
+        if (hasLocation) loadCourses()
     }
 
     fun onIsLoopFilterChange(value: Boolean?) {
         if (isLoopFilter == value) return
         isLoopFilter = value
-        if (currentLatitude != 0.0) loadCourses()
+        if (hasLocation) loadCourses()
     }
 
     fun onKeywordChange(value: String) {
@@ -58,17 +77,17 @@ class DiscoverViewModel @Inject constructor(
     }
 
     fun onSearch() {
-        if (currentLatitude != 0.0) loadCourses()
+        if (hasLocation) loadCourses()
     }
 
     fun clearKeyword() {
         keyword = ""
-        if (currentLatitude != 0.0) loadCourses()
+        if (hasLocation) loadCourses()
     }
 
     fun refresh() {
-        if (isLocationRequired) return
-        if (currentLatitude != 0.0) loadCourses()
+        if (isLocationRequired || !hasLocation) return
+        loadCourses()
     }
 
     @SuppressLint("MissingPermission")
@@ -82,6 +101,7 @@ class DiscoverViewModel @Inject constructor(
                 if (location != null) {
                     currentLatitude = location.latitude
                     currentLongitude = location.longitude
+                    hasLocation = true
                     loadCourses()
                 } else {
                     isLoading = false
@@ -112,11 +132,22 @@ class DiscoverViewModel @Inject constructor(
                 isLoop = isLoopFilter,
                 keyword = keyword.trim().takeIf { it.isNotBlank() },
             )) {
-                is NetworkResult.Success -> courses = result.data.content
+                is NetworkResult.Success -> rawCourses = result.data.content
                 is NetworkResult.ApiError -> errorMessage = result.message
                 is NetworkResult.NetworkError -> errorMessage = "네트워크 오류가 발생했습니다."
             }
             isLoading = false
         }
+    }
+
+    companion object {
+        fun completionRate(course: NearbyCourseItem): Float =
+            if (course.attemptCount > 0) course.completionCount.toFloat() / course.attemptCount else 0f
+
+        fun isPopular(course: NearbyCourseItem): Boolean =
+            course.completionCount >= 10 && completionRate(course) >= 0.6f
+
+        fun isNew(course: NearbyCourseItem): Boolean =
+            course.attemptCount == 0
     }
 }
