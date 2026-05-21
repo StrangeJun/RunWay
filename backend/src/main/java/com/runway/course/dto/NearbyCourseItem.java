@@ -18,4 +18,6 @@ public class NearbyCourseItem {
     private Integer attemptCount;
     private Integer completionCount;
     private GeoPoint startPoint;
+    private Double avgRating;
+    private Long ratingCount;
 }

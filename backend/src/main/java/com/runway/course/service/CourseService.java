@@ -150,7 +150,9 @@ public class CourseService {
                 "       ST_Distance(c.start_location, ref.pt) AS dist_from_me, " +
                 "       c.is_loop, c.attempt_count, c.completion_count, " +
                 "       ST_Y(c.start_location::geometry) AS start_lat, " +
-                "       ST_X(c.start_location::geometry) AS start_lon " +
+                "       ST_X(c.start_location::geometry) AS start_lon, " +
+                "       (SELECT ROUND(AVG(rating)::numeric, 1) FROM course_ratings WHERE course_id = c.id) AS avg_rating, " +
+                "       (SELECT COUNT(*) FROM course_ratings WHERE course_id = c.id) AS rating_count " +
                 "FROM courses c, ref " +
                 "WHERE ST_DWithin(c.start_location, ref.pt, ?) " +
                 "  AND c.status = 'published' AND c.deleted_at IS NULL" +
@@ -338,6 +340,8 @@ public class CourseService {
                 .attemptCount(((Number) row[6]).intValue())
                 .completionCount(((Number) row[7]).intValue())
                 .startPoint(new GeoPoint(maskedLat, maskedLon))
+                .avgRating(row[10] != null ? ((Number) row[10]).doubleValue() : null)
+                .ratingCount(row[11] != null ? ((Number) row[11]).longValue() : null)
                 .build();
     }
 }
