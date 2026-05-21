@@ -55,6 +55,7 @@ fun HomeScreen(
         item {
             RunHeroSection(
                 onStartRun = onStartRun,
+                weatherInfo = viewModel.weatherInfo,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(heroHeight),

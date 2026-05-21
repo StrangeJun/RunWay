@@ -14,10 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -27,18 +23,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 private val HeroScrim = Color(0xFF0A0B10)
 private val LimeGreen = Color(0xFFA4E168)
 private val PillBg = Color(0x1EFFFFFF)
-private val BtnBg = Color(0x26FFFFFF)
 
 @Composable
 fun RunHeroSection(
     onStartRun: () -> Unit,
+    weatherInfo: WeatherInfo? = null,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier) {
@@ -46,7 +42,7 @@ fun RunHeroSection(
         // ── Map canvas background ─────────────────────────────────────────
         HomeMapBackground(modifier = Modifier.fillMaxSize())
 
-        // ── Bottom scrim so controls stay readable over the map ───────────
+        // ── Bottom scrim ──────────────────────────────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -61,77 +57,51 @@ fun RunHeroSection(
                 ),
         )
 
-        // ── Top header overlay ────────────────────────────────────────────
-        Column(
+        // ── Header ────────────────────────────────────────────────────────
+        Text(
+            text = "러닝",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
             modifier = Modifier
-                .fillMaxWidth()
                 .align(Alignment.TopStart)
-                .padding(horizontal = 20.dp)
-                .padding(top = 14.dp),
-        ) {
-            Text(
-                text = "러닝",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-            )
-
-            Spacer(Modifier.height(10.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HeroTabChip(text = "바로 시작", selected = true)
-                HeroTabChip(text = "러닝 가이드", selected = false)
-            }
-        }
-
-        // ── GPS status pill ───────────────────────────────────────────────
-        GpsStatusPill(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 124.dp),
+                .padding(horizontal = 20.dp, vertical = 14.dp),
         )
 
-        // ── Run start controls (bottom of hero) ───────────────────────────
+        // ── GPS + Weather pill ────────────────────────────────────────────
+        GpsWeatherPill(
+            weatherInfo = weatherInfo,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 90.dp)
+                .padding(horizontal = 20.dp),
+        )
+
+        // ── 시작 button + 목표 설정 ─────────────────────────────────────────
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp),
+                .padding(bottom = 36.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // [ 음악 ]  [ 시작 ]  [ 유형 ]
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+            Surface(
+                onClick = onStartRun,
+                modifier = Modifier.size(84.dp),
+                shape = CircleShape,
+                color = LimeGreen,
+                shadowElevation = 12.dp,
             ) {
-                HeroControlButton(
-                    icon = Icons.Filled.MusicNote,
-                    contentDescription = "음악",
-                )
-
-                Surface(
-                    onClick = onStartRun,
-                    modifier = Modifier.size(84.dp),
-                    shape = CircleShape,
-                    color = LimeGreen,
-                    shadowElevation = 12.dp,
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "시작",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF0A0B10),
-                        )
-                    }
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "시작",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF0A0B10),
+                    )
                 }
-
-                HeroControlButton(
-                    icon = Icons.Filled.DirectionsRun,
-                    contentDescription = "러닝 유형",
-                )
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(18.dp))
 
             Surface(
                 onClick = {},
@@ -150,55 +120,92 @@ fun RunHeroSection(
 }
 
 @Composable
-private fun GpsStatusPill(modifier: Modifier = Modifier) {
-    Row(
+private fun GpsWeatherPill(
+    weatherInfo: WeatherInfo?,
+    modifier: Modifier = Modifier,
+) {
+    Column(
         modifier = modifier
-            .clip(RoundedCornerShape(50))
+            .clip(RoundedCornerShape(16.dp))
             .background(PillBg)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .size(7.dp)
-                .background(LimeGreen, CircleShape),
-        )
-        Text(
-            text = "GPS 준비 완료 · 러닝하기 좋은 날",
-            style = MaterialTheme.typography.labelMedium,
-            color = Color.White.copy(alpha = 0.85f),
-        )
+        // Row 1: GPS status
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .background(LimeGreen, CircleShape),
+            )
+            Text(
+                text = "GPS 준비 완료",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White.copy(alpha = 0.90f),
+            )
+        }
+
+        // Row 2: Weather — only shown when data is available
+        if (weatherInfo != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                WeatherChip(text = "${weatherInfo.tempCelsius}°C")
+                WeatherChip(text = "습도 ${weatherInfo.humidity}%")
+
+                if (weatherInfo.pm10 > 0) {
+                    DustChip(
+                        label = "PM10",
+                        quality = pm10Quality(weatherInfo.pm10),
+                        color = pm10Color(weatherInfo.pm10),
+                    )
+                }
+                if (weatherInfo.pm25 > 0) {
+                    DustChip(
+                        label = "PM2.5",
+                        quality = pm25Quality(weatherInfo.pm25),
+                        color = pm25Color(weatherInfo.pm25),
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun HeroTabChip(text: String, selected: Boolean) {
+private fun WeatherChip(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.labelMedium,
-        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-        color = if (selected) Color(0xFF0A0B10) else Color.White.copy(alpha = 0.70f),
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(if (selected) LimeGreen else PillBg)
-            .padding(horizontal = 14.dp, vertical = 7.dp),
+        fontSize = 11.sp,
+        color = Color.White.copy(alpha = 0.75f),
     )
 }
 
 @Composable
-private fun HeroControlButton(icon: ImageVector, contentDescription: String) {
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .background(BtnBg, CircleShape),
-        contentAlignment = Alignment.Center,
+private fun DustChip(label: String, quality: String, color: Color) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = Color.White,
-            modifier = Modifier.size(22.dp),
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            color = Color.White.copy(alpha = 0.55f),
+        )
+        Box(
+            modifier = Modifier
+                .size(5.dp)
+                .background(color, CircleShape),
+        )
+        Text(
+            text = quality,
+            fontSize = 11.sp,
+            color = color,
         )
     }
 }

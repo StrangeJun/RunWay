@@ -11,6 +11,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.gson.Gson
+import com.google.gson.annotations.SerializedName
+import com.runway.android.BuildConfig
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.course.model.NearbyCourseItem
 import com.runway.android.data.running.model.RunSummaryResponse
@@ -18,11 +21,16 @@ import com.runway.android.domain.course.CourseRepository
 import com.runway.android.domain.running.RunningRepository
 import com.runway.android.domain.user.UserRepository
 import com.runway.android.ui.components.RecentRun
+import com.runway.android.ui.components.WeatherInfo
 import com.runway.android.ui.components.WeeklyStats
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -32,6 +40,7 @@ import java.time.temporal.TemporalAdjusters
 import java.util.Calendar
 import java.util.Locale
 import javax.inject.Inject
+import javax.inject.Named
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -40,6 +49,7 @@ class HomeViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val courseRepository: CourseRepository,
     private val fusedLocationClient: FusedLocationProviderClient,
+    @Named("noAuth") private val okHttpClient: OkHttpClient,
 ) : ViewModel() {
 
     val greeting: String = buildGreeting()
@@ -55,6 +65,8 @@ class HomeViewModel @Inject constructor(
     var nearbyCourses by mutableStateOf<List<NearbyCourseItem>>(emptyList())
         private set
     var isLoadingNearbyCourses by mutableStateOf(false)
+        private set
+    var weatherInfo by mutableStateOf<WeatherInfo?>(null)
         private set
 
     init {
@@ -80,6 +92,10 @@ class HomeViewModel @Inject constructor(
             isLoadingNearbyCourses = true
             try {
                 val location = fusedLocationClient.lastLocation.await() ?: return@launch
+
+                // Fetch weather concurrently while nearby courses load
+                launch { fetchWeatherData(location.latitude, location.longitude) }
+
                 when (val result = courseRepository.getNearbyCourses(
                     latitude = location.latitude,
                     longitude = location.longitude,
@@ -94,6 +110,44 @@ class HomeViewModel @Inject constructor(
             } finally {
                 isLoadingNearbyCourses = false
             }
+        }
+    }
+
+    private suspend fun fetchWeatherData(lat: Double, lon: Double) {
+        val apiKey = BuildConfig.OPENWEATHER_API_KEY
+        if (apiKey.isBlank()) return
+
+        try {
+            val weatherResp = withContext(Dispatchers.IO) {
+                val req = Request.Builder()
+                    .url("https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&units=metric&appid=$apiKey")
+                    .build()
+                okHttpClient.newCall(req).execute().use { resp ->
+                    if (resp.isSuccessful) Gson().fromJson(resp.body?.string(), OWMWeatherResponse::class.java)
+                    else null
+                }
+            }
+
+            val airResp = withContext(Dispatchers.IO) {
+                val req = Request.Builder()
+                    .url("https://api.openweathermap.org/data/2.5/air_pollution?lat=$lat&lon=$lon&appid=$apiKey")
+                    .build()
+                okHttpClient.newCall(req).execute().use { resp ->
+                    if (resp.isSuccessful) Gson().fromJson(resp.body?.string(), OWMAirPollutionResponse::class.java)
+                    else null
+                }
+            }
+
+            if (weatherResp != null) {
+                weatherInfo = WeatherInfo(
+                    tempCelsius = weatherResp.main.temp.toInt(),
+                    humidity = weatherResp.main.humidity,
+                    pm10 = airResp?.list?.firstOrNull()?.components?.pm10?.toInt() ?: 0,
+                    pm25 = airResp?.list?.firstOrNull()?.components?.pm25?.toInt() ?: 0,
+                )
+            }
+        } catch (_: Exception) {
+            // silent fail — weather is non-critical
         }
     }
 
@@ -115,9 +169,6 @@ class HomeViewModel @Inject constructor(
 
             if (statsResult is NetworkResult.Success) {
                 val s = statsResult.data
-                val distKm = if (s.totalDistanceMeters < 1000)
-                    "${s.totalDistanceMeters.toInt()} m"
-                else "%.1f".format(s.totalDistanceMeters / 1000.0)
                 val pace = if (s.averagePaceSecondsPerKm > 0)
                     "%d'%02d\"".format(s.averagePaceSecondsPerKm / 60, s.averagePaceSecondsPerKm % 60)
                 else "--'--\""
@@ -130,7 +181,6 @@ class HomeViewModel @Inject constructor(
                     calories = s.totalCaloriesBurned.toString(),
                 )
             } else if (runsResult is NetworkResult.Success) {
-                // fallback: 기존 로컬 계산
                 weeklyStats = calculateWeeklyStats(runsResult.data.content)
             }
             isLoadingRuns = false
@@ -191,4 +241,16 @@ class HomeViewModel @Inject constructor(
             else -> "Good evening,"
         }
     }
+
+    // ── OpenWeatherMap response models ────────────────────────────────────
+
+    private data class OWMWeatherResponse(val main: OWMMain)
+    private data class OWMMain(val temp: Double, val humidity: Int)
+
+    private data class OWMAirPollutionResponse(val list: List<OWMAirEntry>)
+    private data class OWMAirEntry(val components: OWMComponents)
+    private data class OWMComponents(
+        val pm10: Double,
+        @SerializedName("pm2_5") val pm25: Double,
+    )
 }

@@ -28,6 +28,8 @@ android {
             if (f.exists()) f.inputStream().use { props.load(it) }
         }
         manifestPlaceholders["MAPS_API_KEY"] = localProps.getProperty("MAPS_API_KEY") ?: ""
+        buildConfigField("String", "OPENWEATHER_API_KEY", "\"${localProps.getProperty("OPENWEATHER_API_KEY") ?: ""}\"")
+
     }
 
     buildTypes {
