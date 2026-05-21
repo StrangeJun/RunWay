@@ -181,7 +181,7 @@ class HomeViewModel @Inject constructor(
             "%d'%02d\"".format(secs / 60, secs % 60)
         } ?: "--'--\""
 
-        return RecentRun(day = dateLabel, distanceKm = distKm, pace = pace, duration = dur)
+        return RecentRun(runId = runId, day = dateLabel, distanceKm = distKm, pace = pace, duration = dur)
     }
 
     private fun buildGreeting(): String {

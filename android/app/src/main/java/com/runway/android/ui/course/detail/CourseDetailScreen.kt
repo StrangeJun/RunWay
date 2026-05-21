@@ -42,12 +42,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.map.MapPoint
 import com.runway.android.core.share.ShareUtils
+import com.runway.android.data.attempt.model.LeaderboardItem
 import com.runway.android.ui.components.RouteMapView
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -460,6 +462,41 @@ private fun CourseDetailContent(
                 }
             }
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ─── 인라인 Top 5 미리보기 ───
+            when {
+                viewModel.isLoadingLeaderboard -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                viewModel.previewLeaderboard.isEmpty() -> {
+                    Text(
+                        text = "아직 완주 기록이 없습니다.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
+                }
+                else -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        viewModel.previewLeaderboard.forEach { item ->
+                            LeaderboardPreviewRow(item = item)
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // ─── 도전 CTA ───
@@ -526,6 +563,49 @@ private fun StatItem(label: String, value: String) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+@Composable
+private fun LeaderboardPreviewRow(item: LeaderboardItem) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = "#${item.rank}",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (item.rank <= 3)
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.width(30.dp),
+            )
+            Text(
+                text = item.nickname,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+        }
+        Text(
+            text = formatSeconds(item.bestTimeSeconds),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private fun formatSeconds(seconds: Int): String {
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    val s = seconds % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s)
+    else "%d:%02d".format(m, s)
 }
 
 private fun formatDistance(meters: Double): String = when {

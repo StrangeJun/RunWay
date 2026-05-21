@@ -14,7 +14,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.ui.components.RunwayBottomNav
 import com.runway.android.ui.discover.DiscoverScreen
 import com.runway.android.ui.home.HomeScreen
-import com.runway.android.ui.leaderboard.LeaderboardScreen
+import com.runway.android.ui.course.library.CoursesLibraryScreen
 import com.runway.android.ui.profile.ProfileScreen
 import com.runway.android.ui.tracking.TrackingRecoveryDialog
 import com.runway.android.ui.tracking.TrackingRecoveryViewModel
@@ -55,11 +55,14 @@ fun MainScaffold(
                     onSeeAllRuns = onNavigateToMyRuns,
                     onNavigateToCourseDetail = onNavigateToCourseDetail,
                     onNavigateToDiscover = { currentTabOrdinal = MainTab.DISCOVER.ordinal },
+                    onNavigateToRunDetail = onNavigateToRunDetail,
                 )
                 MainTab.DISCOVER -> DiscoverScreen(
                     onNavigateToCourseDetail = onNavigateToCourseDetail,
                 )
-                MainTab.LEADERBOARD -> LeaderboardScreen()
+                MainTab.COURSES -> CoursesLibraryScreen(
+                    onNavigateToCourseDetail = onNavigateToCourseDetail,
+                )
                 MainTab.PROFILE -> ProfileScreen(
                     onLogout = onLogout,
                     onNavigateToMyRuns = onNavigateToMyRuns,

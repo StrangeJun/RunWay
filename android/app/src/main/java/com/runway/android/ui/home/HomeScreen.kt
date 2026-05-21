@@ -38,6 +38,7 @@ fun HomeScreen(
     onSeeAllRuns: () -> Unit = {},
     onNavigateToCourseDetail: (String) -> Unit = {},
     onNavigateToDiscover: () -> Unit = {},
+    onNavigateToRunDetail: (String) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(Unit) {
@@ -138,6 +139,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .padding(horizontal = 20.dp)
                     .padding(bottom = 8.dp),
+                onClick = { onNavigateToRunDetail(run.runId) },
             )
         }
     }
