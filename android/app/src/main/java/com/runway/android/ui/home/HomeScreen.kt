@@ -32,6 +32,7 @@ import com.runway.android.ui.components.WeeklyStatsCard
 @Composable
 fun HomeScreen(
     onStartRun: () -> Unit = {},
+    onSetGoal: () -> Unit = {},
     onSeeAllRuns: () -> Unit = {},
     onNavigateToCourseDetail: (String) -> Unit = {},
     onNavigateToDiscover: () -> Unit = {},
@@ -56,7 +57,10 @@ fun HomeScreen(
         item {
             RunHeroSection(
                 onStartRun = onStartRun,
+                onSetGoal = onSetGoal,
                 weatherInfo = viewModel.weatherInfo,
+                currentLocation = viewModel.currentLocation,
+                hasLocationPermission = viewModel.locationPermissionGranted,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(heroHeight),

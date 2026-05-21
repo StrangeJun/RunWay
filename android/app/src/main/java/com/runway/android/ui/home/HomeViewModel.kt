@@ -22,6 +22,7 @@ import com.runway.android.data.running.model.RunSummaryResponse
 import com.runway.android.domain.course.CourseRepository
 import com.runway.android.domain.running.RunningRepository
 import com.runway.android.domain.user.UserRepository
+import com.runway.android.core.map.MapPoint
 import com.runway.android.ui.components.RecentRun
 import com.runway.android.ui.components.WeatherInfo
 import com.runway.android.ui.components.WeeklyStats
@@ -70,6 +71,11 @@ class HomeViewModel @Inject constructor(
         private set
     var weatherInfo by mutableStateOf<WeatherInfo?>(null)
         private set
+    var currentLocation by mutableStateOf<MapPoint?>(null)
+        private set
+
+    val locationPermissionGranted: Boolean
+        get() = hasLocationPermission()
 
     init {
         loadData()
@@ -95,6 +101,7 @@ class HomeViewModel @Inject constructor(
                 val location = fusedLocationClient
                     .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token)
                     .await() ?: return@launch
+                currentLocation = MapPoint(location.latitude, location.longitude)
                 fetchWeatherData(location.latitude, location.longitude)
             } catch (_: Exception) { }
         }
@@ -111,6 +118,9 @@ class HomeViewModel @Inject constructor(
                 val location = fusedLocationClient
                     .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token)
                     .await() ?: return@launch
+                if (currentLocation == null) {
+                    currentLocation = MapPoint(location.latitude, location.longitude)
+                }
 
                 when (val result = courseRepository.getNearbyCourses(
                     latitude = location.latitude,

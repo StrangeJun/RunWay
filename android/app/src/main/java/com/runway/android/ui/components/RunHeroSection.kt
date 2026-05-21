@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.runway.android.core.map.MapPoint
 
 private val HeroScrim = Color(0xFF0A0B10)
 private val LimeGreen = Color(0xFFA4E168)
@@ -34,13 +35,20 @@ private val PillBg = Color(0x1EFFFFFF)
 @Composable
 fun RunHeroSection(
     onStartRun: () -> Unit,
+    onSetGoal: () -> Unit = {},
     weatherInfo: WeatherInfo? = null,
+    currentLocation: MapPoint? = null,
+    hasLocationPermission: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier) {
 
-        // ── Map canvas background ─────────────────────────────────────────
-        HomeMapBackground(modifier = Modifier.fillMaxSize())
+        // ── Real Google Map background ────────────────────────────────────
+        HomeMapView(
+            currentLocation = currentLocation,
+            hasLocationPermission = hasLocationPermission,
+            modifier = Modifier.fillMaxSize(),
+        )
 
         // ── Bottom scrim ──────────────────────────────────────────────────
         Box(
@@ -104,7 +112,7 @@ fun RunHeroSection(
             Spacer(Modifier.height(18.dp))
 
             Surface(
-                onClick = {},
+                onClick = onSetGoal,
                 shape = RoundedCornerShape(50),
                 color = PillBg,
             ) {
