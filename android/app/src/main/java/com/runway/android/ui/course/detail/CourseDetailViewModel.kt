@@ -51,6 +51,13 @@ class CourseDetailViewModel @Inject constructor(
     var isLoadingLeaderboard by mutableStateOf(false)
         private set
 
+    var isFavorited by mutableStateOf(false)
+        private set
+    var isFavoriteToggling by mutableStateOf(false)
+        private set
+    var favoriteError by mutableStateOf<String?>(null)
+        private set
+
     var isStartingAttempt by mutableStateOf(false)
         private set
     var startAttemptError by mutableStateOf<String?>(null)
@@ -197,6 +204,35 @@ class CourseDetailViewModel @Inject constructor(
         }
     }
 
+    fun clearFavoriteError() {
+        favoriteError = null
+    }
+
+    fun toggleFavorite() {
+        if (isFavoriteToggling) return
+        isFavoriteToggling = true
+        favoriteError = null
+
+        val previousState = isFavorited
+        isFavorited = !previousState  // 낙관적 업데이트
+
+        viewModelScope.launch {
+            val result = if (!previousState) {
+                courseRepository.addFavorite(courseId)
+            } else {
+                courseRepository.removeFavorite(courseId)
+            }
+            when (result) {
+                is NetworkResult.Success -> { /* 성공 — 낙관적 상태 유지 */ }
+                else -> {
+                    isFavorited = previousState  // 롤백
+                    favoriteError = if (!previousState) "즐겨찾기 추가에 실패했습니다." else "즐겨찾기 해제에 실패했습니다."
+                }
+            }
+            isFavoriteToggling = false
+        }
+    }
+
     fun startAttempt() {
         if (isStartingAttempt) return
         isStartingAttempt = true
@@ -236,7 +272,10 @@ class CourseDetailViewModel @Inject constructor(
             }
 
             when (val result = detailDeferred.await()) {
-                is NetworkResult.Success -> courseDetail = result.data
+                is NetworkResult.Success -> {
+                    courseDetail = result.data
+                    isFavorited = result.data.isFavorited
+                }
                 is NetworkResult.ApiError -> errorMessage = result.message
                 is NetworkResult.NetworkError -> errorMessage = "네트워크 연결을 확인해 주세요."
             }

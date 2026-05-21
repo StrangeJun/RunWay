@@ -4,9 +4,12 @@ import com.runway.common.exception.ErrorCode;
 import com.runway.common.exception.RunwayException;
 import com.runway.common.response.PageResponse;
 import com.runway.course.domain.Course;
+import com.runway.course.domain.CourseFavorite;
+import com.runway.course.domain.CourseFavoriteId;
 import com.runway.course.domain.CoursePoint;
 import com.runway.course.domain.enums.CourseStatus;
 import com.runway.course.dto.*;
+import com.runway.course.repository.CourseFavoriteRepository;
 import com.runway.course.repository.CoursePointRepository;
 import com.runway.course.repository.CourseRatingRepository;
 import com.runway.course.repository.CourseRepository;
@@ -41,6 +44,7 @@ public class CourseService {
     private static final int MAX_COURSE_POINTS = 200;
 
     private final CourseRepository courseRepository;
+    private final CourseFavoriteRepository courseFavoriteRepository;
     private final CoursePointRepository coursePointRepository;
     private final CourseRatingRepository courseRatingRepository;
     private final RunningRecordRepository runningRecordRepository;
@@ -252,7 +256,98 @@ public class CourseService {
                 .orElseThrow(() -> new RunwayException(ErrorCode.USER_NOT_FOUND));
         Double avgRating = courseRatingRepository.findAvgRatingByCourseId(courseId);
         long ratingCount = courseRatingRepository.countByCourseId(courseId);
-        return CourseDetailResponse.from(course, creator, course.isOwnedBy(userId), avgRating, ratingCount);
+        boolean isFavorited = courseFavoriteRepository.existsByUserIdAndCourseId(userId, courseId);
+        return CourseDetailResponse.from(course, creator, course.isOwnedBy(userId), avgRating, ratingCount, isFavorited);
+    }
+
+    @Transactional
+    public void addFavorite(UUID userId, UUID courseId) {
+        Course course = courseRepository.findByIdAndDeletedAtIsNull(courseId)
+                .orElseThrow(() -> new RunwayException(ErrorCode.COURSE_NOT_FOUND));
+        if (!course.isVisibleTo(userId)) {
+            throw new RunwayException(ErrorCode.FORBIDDEN);
+        }
+        if (!courseFavoriteRepository.existsByUserIdAndCourseId(userId, courseId)) {
+            courseFavoriteRepository.save(CourseFavorite.builder()
+                    .userId(userId)
+                    .courseId(courseId)
+                    .build());
+        }
+    }
+
+    @Transactional
+    public void removeFavorite(UUID userId, UUID courseId) {
+        courseFavoriteRepository.deleteByUserIdAndCourseId(userId, courseId);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<CourseResponse> getFavoriteCourses(UUID userId, int page, int size) {
+        String dataSql =
+                "SELECT c.id, c.name, c.description, c.status, c.distance_meters, c.is_loop, " +
+                "       ST_Y(c.start_location::geometry) AS start_lat, ST_X(c.start_location::geometry) AS start_lon, " +
+                "       ST_Y(c.end_location::geometry) AS end_lat, ST_X(c.end_location::geometry) AS end_lon, " +
+                "       c.attempt_count, c.completion_count, c.created_at, c.updated_at " +
+                "FROM courses c " +
+                "JOIN course_favorites cf ON c.id = cf.course_id " +
+                "WHERE cf.user_id = ? AND c.deleted_at IS NULL " +
+                "ORDER BY cf.created_at DESC " +
+                "LIMIT ? OFFSET ?";
+
+        String countSql =
+                "SELECT COUNT(*) FROM courses c " +
+                "JOIN course_favorites cf ON c.id = cf.course_id " +
+                "WHERE cf.user_id = ? AND c.deleted_at IS NULL";
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery(dataSql)
+                .setParameter(1, userId)
+                .setParameter(2, size)
+                .setParameter(3, (long) page * size)
+                .getResultList();
+
+        List<CourseResponse> items = rows.stream().map(this::toCourseResponse).toList();
+
+        long total = ((Number) entityManager.createNativeQuery(countSql)
+                .setParameter(1, userId)
+                .getSingleResult()).longValue();
+
+        return PageResponse.from(new PageImpl<>(items, PageRequest.of(page, size), total));
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ParticipatedCourseItem> getParticipatedCourses(UUID userId, int page, int size) {
+        String dataSql =
+                "SELECT c.id, c.name, c.description, c.distance_meters, c.is_loop, c.status, " +
+                "       COUNT(ca.id) AS attempt_count_by_me, " +
+                "       COUNT(CASE WHEN ca.status = 'completed' AND ca.verification_status = 'verified' THEN 1 END) AS completion_count_by_me, " +
+                "       MIN(CASE WHEN ca.status = 'completed' AND ca.verification_status = 'verified' THEN ca.duration_seconds END) AS best_time_by_me, " +
+                "       MAX(ca.started_at) AS last_attempt_at " +
+                "FROM courses c " +
+                "JOIN course_attempts ca ON c.id = ca.course_id " +
+                "WHERE ca.user_id = ? AND c.deleted_at IS NULL " +
+                "GROUP BY c.id, c.name, c.description, c.distance_meters, c.is_loop, c.status " +
+                "ORDER BY last_attempt_at DESC " +
+                "LIMIT ? OFFSET ?";
+
+        String countSql =
+                "SELECT COUNT(DISTINCT c.id) FROM courses c " +
+                "JOIN course_attempts ca ON c.id = ca.course_id " +
+                "WHERE ca.user_id = ? AND c.deleted_at IS NULL";
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery(dataSql)
+                .setParameter(1, userId)
+                .setParameter(2, size)
+                .setParameter(3, (long) page * size)
+                .getResultList();
+
+        List<ParticipatedCourseItem> items = rows.stream().map(this::toParticipatedCourseItem).toList();
+
+        long total = ((Number) entityManager.createNativeQuery(countSql)
+                .setParameter(1, userId)
+                .getSingleResult()).longValue();
+
+        return PageResponse.from(new PageImpl<>(items, PageRequest.of(page, size), total));
     }
 
     @Transactional(readOnly = true)
@@ -303,6 +398,38 @@ public class CourseService {
     }
 
     // --- private helpers ---
+
+    private CourseResponse toCourseResponse(Object[] row) {
+        return CourseResponse.builder()
+                .courseId(UUID.fromString(row[0].toString()))
+                .name((String) row[1])
+                .description((String) row[2])
+                .status((String) row[3])
+                .distanceMeters(((Number) row[4]).doubleValue())
+                .isLoop((Boolean) row[5])
+                .startPoint(new GeoPoint(((Number) row[6]).doubleValue(), ((Number) row[7]).doubleValue()))
+                .endPoint(new GeoPoint(((Number) row[8]).doubleValue(), ((Number) row[9]).doubleValue()))
+                .attemptCount(((Number) row[10]).intValue())
+                .completionCount(((Number) row[11]).intValue())
+                .createdAt(row[12] != null ? ((java.sql.Timestamp) row[12]).toInstant() : null)
+                .updatedAt(row[13] != null ? ((java.sql.Timestamp) row[13]).toInstant() : null)
+                .build();
+    }
+
+    private ParticipatedCourseItem toParticipatedCourseItem(Object[] row) {
+        return ParticipatedCourseItem.builder()
+                .courseId(UUID.fromString(row[0].toString()))
+                .name((String) row[1])
+                .description((String) row[2])
+                .distanceMeters(((Number) row[3]).doubleValue())
+                .isLoop((Boolean) row[4])
+                .status((String) row[5])
+                .attemptCountByMe(((Number) row[6]).intValue())
+                .completionCountByMe(((Number) row[7]).intValue())
+                .bestTimeSecondsByMe(row[8] != null ? ((Number) row[8]).intValue() : null)
+                .lastAttemptAt(row[9] != null ? ((java.sql.Timestamp) row[9]).toInstant() : null)
+                .build();
+    }
 
     private Course findOwnedCourse(UUID courseId, UUID userId) {
         Course course = courseRepository.findByIdAndDeletedAtIsNull(courseId)

@@ -13,6 +13,7 @@ data class CourseDetailResponse(
     val completionCount: Int,
     val avgRating: Double?,
     val ratingCount: Long?,
+    val isFavorited: Boolean = false,
     val creator: CourseCreatorResponse,
     val createdAt: String,
 )

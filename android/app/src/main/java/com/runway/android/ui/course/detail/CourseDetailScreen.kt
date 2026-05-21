@@ -19,6 +19,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.Person
@@ -68,6 +70,18 @@ fun CourseDetailScreen(
         viewModel.navigateToAttempt.collect { event ->
             onNavigateToAttempt(event.courseId, event.courseAttemptId, event.runningRecordId)
         }
+    }
+
+    // 즐겨찾기 에러 다이얼로그
+    if (viewModel.favoriteError != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::clearFavoriteError,
+            title = { Text("즐겨찾기 오류") },
+            text = { Text(viewModel.favoriteError!!) },
+            confirmButton = {
+                TextButton(onClick = viewModel::clearFavoriteError) { Text("확인") }
+            },
+        )
     }
 
     // 도전 시작 실패 다이얼로그
@@ -155,6 +169,17 @@ fun CourseDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = viewModel::toggleFavorite,
+                        enabled = !viewModel.isFavoriteToggling,
+                    ) {
+                        Icon(
+                            imageVector = if (viewModel.isFavorited) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = if (viewModel.isFavorited) "즐겨찾기 해제" else "즐겨찾기 추가",
+                            tint = if (viewModel.isFavorited) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     IconButton(
                         onClick = {
                             val detail = viewModel.courseDetail

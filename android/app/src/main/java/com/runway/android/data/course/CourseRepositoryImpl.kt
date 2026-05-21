@@ -3,6 +3,7 @@ package com.runway.android.data.course
 import com.runway.android.core.model.PageResponse
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.core.result.safeApiCall
+import com.runway.android.core.result.safeApiCallUnit
 import com.runway.android.data.course.model.CourseDetailResponse
 import com.runway.android.data.course.model.CoursePointsResponse
 import com.runway.android.data.course.model.CourseRatingRequest
@@ -12,6 +13,7 @@ import com.runway.android.data.course.model.CourseReportResponse
 import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.data.course.model.CreateCourseFromRunRequest
 import com.runway.android.data.course.model.NearbyCourseItem
+import com.runway.android.data.course.model.ParticipatedCourseItem
 import com.runway.android.data.course.remote.CourseApi
 import com.runway.android.domain.course.CourseRepository
 import javax.inject.Inject
@@ -74,4 +76,22 @@ class CourseRepositoryImpl @Inject constructor(
         courseId: String,
         request: CourseRatingRequest,
     ): NetworkResult<CourseRatingResponse> = safeApiCall { courseApi.rateCourse(courseId, request) }
+
+    override suspend fun getFavoriteCourses(
+        page: Int,
+        size: Int,
+    ): NetworkResult<PageResponse<CourseResponse>> =
+        safeApiCall { courseApi.getFavoriteCourses(page, size) }
+
+    override suspend fun getParticipatedCourses(
+        page: Int,
+        size: Int,
+    ): NetworkResult<PageResponse<ParticipatedCourseItem>> =
+        safeApiCall { courseApi.getParticipatedCourses(page, size) }
+
+    override suspend fun addFavorite(courseId: String): NetworkResult<Unit> =
+        safeApiCallUnit { courseApi.addFavorite(courseId) }
+
+    override suspend fun removeFavorite(courseId: String): NetworkResult<Unit> =
+        safeApiCallUnit { courseApi.removeFavorite(courseId) }
 }
