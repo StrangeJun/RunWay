@@ -71,6 +71,28 @@ public class CourseController {
         return ResponseEntity.ok(ApiResponse.success("내 코스 목록 조회에 성공했습니다.", data));
     }
 
+    @Operation(summary = "즐겨찾기 코스 목록 조회", security = @SecurityRequirement(name = "bearerAuth"))
+    @GetMapping("/favorites")
+    public ResponseEntity<ApiResponse<PageResponse<CourseResponse>>> getFavoriteCourses(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PageResponse<CourseResponse> data = courseService.getFavoriteCourses(
+                principal.getUserId(), page, size);
+        return ResponseEntity.ok(ApiResponse.success("즐겨찾기 코스 목록 조회에 성공했습니다.", data));
+    }
+
+    @Operation(summary = "참여한 코스 목록 조회", security = @SecurityRequirement(name = "bearerAuth"))
+    @GetMapping("/participated")
+    public ResponseEntity<ApiResponse<PageResponse<ParticipatedCourseItem>>> getParticipatedCourses(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PageResponse<ParticipatedCourseItem> data = courseService.getParticipatedCourses(
+                principal.getUserId(), page, size);
+        return ResponseEntity.ok(ApiResponse.success("참여한 코스 목록 조회에 성공했습니다.", data));
+    }
+
     @Operation(summary = "코스 상세 조회", security = @SecurityRequirement(name = "bearerAuth"))
     @GetMapping("/{courseId}")
     public ResponseEntity<ApiResponse<CourseDetailResponse>> getCourseDetail(
@@ -142,28 +164,6 @@ public class CourseController {
         CourseRatingResponse data = courseRatingService.rateCourse(
                 principal.getUserId(), courseId, request);
         return ResponseEntity.ok(ApiResponse.success("평점이 등록되었습니다.", data));
-    }
-
-    @Operation(summary = "즐겨찾기 코스 목록 조회", security = @SecurityRequirement(name = "bearerAuth"))
-    @GetMapping("/favorites")
-    public ResponseEntity<ApiResponse<PageResponse<CourseResponse>>> getFavoriteCourses(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        PageResponse<CourseResponse> data = courseService.getFavoriteCourses(
-                principal.getUserId(), page, size);
-        return ResponseEntity.ok(ApiResponse.success("즐겨찾기 코스 목록 조회에 성공했습니다.", data));
-    }
-
-    @Operation(summary = "참여한 코스 목록 조회", security = @SecurityRequirement(name = "bearerAuth"))
-    @GetMapping("/participated")
-    public ResponseEntity<ApiResponse<PageResponse<ParticipatedCourseItem>>> getParticipatedCourses(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        PageResponse<ParticipatedCourseItem> data = courseService.getParticipatedCourses(
-                principal.getUserId(), page, size);
-        return ResponseEntity.ok(ApiResponse.success("참여한 코스 목록 조회에 성공했습니다.", data));
     }
 
     @Operation(summary = "코스 즐겨찾기 추가", security = @SecurityRequirement(name = "bearerAuth"))
