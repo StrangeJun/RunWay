@@ -1,5 +1,6 @@
 package com.runway.android.core.tracking
 
+import com.runway.android.core.cadence.CadenceTracker
 import com.runway.android.core.location.DistanceCalculator
 import com.runway.android.core.location.GpsPointValidator
 import com.runway.android.core.location.LocationTracker
@@ -35,6 +36,7 @@ import javax.inject.Singleton
 @Singleton
 class RunTrackingManager @Inject constructor(
     private val locationTracker: LocationTracker,
+    private val cadenceTracker: CadenceTracker,
     @Named("appScope") private val appScope: CoroutineScope,
 ) {
     companion object {
@@ -57,6 +59,7 @@ class RunTrackingManager @Inject constructor(
 
     private var locationJob: Job? = null
     private var timerJob: Job? = null
+    private var cadenceJob: Job? = null
 
     @Volatile private var lowSpeedTicks = 0
     @Volatile private var highSpeedTicks = 0
@@ -69,6 +72,7 @@ class RunTrackingManager @Inject constructor(
         lastMilestoneKm = 0
         _state.value = RunTrackingState(mode = mode, isTracking = true)
         startTimer()
+        startCadenceTracking()
         startLocationTracking()
     }
 
@@ -87,14 +91,25 @@ class RunTrackingManager @Inject constructor(
     fun stop() {
         timerJob?.cancel()
         locationJob?.cancel()
+        cadenceJob?.cancel()
         timerJob = null
         locationJob = null
+        cadenceJob = null
         lowSpeedTicks = 0
         highSpeedTicks = 0
         lastMilestoneKm = 0
         _state.value = RunTrackingState()
         appScope.launch { pointsMutex.withLock { _pendingPoints.clear() } }
         pointSequence.set(0)
+    }
+
+    private fun startCadenceTracking() {
+        cadenceJob?.cancel()
+        cadenceJob = appScope.launch {
+            cadenceTracker.cadenceSpmFlow().collect { cadence ->
+                _state.update { it.copy(cadenceSpm = cadence) }
+            }
+        }
     }
 
     /** Thread-safe consume: returns all pending points and clears the queue. */

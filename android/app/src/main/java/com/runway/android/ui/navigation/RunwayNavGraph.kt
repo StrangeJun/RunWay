@@ -163,6 +163,9 @@ fun RunwayNavGraph() {
                 onShareImage = { runId ->
                     navController.navigate(RunwayRoutes.runShare(runId))
                 },
+                onOpenRunDetail = { runId ->
+                    navController.navigate(RunwayRoutes.runDetail(runId))
+                },
             )
         }
 

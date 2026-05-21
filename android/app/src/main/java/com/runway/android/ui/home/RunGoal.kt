@@ -15,9 +15,10 @@ sealed class RunGoal {
         val warmup: IntervalSegment,
         val work: IntervalSegment,
         val recovery: IntervalSegment,
+        val cooldown: IntervalSegment? = null,
         val sets: Int,
     ) : RunGoal() {
-        fun label() = "인터벌 ${sets}세트"
+        fun label() = "인터벌 ${sets}회"
     }
 }
 

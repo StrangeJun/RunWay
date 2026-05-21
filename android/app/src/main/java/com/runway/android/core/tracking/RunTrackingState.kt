@@ -11,6 +11,7 @@ data class RunTrackingState(
     val elapsedSeconds: Int = 0,
     val distanceMeters: Double = 0.0,
     val currentSpeedMps: Float? = null,
+    val cadenceSpm: Int? = null,
     val lastLocation: RunwayLocation? = null,
 ) {
     val isAutoPaused: Boolean get() = isPaused && pauseReason == PauseReason.AUTO

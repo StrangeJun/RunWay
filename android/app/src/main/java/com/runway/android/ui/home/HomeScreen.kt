@@ -20,7 +20,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.ui.components.DiscoverCourseCard
@@ -54,8 +53,6 @@ fun HomeScreen(
         )
     }
 
-    val heroHeight = LocalConfiguration.current.screenHeightDp.dp * 0.79f
-
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -74,7 +71,7 @@ fun HomeScreen(
                 hasLocationPermission = viewModel.locationPermissionGranted,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(heroHeight),
+                    .fillParentMaxHeight(1.08f),
             )
         }
 

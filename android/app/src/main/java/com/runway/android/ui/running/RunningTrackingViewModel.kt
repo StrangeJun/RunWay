@@ -75,6 +75,7 @@ class RunningTrackingViewModel @Inject constructor(
         private set
 
     private var lastSpeedMps by mutableStateOf<Float?>(null)
+    private var cadenceSpm by mutableStateOf<Int?>(null)
 
     val timerText: String
         get() = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
@@ -100,6 +101,9 @@ class RunningTrackingViewModel @Inject constructor(
                 "%.1f".format(distanceKm / (elapsedSeconds / 3600.0))
             }
         }
+
+    val cadenceText: String
+        get() = cadenceSpm?.takeIf { it > 0 }?.toString() ?: "--"
 
     private val _navigateToResult = MutableSharedFlow<RunResult>()
     val navigateToResult = _navigateToResult.asSharedFlow()
@@ -138,6 +142,7 @@ class RunningTrackingViewModel @Inject constructor(
                 elapsedSeconds = state.elapsedSeconds
                 distanceKm = state.distanceMeters / 1000.0
                 lastSpeedMps = state.currentSpeedMps
+                cadenceSpm = state.cadenceSpm
                 runningState = when {
                     state.isAutoPaused -> RunningState.AUTO_PAUSED
                     state.isPaused -> RunningState.PAUSED

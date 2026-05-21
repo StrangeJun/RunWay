@@ -2,6 +2,7 @@ package com.runway.android.ui.running
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +45,7 @@ import com.runway.android.ui.course.CreateCourseDialog
 fun RunResultScreen(
     onBackToHome: () -> Unit,
     onShareImage: (runId: String) -> Unit = {},
+    onOpenRunDetail: (String) -> Unit = {},
     viewModel: RunResultViewModel = hiltViewModel(),
 ) {
     // 코스 생성 성공 시 홈으로 이동 (Phase B-9에서 CourseDetail로 대체 예정)
@@ -154,14 +156,43 @@ fun RunResultScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // ─── Route map preview ───
-            RouteMapView(
-                points = viewModel.routePoints,
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(140.dp)
                     .padding(horizontal = 20.dp)
-                    .clip(MaterialTheme.shapes.extraLarge),
-            )
+                    .clip(MaterialTheme.shapes.extraLarge)
+                    .clickable(enabled = viewModel.runId != null) {
+                        viewModel.runId?.let(onOpenRunDetail)
+                    },
+            ) {
+                RouteMapView(
+                    points = viewModel.routePoints,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(enabled = viewModel.runId != null) {
+                            viewModel.runId?.let(onOpenRunDetail)
+                        },
+                )
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(10.dp),
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                ) {
+                    Text(
+                        text = "지도 자세히 보기",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+            }
         }
 
         // ─── Sticky bottom buttons ───
