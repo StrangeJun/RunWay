@@ -16,14 +16,14 @@ object ImageCaptureUtil {
 
     private const val SIZE = 1080
 
-    fun draw(detail: RunDetailResponse, template: ShareTemplate): Bitmap {
+    fun draw(detail: RunDetailResponse, template: ShareTemplate, preset: MetricPreset = MetricPreset.FULL_STATS): Bitmap {
         val bitmap = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        drawCard(canvas, detail, template)
+        drawCard(canvas, detail, template, preset)
         return bitmap
     }
 
-    private fun drawCard(canvas: Canvas, detail: RunDetailResponse, template: ShareTemplate) {
+    private fun drawCard(canvas: Canvas, detail: RunDetailResponse, template: ShareTemplate, preset: MetricPreset) {
         val W = SIZE.toFloat()
         val H = SIZE.toFloat()
 
@@ -76,7 +76,7 @@ object ImageCaptureUtil {
         }
         canvas.drawText("km", 80f, 530f, unitPaint)
 
-        // Metrics row
+        // Metrics row (preset-dependent)
         val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = template.textSecondary.toInt()
             textSize = 34f
@@ -90,24 +90,43 @@ object ImageCaptureUtil {
         val col2 = W / 2 - 80f
         val col3 = W - 280f
 
-        canvas.drawText("시간", col1, 640f, labelPaint)
-        canvas.drawText(formatDuration(detail.durationSeconds), col1, 700f, valuePaint)
-
-        canvas.drawText("평균 페이스", col2, 640f, labelPaint)
-        canvas.drawText(formatPace(detail.avgPaceSecondsPerKm), col2, 700f, valuePaint)
-
-        if (detail.caloriesBurned != null) {
-            canvas.drawText("칼로리", col3, 640f, labelPaint)
-            canvas.drawText("${detail.caloriesBurned}", col3, 700f, valuePaint)
-            canvas.drawText("kcal", col3, 740f, labelPaint)
+        when (preset) {
+            MetricPreset.FULL_STATS -> {
+                canvas.drawText("시간", col1, 640f, labelPaint)
+                canvas.drawText(formatDuration(detail.durationSeconds), col1, 700f, valuePaint)
+                canvas.drawText("평균 페이스", col2, 640f, labelPaint)
+                canvas.drawText(formatPace(detail.avgPaceSecondsPerKm), col2, 700f, valuePaint)
+                if (detail.caloriesBurned != null) {
+                    canvas.drawText("칼로리", col3, 640f, labelPaint)
+                    canvas.drawText("${detail.caloriesBurned}", col3, 700f, valuePaint)
+                    canvas.drawText("kcal", col3, 740f, labelPaint)
+                }
+            }
+            MetricPreset.DISTANCE_FOCUS -> {
+                canvas.drawText("소요 시간", col1, 640f, labelPaint)
+                canvas.drawText(formatDuration(detail.durationSeconds), col1, 700f, valuePaint)
+            }
+            MetricPreset.PACE_FOCUS -> {
+                val paceBigPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = template.accentColor.toInt()
+                    textSize = 100f
+                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                }
+                canvas.drawText("평균 페이스", col1, 600f, labelPaint)
+                canvas.drawText(formatPace(detail.avgPaceSecondsPerKm), col1, 710f, paceBigPaint)
+                canvas.drawText("소요 시간", col1, 780f, labelPaint)
+                canvas.drawText(formatDuration(detail.durationSeconds), col1, 840f, valuePaint)
+            }
         }
 
         // Second divider
-        canvas.drawLine(80f, 760f, W - 80f, 760f, dividerPaint)
+        val dividerY = if (preset == MetricPreset.PACE_FOCUS) 880f else 760f
+        canvas.drawLine(80f, dividerY, W - 80f, dividerY, dividerPaint)
 
         // Route preview (if enough points)
         val hasRoute = detail.points.size >= 2
-        val routeBounds = if (hasRoute) RectF(80f, 785f, W - 80f, H - 80f) else null
+        val routeTop = if (preset == MetricPreset.PACE_FOCUS) 900f else 785f
+        val routeBounds = if (hasRoute) RectF(80f, routeTop, W - 80f, H - 80f) else null
         if (routeBounds != null) {
             drawRoute(canvas, detail.points, template, routeBounds)
         }
