@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -162,35 +163,46 @@ fun RunResultScreen(
                     .height(140.dp)
                     .padding(horizontal = 20.dp)
                     .clip(MaterialTheme.shapes.extraLarge)
-                    .clickable(enabled = viewModel.runId != null) {
+                    .clickable(enabled = viewModel.runId != null && !viewModel.isLoadingRoute) {
                         viewModel.runId?.let(onOpenRunDetail)
                     },
             ) {
-                RouteMapView(
-                    points = viewModel.routePoints,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clickable(enabled = viewModel.runId != null) {
-                            viewModel.runId?.let(onOpenRunDetail)
-                        },
-                )
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(10.dp),
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                ) {
-                    Text(
-                        text = "지도 자세히 보기",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                if (viewModel.isLoadingRoute) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                    }
+                } else {
+                    RouteMapView(
+                        points = viewModel.routePoints,
+                        modifier = Modifier.fillMaxSize(),
                     )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clickable(enabled = viewModel.runId != null) {
+                                viewModel.runId?.let(onOpenRunDetail)
+                            },
+                    )
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(10.dp),
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    ) {
+                        Text(
+                            text = "지도 자세히 보기",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
                 }
             }
         }

@@ -120,9 +120,9 @@ fun RunHeroSection(
             ) {
                 Text(
                     text = when (selectedGoal) {
-                        is RunGoal.TimeGoal -> "⏱ ${selectedGoal.label()}"
-                        is RunGoal.DistanceGoal -> "📍 ${selectedGoal.label()}"
-                        is RunGoal.IntervalGoal -> "⚡ ${selectedGoal.label()}"
+                        is RunGoal.TimeGoal -> "목표설정: ${selectedGoal.label()}"
+                        is RunGoal.DistanceGoal -> "목표설정: ${selectedGoal.label()}"
+                        is RunGoal.IntervalGoal -> "목표설정: ${selectedGoal.label()}"
                         null -> "목표 설정"
                     },
                     style = MaterialTheme.typography.bodyMedium,

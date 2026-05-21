@@ -30,6 +30,9 @@ class RunResultViewModel @Inject constructor(
     var routePoints by mutableStateOf<List<MapPoint>>(emptyList())
         private set
 
+    var isLoadingRoute by mutableStateOf(runId != null)
+        private set
+
     private val elapsedSeconds: Int = savedStateHandle.get<Int>("elapsedSeconds") ?: 0
     private val distanceKm: Float = savedStateHandle.get<Float>("distanceKm") ?: 0f
 
@@ -40,11 +43,17 @@ class RunResultViewModel @Inject constructor(
                 if (result is NetworkResult.Success) {
                     routePoints = result.data.points.map { MapPoint(it.latitude, it.longitude) }
                 }
+                isLoadingRoute = false
             }
         }
     }
 
-    val timerText: String = "%02d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60)
+    val timerText: String = run {
+        val h = elapsedSeconds / 3600
+        val m = (elapsedSeconds % 3600) / 60
+        val s = elapsedSeconds % 60
+        if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
+    }
     val distanceText: String = "%.2f".format(distanceKm)
     val paceText: String = if (distanceKm > 0.001f) {
         val secsPerKm = (elapsedSeconds / distanceKm).toInt()
