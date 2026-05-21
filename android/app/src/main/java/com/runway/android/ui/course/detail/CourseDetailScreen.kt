@@ -19,14 +19,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -174,7 +173,7 @@ fun CourseDetailScreen(
                         enabled = !viewModel.isFavoriteToggling,
                     ) {
                         Icon(
-                            imageVector = if (viewModel.isFavorited) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            imageVector = if (viewModel.isFavorited) Icons.Filled.Star else Icons.Filled.StarBorder,
                             contentDescription = if (viewModel.isFavorited) "즐겨찾기 해제" else "즐겨찾기 추가",
                             tint = if (viewModel.isFavorited) MaterialTheme.colorScheme.primary
                                    else MaterialTheme.colorScheme.onSurfaceVariant,
