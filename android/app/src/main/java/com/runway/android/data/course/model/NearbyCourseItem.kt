@@ -15,4 +15,5 @@ data class NearbyCourseItem(
     val createdAt: String,
     val avgRating: Double?,
     val ratingCount: Long?,
+    val routePoints: List<GeoPoint> = emptyList(),
 )

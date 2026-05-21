@@ -3,6 +3,7 @@ package com.runway.course.dto;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -20,4 +21,5 @@ public class NearbyCourseItem {
     private GeoPoint startPoint;
     private Double avgRating;
     private Long ratingCount;
+    private List<GeoPoint> routePoints;
 }

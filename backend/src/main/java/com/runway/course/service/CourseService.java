@@ -178,6 +178,39 @@ public class CourseService {
         List<Object[]> rows = buildQuery(dataSql, dataParams).getResultList();
         List<NearbyCourseItem> items = rows.stream().map(this::toNearbyCourseItem).toList();
 
+        // 결과 코스들의 경로 포인트를 단일 쿼리로 일괄 조회
+        if (!items.isEmpty()) {
+            List<String> courseIdStrs = items.stream()
+                    .map(it -> it.getCourseId().toString())
+                    .toList();
+            String inClause = courseIdStrs.stream()
+                    .map(id -> "'" + id + "'")
+                    .reduce((a, b) -> a + "," + b).orElse("''");
+            String pointsSql =
+                    "SELECT course_id::text, ST_Y(location::geometry), ST_X(location::geometry) " +
+                    "FROM course_points " +
+                    "WHERE course_id IN (" + inClause + ") " +
+                    "ORDER BY course_id, sequence";
+            @SuppressWarnings("unchecked")
+            List<Object[]> pointRows = entityManager.createNativeQuery(pointsSql).getResultList();
+
+            // courseId별로 포인트 그룹화
+            Map<String, List<GeoPoint>> pointsMap = new java.util.LinkedHashMap<>();
+            for (Object[] pr : pointRows) {
+                String cid = (String) pr[0];
+                double lat = ((Number) pr[1]).doubleValue();
+                double lon = ((Number) pr[2]).doubleValue();
+                pointsMap.computeIfAbsent(cid, k -> new java.util.ArrayList<>()).add(new GeoPoint(lat, lon));
+            }
+
+            // thin하여 최대 40포인트, NearbyCourseItem에 주입
+            items = items.stream().map(item -> {
+                List<GeoPoint> pts = pointsMap.getOrDefault(item.getCourseId().toString(), List.of());
+                List<GeoPoint> thinned = thinPoints(pts, 40);
+                return item.toBuilder().routePoints(thinned).build();
+            }).toList();
+        }
+
         // 카운트 쿼리 파라미터 구성 (LIMIT/OFFSET 없음)
         List<Object> countParams = new ArrayList<>(baseParams);
         countParams.addAll(filterParams);
@@ -342,6 +375,17 @@ public class CourseService {
                 .startPoint(new GeoPoint(maskedLat, maskedLon))
                 .avgRating(row[10] != null ? ((Number) row[10]).doubleValue() : null)
                 .ratingCount(row[11] != null ? ((Number) row[11]).longValue() : null)
+                .routePoints(List.of())
                 .build();
+    }
+
+    private List<GeoPoint> thinPoints(List<GeoPoint> points, int maxCount) {
+        if (points.size() <= maxCount) return points;
+        List<GeoPoint> result = new ArrayList<>(maxCount);
+        double step = (double) (points.size() - 1) / (maxCount - 1);
+        for (int i = 0; i < maxCount; i++) {
+            result.add(points.get((int) Math.round(i * step)));
+        }
+        return result;
     }
 }

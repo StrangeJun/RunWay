@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.runway.android.data.course.model.GeoPoint
 import com.runway.android.data.course.model.NearbyCourseItem
 import com.runway.android.ui.discover.DiscoverViewModel
 
@@ -65,9 +66,8 @@ fun DiscoverCourseCard(
         Column {
             Box {
                 SportyCourseCanvas(
+                    routePoints = course.routePoints,
                     courseId = course.courseId,
-                    distanceMeters = course.distanceMeters,
-                    isLoop = course.isLoop,
                     accentColor = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -218,20 +218,18 @@ fun DiscoverCourseCard(
 
 @Composable
 private fun SportyCourseCanvas(
+    routePoints: List<GeoPoint>,
     courseId: String,
-    distanceMeters: Double,
-    isLoop: Boolean,
     accentColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    val variant = (courseId.hashCode() and 0x7FFFFFFF) % 4
-
     Box(modifier = modifier.background(
         Brush.verticalGradient(listOf(BgTop, BgBottom))
     )) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
+            val pad = 16.dp.toPx()
 
             // 도트 그리드
             val dotStep = 22.dp.toPx()
@@ -246,81 +244,58 @@ private fun SportyCourseCanvas(
                 xi += dotStep
             }
 
-            val path = Path()
-            val startPt: Offset
-            val endPt: Offset
+            if (routePoints.size < 2) return@Canvas
 
-            if (isLoop) {
-                // 루프 코스: 타원형 경로
-                when (variant % 2) {
-                    0 -> {
-                        startPt = Offset(w * 0.50f, h * 0.78f)
-                        endPt = startPt
-                        path.moveTo(startPt.x, startPt.y)
-                        path.cubicTo(w * 0.10f, h * 0.78f, w * 0.08f, h * 0.10f, w * 0.50f, h * 0.14f)
-                        path.cubicTo(w * 0.92f, h * 0.10f, w * 0.90f, h * 0.78f, startPt.x, startPt.y)
-                    }
-                    else -> {
-                        startPt = Offset(w * 0.22f, h * 0.72f)
-                        endPt = startPt
-                        path.moveTo(startPt.x, startPt.y)
-                        path.cubicTo(w * 0.08f, h * 0.30f, w * 0.38f, h * 0.08f, w * 0.60f, h * 0.18f)
-                        path.cubicTo(w * 0.88f, h * 0.30f, w * 0.85f, h * 0.70f, w * 0.65f, h * 0.80f)
-                        path.cubicTo(w * 0.48f, h * 0.88f, w * 0.32f, h * 0.82f, startPt.x, startPt.y)
-                    }
-                }
-            } else {
-                when (variant) {
-                    0 -> {
-                        startPt = Offset(w * 0.10f, h * 0.78f)
-                        endPt = Offset(w * 0.90f, h * 0.22f)
-                        path.moveTo(startPt.x, startPt.y)
-                        path.cubicTo(w * 0.22f, h * 0.12f, w * 0.52f, h * 0.92f, w * 0.70f, h * 0.38f)
-                        path.cubicTo(w * 0.80f, h * 0.18f, w * 0.88f, h * 0.28f, endPt.x, endPt.y)
-                    }
-                    1 -> {
-                        startPt = Offset(w * 0.08f, h * 0.68f)
-                        endPt = Offset(w * 0.92f, h * 0.32f)
-                        path.moveTo(startPt.x, startPt.y)
-                        path.cubicTo(w * 0.28f, h * 0.08f, w * 0.45f, h * 0.88f, w * 0.62f, h * 0.44f)
-                        path.lineTo(w * 0.75f, h * 0.28f)
-                        path.cubicTo(w * 0.82f, h * 0.18f, w * 0.88f, h * 0.28f, endPt.x, endPt.y)
-                    }
-                    2 -> {
-                        startPt = Offset(w * 0.08f, h * 0.82f)
-                        endPt = Offset(w * 0.92f, h * 0.22f)
-                        path.moveTo(startPt.x, startPt.y)
-                        path.cubicTo(w * 0.30f, h * 0.80f, w * 0.38f, h * 0.12f, w * 0.58f, h * 0.20f)
-                        path.cubicTo(w * 0.72f, h * 0.26f, w * 0.82f, h * 0.52f, endPt.x, endPt.y)
-                    }
-                    else -> {
-                        startPt = Offset(w * 0.12f, h * 0.75f)
-                        endPt = Offset(w * 0.88f, h * 0.28f)
-                        path.moveTo(startPt.x, startPt.y)
-                        path.cubicTo(w * 0.18f, h * 0.18f, w * 0.48f, h * 0.90f, w * 0.68f, h * 0.55f)
-                        path.cubicTo(w * 0.78f, h * 0.38f, w * 0.85f, h * 0.22f, endPt.x, endPt.y)
-                    }
-                }
+            // GPS 좌표 → 캔버스 좌표 투영 (종횡비 유지, 중앙 정렬)
+            val minLat = routePoints.minOf { it.latitude }
+            val maxLat = routePoints.maxOf { it.latitude }
+            val minLon = routePoints.minOf { it.longitude }
+            val maxLon = routePoints.maxOf { it.longitude }
+            val latSpan = (maxLat - minLat).coerceAtLeast(0.0001)
+            val lonSpan = (maxLon - minLon).coerceAtLeast(0.0001)
+
+            val drawW = w - pad * 2
+            val drawH = h - pad * 2
+            val scaleByLat = drawH / latSpan
+            val scaleByLon = drawW / lonSpan
+            val scale = minOf(scaleByLat, scaleByLon)
+
+            val projW = lonSpan * scale
+            val projH = latSpan * scale
+            val offsetX = pad + (drawW - projW) / 2f
+            val offsetY = pad + (drawH - projH) / 2f
+
+            fun project(pt: com.runway.android.data.course.model.GeoPoint) = Offset(
+                x = (offsetX + (pt.longitude - minLon) * scale).toFloat(),
+                y = (offsetY + (maxLat - pt.latitude) * scale).toFloat(),
+            )
+
+            val offsets = routePoints.map { project(it) }
+
+            val path = Path().apply {
+                moveTo(offsets.first().x, offsets.first().y)
+                offsets.drop(1).forEach { lineTo(it.x, it.y) }
             }
 
-            // 외곽 글로우 (넓고 흐릿)
-            drawPath(path, accentColor.copy(alpha = 0.06f), style = Stroke(32.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-            drawPath(path, accentColor.copy(alpha = 0.12f), style = Stroke(18.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-            // 중간 글로우
-            drawPath(path, accentColor.copy(alpha = 0.30f), style = Stroke(6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            // 글로우 레이어
+            drawPath(path, accentColor.copy(alpha = 0.07f), style = Stroke(28.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawPath(path, accentColor.copy(alpha = 0.18f), style = Stroke(12.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawPath(path, accentColor.copy(alpha = 0.40f), style = Stroke(5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
             // 메인 라인
-            drawPath(path, accentColor.copy(alpha = 0.95f), style = Stroke(2.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawPath(path, accentColor.copy(alpha = 0.95f), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
 
             // 출발점 (초록)
-            drawCircle(StartGreen.copy(alpha = 0.25f), 9.dp.toPx(), startPt)
-            drawCircle(StartGreen.copy(alpha = 0.55f), 5.5.dp.toPx(), startPt)
-            drawCircle(StartGreen, 3.dp.toPx(), startPt)
+            val start = offsets.first()
+            drawCircle(StartGreen.copy(alpha = 0.25f), 9.dp.toPx(), start)
+            drawCircle(StartGreen.copy(alpha = 0.60f), 5.dp.toPx(), start)
+            drawCircle(StartGreen, 3.dp.toPx(), start)
 
-            // 도착/반환점 (루프 아니면 주황)
-            if (!isLoop) {
-                drawCircle(EndOrange.copy(alpha = 0.25f), 9.dp.toPx(), endPt)
-                drawCircle(EndOrange.copy(alpha = 0.55f), 5.5.dp.toPx(), endPt)
-                drawCircle(EndOrange, 3.dp.toPx(), endPt)
+            // 도착점 (주황)
+            val end = offsets.last()
+            if (end != start) {
+                drawCircle(EndOrange.copy(alpha = 0.25f), 9.dp.toPx(), end)
+                drawCircle(EndOrange.copy(alpha = 0.60f), 5.dp.toPx(), end)
+                drawCircle(EndOrange, 3.dp.toPx(), end)
             }
         }
     }
