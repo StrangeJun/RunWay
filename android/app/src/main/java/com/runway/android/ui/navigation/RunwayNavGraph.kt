@@ -12,6 +12,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.runway.android.ui.MainViewModel
 import com.runway.android.ui.achievements.AchievementsScreen
+import com.runway.android.ui.permission.PermissionScreen
 import com.runway.android.ui.attempt.CourseAttemptTrackingScreen
 import com.runway.android.ui.auth.login.LoginScreen
 import com.runway.android.ui.share.RunShareImageScreen
@@ -103,6 +104,18 @@ fun RunwayNavGraph() {
         composable(RunwayRoutes.ONBOARDING) {
             OnboardingScreen(
                 onComplete = {
+                    navController.navigate(RunwayRoutes.PERMISSION) {
+                        popUpTo(RunwayRoutes.ONBOARDING) { inclusive = true }
+                    }
+                },
+            )
+        }
+
+        // ─── 권한 설명 ───
+
+        composable(RunwayRoutes.PERMISSION) {
+            PermissionScreen(
+                onContinue = {
                     navController.navigate(RunwayRoutes.MAIN) {
                         popUpTo(0) { inclusive = true }
                     }

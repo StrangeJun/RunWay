@@ -5,13 +5,22 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.runway.android.ui.theme.RunwayTheme
 
 private const val SplashAnimationDurationMillis = 2_000
@@ -37,13 +46,28 @@ fun RunwaySplashScreen(
         }
     }
 
+    val taglineAlpha = ((progress.value - 0.85f) / 0.15f).coerceIn(0f, 1f)
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(androidx.compose.material3.MaterialTheme.colorScheme.background),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center,
     ) {
-        RunwayLogoAnimation(progress = progress.value)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            RunwayLogoAnimation(progress = progress.value)
+        }
+        Text(
+            text = "Run your way.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .alpha(taglineAlpha)
+                .height(48.dp),
+        )
     }
 }
 
