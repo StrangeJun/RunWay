@@ -27,9 +27,11 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -49,6 +51,7 @@ import com.runway.android.ui.components.DiscoverCourseCard
 
 private val RADIUS_OPTIONS = listOf(1000 to "1km", 3000 to "3km", 5000 to "5km")
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscoverScreen(
     onNavigateToCourseDetail: (String) -> Unit = {},
@@ -88,6 +91,11 @@ fun DiscoverScreen(
 
     val radiusLabel = RADIUS_OPTIONS.find { it.first == viewModel.radiusMeters }?.second ?: "3km"
 
+    PullToRefreshBox(
+        isRefreshing = viewModel.isRefreshing,
+        onRefresh = onRefresh,
+        modifier = Modifier.fillMaxSize(),
+    ) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -313,6 +321,7 @@ fun DiscoverScreen(
             }
         }
     }
+    } // PullToRefreshBox
 }
 
 @Composable

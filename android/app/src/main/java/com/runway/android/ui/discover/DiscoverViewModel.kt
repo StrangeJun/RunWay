@@ -31,6 +31,8 @@ class DiscoverViewModel @Inject constructor(
 
     var isLoading by mutableStateOf(false)
         private set
+    var isRefreshing by mutableStateOf(false)
+        private set
     var errorMessage by mutableStateOf<String?>(null)
         private set
     var radiusMeters by mutableStateOf(3000)
@@ -88,7 +90,11 @@ class DiscoverViewModel @Inject constructor(
 
     fun refresh() {
         if (isLocationRequired || !hasLocation) return
-        loadCourses()
+        viewModelScope.launch {
+            isRefreshing = true
+            loadCourses()
+            isRefreshing = false
+        }
     }
 
     @SuppressLint("MissingPermission")
