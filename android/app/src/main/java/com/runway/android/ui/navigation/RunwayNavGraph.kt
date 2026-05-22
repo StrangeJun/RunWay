@@ -206,6 +206,15 @@ fun RunwayNavGraph() {
                 onOpenRunDetail = { runId ->
                     navController.navigate(RunwayRoutes.runDetail(runId))
                 },
+                onNavigateToCourseDetail = { courseId ->
+                    runCatching {
+                        navController.getBackStackEntry(RunwayRoutes.MAIN)
+                            .savedStateHandle["newRunCompleted"] = true
+                    }
+                    navController.navigate(RunwayRoutes.courseDetail(courseId)) {
+                        popUpTo(RunwayRoutes.MAIN) { inclusive = false }
+                    }
+                },
             )
         }
 
