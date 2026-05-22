@@ -105,6 +105,7 @@ class HomeViewModel @Inject constructor(
             isRefreshing = true
             nearbyCourses = emptyList()
             loadData()
+            loadNearbyCoursesIfPermitted()
             isRefreshing = false
         }
     }
