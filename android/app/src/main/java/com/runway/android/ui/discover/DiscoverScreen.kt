@@ -304,6 +304,8 @@ fun DiscoverScreen(
             }
 
             viewModel.courses.isEmpty() -> item {
+                val hasActiveFilter = viewModel.distanceFilter != DistanceFilterOption.ALL ||
+                    viewModel.isLoopFilter != null
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -318,8 +320,11 @@ fun DiscoverScreen(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = if (viewModel.keyword.isNotBlank()) "다른 검색어나 더 넓은 반경으로 시도해 보세요."
-                               else "반경을 늘리거나 직접 코스를 만들어 보세요.",
+                        text = when {
+                            viewModel.keyword.isNotBlank() -> "다른 검색어나 더 넓은 반경으로 시도해 보세요."
+                            hasActiveFilter -> "필터를 해제하거나 반경을 늘려 보세요."
+                            else -> "반경을 늘리거나 직접 코스를 만들어 보세요."
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
