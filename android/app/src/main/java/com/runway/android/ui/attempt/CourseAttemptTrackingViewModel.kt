@@ -163,6 +163,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
     private var isDone = false
     private var serviceStarted = false
     private var lastTrackStatus: CourseTrackStatus = CourseTrackStatus.UNKNOWN
+    private var nearFinishMessageShown = false
 
     private var stateObserveJob: Job? = null
     private var batchJob: Job? = null
@@ -227,6 +228,17 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                                 showDeviationWarning = false
                             }
                             lastTrackStatus = currentStatus
+                        }
+                        // 90% 도달 시 1회만 동기부여 메시지 표시
+                        if (!nearFinishMessageShown && courseProgressPercent >= 90 && courseProgressPercent < 100) {
+                            nearFinishMessageShown = true
+                            vibrate()
+                            milestoneDisplayJob?.cancel()
+                            milestoneMessage = "거의 다 왔어요! 조금만 더 달려요!"
+                            milestoneDisplayJob = viewModelScope.launch {
+                                delay(4_000)
+                                milestoneMessage = null
+                            }
                         }
                     }
                 }

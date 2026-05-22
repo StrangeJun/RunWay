@@ -245,8 +245,7 @@ private fun LeaderboardContent(
                     }
                 }
             }
-            !isPR && improvementSeconds != null && previousBestSeconds != null -> {
-                val regressionSeconds = -improvementSeconds
+            !isPR && improvementSeconds != null && previousBestSeconds != null && improvementSeconds <= 0 -> {
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier.fillMaxWidth(),
@@ -257,17 +256,32 @@ private fun LeaderboardContent(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column {
-                            Text(
-                                text = "지난번보다 ${formatTime(regressionSeconds)} 느림",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = "최고 기록: ${formatTime(previousBestSeconds)} · 다음엔 더 잘 달릴 수 있어요!",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                            )
+                            if (improvementSeconds == 0) {
+                                Text(
+                                    text = "지난번과 동일한 기록이에요!",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "최고 기록: ${formatTime(previousBestSeconds)} · 다음엔 더 빠르게 달려보세요!",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                )
+                            } else {
+                                val regressionSeconds = -improvementSeconds
+                                Text(
+                                    text = "지난번보다 ${formatTime(regressionSeconds)} 느림",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "최고 기록: ${formatTime(previousBestSeconds)} · 다음엔 더 잘 달릴 수 있어요!",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                )
+                            }
                         }
                     }
                 }
