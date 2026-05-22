@@ -30,6 +30,8 @@ class MyRunsViewModel @Inject constructor(
         private set
     var isLoading by mutableStateOf(true)
         private set
+    var isRefreshing by mutableStateOf(false)
+        private set
     var hasError by mutableStateOf(false)
         private set
     var totalCount by mutableStateOf(0L)
@@ -79,6 +81,15 @@ class MyRunsViewModel @Inject constructor(
         hasError = false
         allRuns = emptyList()
         loadRuns()
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            isRefreshing = true
+            hasError = false
+            loadRuns()
+            isRefreshing = false
+        }
     }
 
     fun deleteRun(runId: String) {

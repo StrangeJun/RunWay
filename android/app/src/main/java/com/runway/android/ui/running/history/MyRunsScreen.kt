@@ -43,6 +43,7 @@ import com.runway.android.core.util.formatDistance
 import com.runway.android.core.util.formatDuration
 import com.runway.android.ui.components.RunHistoryCard
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyRunsScreen(
     onBack: () -> Unit,
@@ -108,7 +109,13 @@ fun MyRunsScreen(
                 }
             }
             else -> {
+                androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+                    isRefreshing = viewModel.isRefreshing,
+                    onRefresh = viewModel::refresh,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
                 LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 24.dp),
                 ) {
                     // 캘린더
@@ -161,6 +168,7 @@ fun MyRunsScreen(
                         }
                     }
                 }
+                } // PullToRefreshBox
             }
         }
     }

@@ -88,12 +88,24 @@ class HomeViewModel @Inject constructor(
         recentRuns = recentRuns.filterNot { it.runId == runId }
     }
 
+    var isRefreshing by mutableStateOf(false)
+        private set
+
     fun reloadRecentRuns() {
         viewModelScope.launch {
             val result = runningRepository.getMyRuns(page = 0, size = 20)
             if (result is NetworkResult.Success) {
                 recentRuns = result.data.content.map { it.toRecentRun() }
             }
+        }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            isRefreshing = true
+            nearbyCourses = emptyList()
+            loadData()
+            isRefreshing = false
         }
     }
     fun setGoal(goal: RunGoal) {

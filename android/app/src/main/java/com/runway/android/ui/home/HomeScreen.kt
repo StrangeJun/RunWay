@@ -15,8 +15,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -34,6 +36,7 @@ import com.runway.android.ui.components.RunHeroSection
 import com.runway.android.ui.components.SectionHeader
 import com.runway.android.ui.components.WeeklyStatsCard
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onStartRun: () -> Unit = {},
@@ -79,6 +82,11 @@ fun HomeScreen(
     // Content slide-up distance (pixels) — items translate from below as they fade in
     val slideDistPx = with(density) { 28.dp.toPx() }
 
+    PullToRefreshBox(
+        isRefreshing = viewModel.isRefreshing,
+        onRefresh = viewModel::refresh,
+        modifier = Modifier.fillMaxSize(),
+    ) {
     LazyColumn(
         state = listState,
         modifier = Modifier
@@ -212,4 +220,5 @@ fun HomeScreen(
 
         item { Spacer(Modifier.height(8.dp)) }
     }
+    } // PullToRefreshBox
 }
