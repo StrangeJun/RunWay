@@ -16,7 +16,7 @@ object RunwayRoutes {
     const val RUN_DETAIL = "run_detail/{runId}"
     const val COURSE_DETAIL = "course_detail/{courseId}"
     const val COURSE_ATTEMPT = "course_attempt/{courseId}/{courseAttemptId}/{runningRecordId}"
-    const val COURSE_LEADERBOARD = "course_leaderboard/{courseId}?isPR={isPR}&previousBestSeconds={previousBestSeconds}&improvementSeconds={improvementSeconds}"
+    const val COURSE_LEADERBOARD = "course_leaderboard/{courseId}?isPR={isPR}&previousBestSeconds={previousBestSeconds}&improvementSeconds={improvementSeconds}&justCompleted={justCompleted}"
     const val COURSE_MAP_DETAIL = "course_map_detail/{courseId}"
     const val RUN_SHARE = "run_share/{runId}"
     const val STATS = "stats"
@@ -42,9 +42,11 @@ object RunwayRoutes {
         isPR: Boolean = false,
         previousBestSeconds: Int? = null,
         improvementSeconds: Int? = null,
+        justCompleted: Boolean = false,
     ) = buildString {
         append("course_leaderboard/${Uri.encode(courseId)}")
         append("?isPR=$isPR")
+        append("&justCompleted=$justCompleted")
         if (previousBestSeconds != null) append("&previousBestSeconds=$previousBestSeconds")
         if (improvementSeconds != null) append("&improvementSeconds=$improvementSeconds")
     }

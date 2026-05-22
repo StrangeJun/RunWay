@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.data.attempt.model.LeaderboardItem
 import com.runway.android.data.attempt.model.LeaderboardResponse
+import com.runway.android.ui.course.detail.RateCourseDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,6 +53,19 @@ fun CourseLeaderboardScreen(
     onBack: () -> Unit,
     viewModel: CourseLeaderboardViewModel = hiltViewModel(),
 ) {
+    if (viewModel.showRateDialog) {
+        RateCourseDialog(
+            selectedRating = viewModel.ratingValue,
+            onRatingChange = viewModel::onRatingValueChange,
+            comment = viewModel.ratingComment,
+            onCommentChange = viewModel::onRatingCommentChange,
+            isSubmitting = viewModel.isSubmittingRating,
+            errorMessage = viewModel.ratingError,
+            onConfirm = viewModel::submitRating,
+            onDismiss = viewModel::dismissRateDialog,
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(

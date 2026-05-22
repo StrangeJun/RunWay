@@ -255,7 +255,7 @@ fun RunwayNavGraph() {
             CourseAttemptTrackingScreen(
                 onNavigateToLeaderboard = { courseId, isPR, previousBestSeconds, improvementSeconds ->
                     navController.navigate(
-                        RunwayRoutes.courseLeaderboard(courseId, isPR, previousBestSeconds, improvementSeconds)
+                        RunwayRoutes.courseLeaderboard(courseId, isPR, previousBestSeconds, improvementSeconds, justCompleted = true)
                     ) {
                         popUpTo(RunwayRoutes.COURSE_ATTEMPT) { inclusive = true }
                     }
@@ -326,6 +326,7 @@ fun RunwayNavGraph() {
                 navArgument("isPR") { type = NavType.BoolType; defaultValue = false },
                 navArgument("previousBestSeconds") { type = NavType.IntType; defaultValue = -1 },
                 navArgument("improvementSeconds") { type = NavType.IntType; defaultValue = -1 },
+                navArgument("justCompleted") { type = NavType.BoolType; defaultValue = false },
             ),
         ) {
             CourseLeaderboardScreen(
