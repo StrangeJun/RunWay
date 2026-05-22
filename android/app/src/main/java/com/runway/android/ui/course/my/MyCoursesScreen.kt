@@ -22,11 +22,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.data.course.model.CourseResponse
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyCoursesScreen(
     onBack: () -> Unit,
@@ -68,76 +71,84 @@ fun MyCoursesScreen(
             )
         }
 
-        when {
-            viewModel.isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(40.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-            viewModel.hasError -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "코스 목록을 불러오지 못했습니다.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = viewModel::retry) { Text("다시 시도") }
-                    }
-                }
-            }
-            viewModel.courses.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(32.dp),
+        PullToRefreshBox(
+            isRefreshing = viewModel.isRefreshing,
+            onRefresh = viewModel::refresh,
+            modifier = Modifier
+                .fillMaxSize()
+                .weight(1f),
+        ) {
+            when {
+                viewModel.isLoading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.Route,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(48.dp),
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "아직 만든 코스가 없어요",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center,
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "러닝을 완료한 후 경로를 코스로 등록해보세요.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(40.dp),
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                 }
-            }
-            else -> {
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(viewModel.courses) { course ->
-                        MyCourseCard(
-                            course = course,
-                            onClick = { onNavigateToCourseDetail(course.courseId) },
-                        )
+                viewModel.hasError -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "코스 목록을 불러오지 못했습니다.",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(onClick = viewModel::retry) { Text("다시 시도") }
+                        }
+                    }
+                }
+                viewModel.courses.isEmpty() -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(32.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Route,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(48.dp),
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "아직 만든 코스가 없어요",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center,
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "러닝을 완료한 후 경로를 코스로 등록해보세요.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    LazyColumn(
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(viewModel.courses) { course ->
+                            MyCourseCard(
+                                course = course,
+                                onClick = { onNavigateToCourseDetail(course.courseId) },
+                            )
+                        }
                     }
                 }
             }

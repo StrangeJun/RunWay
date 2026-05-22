@@ -10,6 +10,8 @@ import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.data.course.model.ParticipatedCourseItem
 import com.runway.android.domain.course.CourseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -42,48 +44,70 @@ class CoursesLibraryViewModel @Inject constructor(
     var participatedError by mutableStateOf<String?>(null)
         private set
 
+    var isRefreshing by mutableStateOf(false)
+        private set
+
     init {
         loadMyCourses()
         loadFavoriteCourses()
         loadParticipatedCourses()
     }
 
-    fun loadMyCourses() {
+    fun refresh() {
         viewModelScope.launch {
-            isLoadingMyCourses = true
-            myCoursesError = null
-            when (val result = courseRepository.getMyCourses()) {
-                is NetworkResult.Success -> myCourses = result.data.content
-                is NetworkResult.ApiError -> myCoursesError = result.message
-                is NetworkResult.NetworkError -> myCoursesError = "네트워크 오류가 발생했습니다."
+            isRefreshing = true
+            coroutineScope {
+                val a = async { doLoadMyCourses() }
+                val b = async { doLoadFavorites() }
+                val c = async { doLoadParticipated() }
+                a.await(); b.await(); c.await()
             }
-            isLoadingMyCourses = false
+            isRefreshing = false
         }
+    }
+
+    fun loadMyCourses() {
+        viewModelScope.launch { doLoadMyCourses() }
     }
 
     fun loadFavoriteCourses() {
-        viewModelScope.launch {
-            isLoadingFavorites = true
-            favoritesError = null
-            when (val result = courseRepository.getFavoriteCourses()) {
-                is NetworkResult.Success -> favoriteCourses = result.data.content
-                is NetworkResult.ApiError -> favoritesError = result.message
-                is NetworkResult.NetworkError -> favoritesError = "네트워크 오류가 발생했습니다."
-            }
-            isLoadingFavorites = false
-        }
+        viewModelScope.launch { doLoadFavorites() }
     }
 
     fun loadParticipatedCourses() {
-        viewModelScope.launch {
-            isLoadingParticipated = true
-            participatedError = null
-            when (val result = courseRepository.getParticipatedCourses()) {
-                is NetworkResult.Success -> participatedCourses = result.data.content
-                is NetworkResult.ApiError -> participatedError = result.message
-                is NetworkResult.NetworkError -> participatedError = "네트워크 오류가 발생했습니다."
-            }
-            isLoadingParticipated = false
+        viewModelScope.launch { doLoadParticipated() }
+    }
+
+    private suspend fun doLoadMyCourses() {
+        isLoadingMyCourses = true
+        myCoursesError = null
+        when (val result = courseRepository.getMyCourses()) {
+            is NetworkResult.Success -> myCourses = result.data.content
+            is NetworkResult.ApiError -> myCoursesError = result.message
+            is NetworkResult.NetworkError -> myCoursesError = "네트워크 오류가 발생했습니다."
         }
+        isLoadingMyCourses = false
+    }
+
+    private suspend fun doLoadFavorites() {
+        isLoadingFavorites = true
+        favoritesError = null
+        when (val result = courseRepository.getFavoriteCourses()) {
+            is NetworkResult.Success -> favoriteCourses = result.data.content
+            is NetworkResult.ApiError -> favoritesError = result.message
+            is NetworkResult.NetworkError -> favoritesError = "네트워크 오류가 발생했습니다."
+        }
+        isLoadingFavorites = false
+    }
+
+    private suspend fun doLoadParticipated() {
+        isLoadingParticipated = true
+        participatedError = null
+        when (val result = courseRepository.getParticipatedCourses()) {
+            is NetworkResult.Success -> participatedCourses = result.data.content
+            is NetworkResult.ApiError -> participatedError = result.message
+            is NetworkResult.NetworkError -> participatedError = "네트워크 오류가 발생했습니다."
+        }
+        isLoadingParticipated = false
     }
 }

@@ -19,6 +19,8 @@ class MyCoursesViewModel @Inject constructor(
 
     var isLoading by mutableStateOf(true)
         private set
+    var isRefreshing by mutableStateOf(false)
+        private set
     var hasError by mutableStateOf(false)
         private set
     var courses by mutableStateOf<List<CourseResponse>>(emptyList())
@@ -35,13 +37,24 @@ class MyCoursesViewModel @Inject constructor(
         load()
     }
 
-    private fun load() {
+    fun refresh() {
         viewModelScope.launch {
-            when (val result = courseRepository.getMyCourses()) {
-                is NetworkResult.Success -> courses = result.data.content
-                else -> hasError = true
-            }
-            isLoading = false
+            isRefreshing = true
+            doLoad()
+            isRefreshing = false
         }
+    }
+
+    private fun load() {
+        viewModelScope.launch { doLoad() }
+    }
+
+    private suspend fun doLoad() {
+        hasError = false
+        when (val result = courseRepository.getMyCourses()) {
+            is NetworkResult.Success -> courses = result.data.content
+            else -> hasError = true
+        }
+        isLoading = false
     }
 }

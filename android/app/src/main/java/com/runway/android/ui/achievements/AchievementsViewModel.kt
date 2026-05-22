@@ -21,6 +21,8 @@ class AchievementsViewModel @Inject constructor(
         private set
     var isLoading by mutableStateOf(false)
         private set
+    var isRefreshing by mutableStateOf(false)
+        private set
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
@@ -30,16 +32,26 @@ class AchievementsViewModel @Inject constructor(
 
     fun retry() = load()
 
+    fun refresh() {
+        viewModelScope.launch {
+            isRefreshing = true
+            doLoad()
+            isRefreshing = false
+        }
+    }
+
     private fun load() {
+        viewModelScope.launch { doLoad() }
+    }
+
+    private suspend fun doLoad() {
         isLoading = true
         errorMessage = null
-        viewModelScope.launch {
-            when (val result = userRepository.getAchievements()) {
-                is NetworkResult.Success -> items = result.data.items
-                is NetworkResult.ApiError -> errorMessage = result.message
-                is NetworkResult.NetworkError -> errorMessage = "네트워크 연결을 확인해 주세요."
-            }
-            isLoading = false
+        when (val result = userRepository.getAchievements()) {
+            is NetworkResult.Success -> items = result.data.items
+            is NetworkResult.ApiError -> errorMessage = result.message
+            is NetworkResult.NetworkError -> errorMessage = "네트워크 연결을 확인해 주세요."
         }
+        isLoading = false
     }
 }

@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,90 +64,96 @@ fun AchievementsScreen(
             ),
         )
 
-        when {
-            viewModel.isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(40.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+        PullToRefreshBox(
+            isRefreshing = viewModel.isRefreshing,
+            onRefresh = viewModel::refresh,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            when {
+                viewModel.isLoading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(40.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
-            }
 
-            viewModel.errorMessage != null -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                viewModel.errorMessage != null -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = viewModel.errorMessage!!,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            TextButton(onClick = viewModel::retry) {
+                                Text("다시 시도")
+                            }
+                        }
+                    }
+                }
+
+                viewModel.items.isEmpty() -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         Text(
-                            text = viewModel.errorMessage!!,
+                            text = "러닝을 시작하면 업적을 달성할 수 있어요.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 32.dp),
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TextButton(onClick = viewModel::retry) {
-                            Text("다시 시도")
-                        }
                     }
                 }
-            }
 
-            viewModel.items.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "러닝을 시작하면 업적을 달성할 수 있어요.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 32.dp),
-                    )
-                }
-            }
+                else -> {
+                    val unlocked = viewModel.items.filter { it.unlocked }
+                    val locked = viewModel.items.filter { !it.unlocked }
 
-            else -> {
-                val unlocked = viewModel.items.filter { it.unlocked }
-                val locked = viewModel.items.filter { !it.unlocked }
-
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    if (unlocked.isNotEmpty()) {
-                        item {
-                            Text(
-                                text = "달성한 업적 (${unlocked.size})",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(vertical = 4.dp),
-                            )
+                    LazyColumn(
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        if (unlocked.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "달성한 업적 (${unlocked.size})",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                )
+                            }
+                            items(unlocked, key = { it.code }) { item ->
+                                AchievementCard(item = item)
+                            }
                         }
-                        items(unlocked, key = { it.code }) { item ->
-                            AchievementCard(item = item)
+
+                        if (locked.isNotEmpty()) {
+                            item {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "미달성 업적 (${locked.size})",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                )
+                            }
+                            items(locked, key = { it.code }) { item ->
+                                AchievementCard(item = item)
+                            }
                         }
+
+                        item { Spacer(modifier = Modifier.height(16.dp)) }
                     }
-
-                    if (locked.isNotEmpty()) {
-                        item {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "미달성 업적 (${locked.size})",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 4.dp),
-                            )
-                        }
-                        items(locked, key = { it.code }) { item ->
-                            AchievementCard(item = item)
-                        }
-                    }
-
-                    item { Spacer(modifier = Modifier.height(16.dp)) }
                 }
             }
         }
