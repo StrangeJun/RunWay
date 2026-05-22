@@ -80,14 +80,14 @@ class MyRunsViewModel @Inject constructor(
         isLoading = true
         hasError = false
         allRuns = emptyList()
-        loadRuns()
+        viewModelScope.launch { doLoad() }
     }
 
     fun refresh() {
         viewModelScope.launch {
             isRefreshing = true
             hasError = false
-            loadRuns()
+            doLoad()
             isRefreshing = false
         }
     }
@@ -121,17 +121,19 @@ class MyRunsViewModel @Inject constructor(
     }
 
     private fun loadRuns() {
-        viewModelScope.launch {
-            val result = runningRepository.getMyRuns(page = 0, size = 200)
-            when (result) {
-                is NetworkResult.Success -> {
-                    totalCount = result.data.totalElements
-                    allRuns = result.data.content.map { it.toHistoryItem() }
-                }
-                else -> hasError = true
+        viewModelScope.launch { doLoad() }
+    }
+
+    private suspend fun doLoad() {
+        val result = runningRepository.getMyRuns(page = 0, size = 200)
+        when (result) {
+            is NetworkResult.Success -> {
+                totalCount = result.data.totalElements
+                allRuns = result.data.content.map { it.toHistoryItem() }
             }
-            isLoading = false
+            else -> hasError = true
         }
+        isLoading = false
     }
 
     private fun RunSummaryResponse.toHistoryItem(): RunHistoryItem {
