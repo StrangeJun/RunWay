@@ -87,6 +87,15 @@ class HomeViewModel @Inject constructor(
     fun removeRecentRun(runId: String) {
         recentRuns = recentRuns.filterNot { it.runId == runId }
     }
+
+    fun reloadRecentRuns() {
+        viewModelScope.launch {
+            val result = runningRepository.getMyRuns(page = 0, size = 20)
+            if (result is NetworkResult.Success) {
+                recentRuns = result.data.content.map { it.toRecentRun() }
+            }
+        }
+    }
     fun setGoal(goal: RunGoal) {
         selectedGoal = goal
         showGoalSheet = false

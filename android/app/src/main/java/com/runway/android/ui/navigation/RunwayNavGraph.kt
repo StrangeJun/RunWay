@@ -138,6 +138,15 @@ fun RunwayNavGraph() {
                     backStackEntry.savedStateHandle.remove<String>("deletedRunId")
                 }
             }
+            val newRunCompleted by backStackEntry.savedStateHandle
+                .getStateFlow("newRunCompleted", false)
+                .collectAsState()
+            LaunchedEffect(newRunCompleted) {
+                if (newRunCompleted) {
+                    homeViewModel.reloadRecentRuns()
+                    backStackEntry.savedStateHandle["newRunCompleted"] = false
+                }
+            }
             MainScaffold(
                 onStartRun = { navController.navigate(RunwayRoutes.RUNNING) },
                 onLogout = {
@@ -185,6 +194,10 @@ fun RunwayNavGraph() {
         ) {
             RunResultScreen(
                 onBackToHome = {
+                    runCatching {
+                        navController.getBackStackEntry(RunwayRoutes.MAIN)
+                            .savedStateHandle["newRunCompleted"] = true
+                    }
                     navController.popBackStack(RunwayRoutes.MAIN, inclusive = false)
                 },
                 onShareImage = { runId ->

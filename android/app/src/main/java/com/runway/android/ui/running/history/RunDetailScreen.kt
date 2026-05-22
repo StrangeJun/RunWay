@@ -67,11 +67,10 @@ fun RunDetailScreen(
 ) {
     val context = LocalContext.current
 
-    // 삭제 완료 시 콜백 호출 후 뒤로가기
+    // 삭제 완료 시 onDeleted 콜백 호출 (NavGraph에서 pop + savedStateHandle 전파 처리)
     LaunchedEffect(viewModel.isDeleted) {
         if (viewModel.isDeleted) {
             onDeleted(viewModel.runId)
-            onBack()
         }
     }
 

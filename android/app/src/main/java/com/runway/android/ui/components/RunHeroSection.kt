@@ -67,34 +67,46 @@ fun RunHeroSection(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.58f)
+                .fillMaxHeight(0.62f)
                 .align(Alignment.BottomCenter)
                 .background(
                     Brush.verticalGradient(
                         0.00f to Color.Transparent,
-                        0.40f to HeroScrim.copy(alpha = 0.65f),
+                        0.35f to HeroScrim.copy(alpha = 0.70f),
                         1.00f to HeroScrim,
                     )
                 ),
         )
 
-        // ── Header ────────────────────────────────────────────────────────
-        Text(
-            text = "러닝",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
+        // ── Header tagline ────────────────────────────────────────────────
+        Column(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(horizontal = 20.dp, vertical = 14.dp),
-        )
+        ) {
+            Text(
+                text = "YOUR RUNWAY",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 2.5.sp,
+                color = LimeGreen,
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = "Run your way.",
+                fontSize = 26.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = (-0.5).sp,
+                color = Color.White,
+            )
+        }
 
         // ── GPS + Weather pill ────────────────────────────────────────────
         GpsWeatherPill(
             weatherInfo = weatherInfo,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 90.dp)
+                .padding(top = 110.dp)
                 .padding(horizontal = 20.dp),
         )
 
@@ -102,39 +114,39 @@ fun RunHeroSection(
         ScrollHintIndicator(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 28.dp, bottom = 56.dp),
+                .padding(start = 28.dp, bottom = 88.dp),
         )
         ScrollHintIndicator(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 28.dp, bottom = 56.dp),
+                .padding(end = 28.dp, bottom = 88.dp),
         )
 
         // ── 시작 button + 목표 설정 ─────────────────────────────────────────
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 36.dp),
+                .padding(bottom = 80.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Surface(
                 onClick = onStartRun,
-                modifier = Modifier.size(84.dp),
+                modifier = Modifier.size(96.dp),
                 shape = CircleShape,
                 color = LimeGreen,
-                shadowElevation = 12.dp,
+                shadowElevation = 14.dp,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = "시작",
-                        style = MaterialTheme.typography.titleLarge,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF0A0B10),
                     )
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(20.dp))
 
             Surface(
                 onClick = onSetGoal,
@@ -148,9 +160,10 @@ fun RunHeroSection(
                         is RunGoal.IntervalGoal -> "목표설정: ${selectedGoal.label()}"
                         null -> "목표 설정"
                     },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (selectedGoal != null) LimeGreen else Color.White.copy(alpha = 0.60f),
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (selectedGoal != null) LimeGreen else Color.White.copy(alpha = 0.65f),
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
                 )
             }
         }
