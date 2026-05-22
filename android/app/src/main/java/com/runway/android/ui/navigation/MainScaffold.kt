@@ -1,5 +1,6 @@
 package com.runway.android.ui.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -37,6 +38,10 @@ fun MainScaffold(
 
     var currentTabOrdinal by rememberSaveable { mutableIntStateOf(MainTab.HOME.ordinal) }
     val currentTab = MainTab.entries[currentTabOrdinal]
+
+    BackHandler(enabled = currentTab != MainTab.HOME) {
+        currentTabOrdinal = MainTab.HOME.ordinal
+    }
 
     Scaffold(
         bottomBar = {

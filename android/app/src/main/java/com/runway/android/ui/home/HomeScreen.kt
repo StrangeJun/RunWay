@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -211,14 +212,45 @@ fun HomeScreen(
                 onCtaClick = onSeeAllRuns,
             )
         }
-        items(viewModel.recentRuns) { run ->
-            RecentRunCard(
-                run = run,
-                modifier = Modifier
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 8.dp),
-                onClick = { onNavigateToRunDetail(run.runId) },
-            )
+
+        when {
+            viewModel.isLoadingRuns -> item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(28.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 2.5.dp,
+                    )
+                }
+            }
+            viewModel.recentRuns.isEmpty() -> item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "아직 러닝 기록이 없어요. 첫 러닝을 시작해보세요!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            else -> items(viewModel.recentRuns) { run ->
+                RecentRunCard(
+                    run = run,
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp)
+                        .padding(bottom = 8.dp),
+                    onClick = { onNavigateToRunDetail(run.runId) },
+                )
+            }
         }
 
         item { Spacer(Modifier.height(8.dp)) }
