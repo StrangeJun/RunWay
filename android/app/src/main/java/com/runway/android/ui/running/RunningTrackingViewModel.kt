@@ -118,14 +118,11 @@ class RunningTrackingViewModel @Inject constructor(
     private var milestoneCollectJob: Job? = null
     private var milestoneDisplayJob: Job? = null
 
-    init {
-        startRun()
-    }
-
     fun startTracking() {
         if (serviceStarted) return
         serviceStarted = true
         gpsStatus = GpsStatus.WAITING_FOR_FIX
+        startRun()
 
         ContextCompat.startForegroundService(
             context,

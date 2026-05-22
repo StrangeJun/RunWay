@@ -7,6 +7,10 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,11 +29,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -55,12 +63,14 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.location.GpsStatus
 import com.runway.android.ui.components.BatteryOptimizationCard
+import com.runway.android.ui.running.RunningCountdownOverlay
 import com.runway.android.ui.components.LocationPermissionCard
 import com.runway.android.ui.components.RouteMapView
 import com.runway.android.ui.components.RunMetricCard
 import com.runway.android.ui.components.RunningControlButton
 import com.runway.android.ui.components.rememberBatteryOptimizationIgnored
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CourseAttemptTrackingScreen(
     onNavigateToLeaderboard: (courseId: String, isPR: Boolean, previousBestSeconds: Int?, improvementSeconds: Int?) -> Unit,
@@ -80,7 +90,7 @@ fun CourseAttemptTrackingScreen(
 
     val context = LocalContext.current
     var permissionDeniedPermanently by remember { mutableStateOf(false) }
-    var showAbandonDialog by remember { mutableStateOf(false) }
+    var showStopSheet by remember { mutableStateOf(false) }
     var showBatteryCard by remember { mutableStateOf(true) }
     val isBatteryOptimizationIgnored = rememberBatteryOptimizationIgnored()
 
@@ -100,7 +110,10 @@ fun CourseAttemptTrackingScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
+    var countdownDone by remember { mutableStateOf(false) }
+
+    LaunchedEffect(countdownDone) {
+        if (!countdownDone) return@LaunchedEffect
         val hasFine = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
@@ -131,30 +144,24 @@ fun CourseAttemptTrackingScreen(
     }
 
     BackHandler(enabled = !viewModel.isFinishing && !viewModel.isAbandoning) {
-        showAbandonDialog = true
+        if (!countdownDone) onNavigateBack() else showStopSheet = true
     }
 
-    if (showAbandonDialog) {
-        AlertDialog(
-            onDismissRequest = { showAbandonDialog = false },
-            title = { Text("도전을 포기하시겠어요?") },
-            text = { Text("현재 진행 중인 코스 도전이 중단됩니다.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showAbandonDialog = false
-                    viewModel.abandon()
-                }) {
-                    Text("포기", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAbandonDialog = false }) {
-                    Text("계속하기")
-                }
-            },
+    if (showStopSheet) {
+        StopConfirmSheet(
+            progressPercent = viewModel.courseProgressPercent,
+            timerText = viewModel.timerText,
+            distanceText = viewModel.distanceText,
+            paceText = viewModel.paceText,
+            isFinishing = viewModel.isFinishing,
+            isAbandoning = viewModel.isAbandoning,
+            onFinish = { showStopSheet = false; viewModel.finish() },
+            onAbandon = { showStopSheet = false; viewModel.abandon() },
+            onContinue = { showStopSheet = false },
         )
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -175,6 +182,7 @@ fun CourseAttemptTrackingScreen(
                     viewModel.gpsStatus == GpsStatus.PERMISSION_REQUIRED -> "위치 권한 필요"
                     viewModel.gpsStatus == GpsStatus.WAITING_FOR_FIX -> "GPS 신호 수신 중..."
                     viewModel.isAutoPaused -> "자동 일시정지 중"
+                    viewModel.isPaused -> "일시정지"
                     else -> "GPS · Active"
                 },
                 style = MaterialTheme.typography.labelLarge,
@@ -267,7 +275,7 @@ fun CourseAttemptTrackingScreen(
                         modifier = Modifier.size(18.dp),
                     )
                     Text(
-                        text = "코스를 이탈했습니다. 지도에서 복귀 경로를 확인하세요.",
+                        text = "코스를 이탈했습니다 · 일시정지됨. 코스로 돌아오면 자동 재개됩니다.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onErrorContainer,
                         modifier = Modifier.weight(1f),
@@ -356,17 +364,17 @@ fun CourseAttemptTrackingScreen(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (viewModel.isAbandoning) {
+            if (viewModel.isFinishing || viewModel.isAbandoning) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(56.dp),
+                    modifier = Modifier.size(60.dp),
                     color = MaterialTheme.colorScheme.error,
                     strokeWidth = 3.dp,
                 )
             } else {
                 RunningControlButton(
-                    icon = Icons.Filled.Close,
-                    onClick = { showAbandonDialog = true },
-                    size = 56.dp,
+                    icon = Icons.Filled.Stop,
+                    onClick = { showStopSheet = true },
+                    size = 60.dp,
                     containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.error,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
@@ -375,16 +383,19 @@ fun CourseAttemptTrackingScreen(
 
             Spacer(modifier = Modifier.width(24.dp))
 
-            if (viewModel.isFinishing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(84.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    strokeWidth = 3.dp,
+            val isRunning = !viewModel.isPaused && !viewModel.isAutoPaused
+            if (isRunning) {
+                RunningControlButton(
+                    icon = Icons.Filled.Pause,
+                    onClick = viewModel::pause,
+                    size = 84.dp,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                 )
             } else {
                 RunningControlButton(
-                    icon = Icons.Filled.CheckCircle,
-                    onClick = viewModel::finish,
+                    icon = Icons.Filled.PlayArrow,
+                    onClick = viewModel::resume,
                     size = 84.dp,
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -406,6 +417,143 @@ fun CourseAttemptTrackingScreen(
         }
 
         Spacer(modifier = Modifier.height(44.dp))
+    }
+
+    AnimatedVisibility(
+        visible = !countdownDone,
+        enter = EnterTransition.None,
+        exit = fadeOut(tween(350)),
+    ) {
+        RunningCountdownOverlay(onFinished = { countdownDone = true })
+    }
+    } // Box
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StopConfirmSheet(
+    progressPercent: Int,
+    timerText: String,
+    distanceText: String,
+    paceText: String,
+    isFinishing: Boolean,
+    isAbandoning: Boolean,
+    onFinish: () -> Unit,
+    onAbandon: () -> Unit,
+    onContinue: () -> Unit,
+) {
+    val completed = progressPercent >= 100
+    ModalBottomSheet(
+        onDismissRequest = onContinue,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 48.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            // 완주 여부 배지
+            Surface(
+                shape = MaterialTheme.shapes.extraLarge,
+                color = if (completed) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        else MaterialTheme.colorScheme.errorContainer,
+            ) {
+                Text(
+                    text = if (completed) "코스 완주!" else "미완주 · ${progressPercent}% 완료",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (completed) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                )
+            }
+
+            // 진행률 바
+            LinearProgressIndicator(
+                progress = { (progressPercent / 100f).coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(CircleShape),
+                color = if (completed) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.error,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            )
+
+            // 지표
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                StopStatBlock(label = "TIME", value = timerText)
+                StopStatBlock(label = "DIST", value = "${distanceText}km")
+                StopStatBlock(label = "PACE", value = "${paceText}/km")
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // 저장 버튼
+            if (isFinishing) {
+                CircularProgressIndicator(modifier = Modifier.size(48.dp))
+            } else {
+                Surface(
+                    onClick = onFinish,
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = if (completed) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surface,
+                    border = if (!completed) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = if (completed) "리더보드 확인" else "기록 저장하고 나가기",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (completed) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 16.dp),
+                    )
+                }
+            }
+
+            // 보조 버튼
+            Row(modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = onContinue, modifier = Modifier.weight(1f)) {
+                    Text("계속 달리기", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (isAbandoning) {
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    }
+                } else {
+                    TextButton(onClick = onAbandon, modifier = Modifier.weight(1f)) {
+                        Text("포기", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StopStatBlock(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 

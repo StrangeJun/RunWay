@@ -96,6 +96,8 @@ class CourseAttemptTrackingViewModel @Inject constructor(
         private set
     var isAutoPaused by mutableStateOf(false)
         private set
+    var isPaused by mutableStateOf(false)
+        private set
     var milestoneMessage by mutableStateOf<String?>(null)
         private set
     var courseDistanceMeters by mutableStateOf(0.0)
@@ -164,6 +166,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
     private var serviceStarted = false
     private var lastTrackStatus: CourseTrackStatus = CourseTrackStatus.UNKNOWN
     private var nearFinishMessageShown = false
+    private var pausedByDeviation = false
 
     private var stateObserveJob: Job? = null
     private var batchJob: Job? = null
@@ -216,6 +219,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                 lastSpeedMps = state.currentSpeedMps
                 cadenceSpm = state.cadenceSpm
                 isAutoPaused = state.isAutoPaused
+                isPaused = state.isPaused
                 currentLocationPoint = state.lastLocation?.let { location ->
                     MapPoint(location.latitude, location.longitude).also { point ->
                         nearestCourseDistanceMeters = nearestDistanceToCourse(point, coursePoints)
@@ -224,8 +228,16 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                             if (currentStatus == CourseTrackStatus.OFF_COURSE) {
                                 showDeviationWarning = true
                                 vibrateDeviation()
+                                if (!isPaused && !isAutoPaused) {
+                                    pausedByDeviation = true
+                                    pause()
+                                }
                             } else if (lastTrackStatus == CourseTrackStatus.OFF_COURSE) {
                                 showDeviationWarning = false
+                                if (pausedByDeviation) {
+                                    pausedByDeviation = false
+                                    resume()
+                                }
                             }
                             lastTrackStatus = currentStatus
                         }
@@ -257,6 +269,19 @@ class CourseAttemptTrackingViewModel @Inject constructor(
         milestoneDisplayJob = viewModelScope.launch {
             delay(4_000)
             milestoneMessage = null
+        }
+    }
+
+    fun pause() {
+        manager.pause()
+        viewModelScope.launch { runningRepository.pauseRun(runningRecordId) }
+    }
+
+    fun resume() {
+        val wasAutoPaused = manager.state.value.isAutoPaused
+        manager.resume()
+        if (!wasAutoPaused) {
+            viewModelScope.launch { runningRepository.resumeRun(runningRecordId) }
         }
     }
 
