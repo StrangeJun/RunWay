@@ -30,6 +30,8 @@ import androidx.compose.material.icons.filled.Route
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -47,6 +49,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.runway.android.ui.components.PersonalRecordsSection
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit,
@@ -62,6 +65,11 @@ fun ProfileScreen(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri -> viewModel.onImageSelected(uri) }
 
+    PullToRefreshBox(
+        isRefreshing = viewModel.isRefreshing,
+        onRefresh = viewModel::refresh,
+        modifier = Modifier.fillMaxSize(),
+    ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -391,6 +399,7 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
     }
+    } // PullToRefreshBox
 }
 
 @Composable

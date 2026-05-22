@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -97,6 +98,11 @@ fun StatsScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        PullToRefreshBox(
+            isRefreshing = viewModel.isRefreshing,
+            onRefresh = viewModel::refresh,
+            modifier = Modifier.fillMaxSize(),
+        ) {
         when {
             viewModel.isLoading -> {
                 Box(
@@ -136,6 +142,7 @@ fun StatsScreen(
                 )
             }
         }
+        } // PullToRefreshBox
     }
 }
 

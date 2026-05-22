@@ -26,6 +26,8 @@ class StatsViewModel @Inject constructor(
         private set
     var isLoading by mutableStateOf(false)
         private set
+    var isRefreshing by mutableStateOf(false)
+        private set
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
@@ -40,6 +42,14 @@ class StatsViewModel @Inject constructor(
     }
 
     fun retry() = loadStats()
+
+    fun refresh() {
+        viewModelScope.launch {
+            isRefreshing = true
+            loadStats()
+            isRefreshing = false
+        }
+    }
 
     private fun loadStats() {
         isLoading = true

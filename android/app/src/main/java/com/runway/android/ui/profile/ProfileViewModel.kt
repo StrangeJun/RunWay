@@ -44,6 +44,8 @@ class ProfileViewModel @Inject constructor(
         private set
     var isLoading by mutableStateOf(true)
         private set
+    var isRefreshing by mutableStateOf(false)
+        private set
     var profileError by mutableStateOf(false)
         private set
 
@@ -63,6 +65,14 @@ class ProfileViewModel @Inject constructor(
 
     init {
         loadProfile()
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            isRefreshing = true
+            loadProfile()
+            isRefreshing = false
+        }
     }
 
     private fun loadProfile() {
