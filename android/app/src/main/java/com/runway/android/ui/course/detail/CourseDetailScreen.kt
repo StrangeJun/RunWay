@@ -168,6 +168,61 @@ fun CourseDetailScreen(
         )
     }
 
+    // 보관 성공 다이얼로그
+    if (viewModel.archiveSuccess) {
+        AlertDialog(
+            onDismissRequest = viewModel::clearArchiveSuccess,
+            title = { Text("코스 보관 완료") },
+            text = { Text("코스가 보관되었습니다. 탐색 결과에서 더 이상 표시되지 않습니다.") },
+            confirmButton = {
+                TextButton(onClick = viewModel::clearArchiveSuccess) { Text("확인") }
+            },
+        )
+    }
+
+    // 보관 확인 다이얼로그
+    if (viewModel.showArchiveDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissArchiveDialog,
+            title = { Text("코스를 보관할까요?") },
+            text = {
+                Column {
+                    Text("보관된 코스는 탐색 결과에 표시되지 않으며, 더 이상 도전을 시작할 수 없습니다.")
+                    if (viewModel.archiveError != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = viewModel.archiveError!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = viewModel::submitArchive,
+                    enabled = !viewModel.isArchiving,
+                ) {
+                    if (viewModel.isArchiving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    } else {
+                        Text("보관하기", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = viewModel::dismissArchiveDialog,
+                    enabled = !viewModel.isArchiving,
+                ) { Text("취소") }
+            },
+        )
+    }
+
     // 발행 다이얼로그
     if (viewModel.showPublishDialog) {
         PublishCourseDialog(
@@ -550,6 +605,30 @@ private fun CourseDetailContent(
                             text = "공개하기",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
+                }
+            }
+
+            // ─── 공개 상태 + 소유자 → 보관하기 버튼 ───
+            if (course.status == "published" && course.isOwner) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    onClick = viewModel::openArchiveDialog,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 14.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "보관하기",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }

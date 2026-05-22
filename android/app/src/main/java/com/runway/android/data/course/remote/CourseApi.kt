@@ -99,4 +99,9 @@ interface CourseApi {
         @Path("courseId") courseId: String,
         @Body request: PublishCourseRequest,
     ): ApiResponse<CourseStatusResponse>
+
+    @PATCH("api/courses/{courseId}/archive")
+    suspend fun archiveCourse(
+        @Path("courseId") courseId: String,
+    ): ApiResponse<CourseStatusResponse>
 }

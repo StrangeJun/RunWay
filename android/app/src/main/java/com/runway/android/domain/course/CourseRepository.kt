@@ -57,4 +57,6 @@ interface CourseRepository {
     suspend fun removeFavorite(courseId: String): NetworkResult<Unit>
 
     suspend fun publishCourse(courseId: String, request: PublishCourseRequest): NetworkResult<CourseStatusResponse>
+
+    suspend fun archiveCourse(courseId: String): NetworkResult<CourseStatusResponse>
 }

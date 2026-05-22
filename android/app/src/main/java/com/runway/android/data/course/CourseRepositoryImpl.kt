@@ -99,4 +99,7 @@ class CourseRepositoryImpl @Inject constructor(
 
     override suspend fun publishCourse(courseId: String, request: PublishCourseRequest): NetworkResult<CourseStatusResponse> =
         safeApiCall { courseApi.publishCourse(courseId, request) }
+
+    override suspend fun archiveCourse(courseId: String): NetworkResult<CourseStatusResponse> =
+        safeApiCall { courseApi.archiveCourse(courseId) }
 }

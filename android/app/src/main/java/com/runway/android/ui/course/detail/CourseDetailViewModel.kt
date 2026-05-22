@@ -91,6 +91,15 @@ class CourseDetailViewModel @Inject constructor(
     var publishSuccess by mutableStateOf(false)
         private set
 
+    var showArchiveDialog by mutableStateOf(false)
+        private set
+    var isArchiving by mutableStateOf(false)
+        private set
+    var archiveError by mutableStateOf<String?>(null)
+        private set
+    var archiveSuccess by mutableStateOf(false)
+        private set
+
     var showRateDialog by mutableStateOf(false)
         private set
     var ratingValue by mutableStateOf(0)
@@ -262,6 +271,42 @@ class CourseDetailViewModel @Inject constructor(
                 is NetworkResult.NetworkError -> publishError = "네트워크 연결을 확인해 주세요."
             }
             isPublishing = false
+        }
+    }
+
+    fun openArchiveDialog() {
+        archiveError = null
+        archiveSuccess = false
+        showArchiveDialog = true
+    }
+
+    fun dismissArchiveDialog() {
+        if (!isArchiving) showArchiveDialog = false
+    }
+
+    fun clearArchiveSuccess() {
+        archiveSuccess = false
+    }
+
+    fun submitArchive() {
+        if (isArchiving) return
+        isArchiving = true
+        archiveError = null
+
+        viewModelScope.launch {
+            when (val result = courseRepository.archiveCourse(courseId)) {
+                is NetworkResult.Success -> {
+                    archiveSuccess = true
+                    showArchiveDialog = false
+                    load()
+                }
+                is NetworkResult.ApiError -> archiveError = when (result.errorCode) {
+                    "INVALID_COURSE_STATUS" -> "이미 보관된 코스입니다."
+                    else -> result.message
+                }
+                is NetworkResult.NetworkError -> archiveError = "네트워크 연결을 확인해 주세요."
+            }
+            isArchiving = false
         }
     }
 
