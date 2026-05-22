@@ -64,6 +64,8 @@ fun CoursesLibraryScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.loadFavoriteCourses()
+                viewModel.loadMyCourses()
+                viewModel.loadParticipatedCourses()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
