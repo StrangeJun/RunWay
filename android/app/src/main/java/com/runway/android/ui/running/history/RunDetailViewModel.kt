@@ -11,9 +11,13 @@ import com.runway.android.core.running.RunChartCalculator
 import com.runway.android.core.running.RunChartPoint
 import com.runway.android.core.running.RunSplit
 import com.runway.android.core.running.SplitCalculator
+import com.runway.android.data.course.model.CreateCourseFromRunRequest
 import com.runway.android.data.running.model.RunDetailResponse
+import com.runway.android.domain.course.CourseRepository
 import com.runway.android.domain.running.RunningRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,6 +25,7 @@ import javax.inject.Inject
 class RunDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val runningRepository: RunningRepository,
+    private val courseRepository: CourseRepository,
 ) : ViewModel() {
 
     val runId: String = checkNotNull(savedStateHandle["runId"])
@@ -90,6 +95,63 @@ class RunDetailViewModel @Inject constructor(
     }
 
     fun clearActionError() { actionError = null }
+
+    // ─── 코스 생성 ───
+
+    var showCreateCourseDialog by mutableStateOf(false)
+    var courseName by mutableStateOf("")
+    var courseDescription by mutableStateOf("")
+    var isLoop by mutableStateOf(false)
+    var publish by mutableStateOf(true)
+    var isCreatingCourse by mutableStateOf(false)
+    var createCourseError by mutableStateOf<String?>(null)
+
+    private val _courseCreated = Channel<String>(Channel.BUFFERED)
+    val courseCreated = _courseCreated.receiveAsFlow()
+
+    val canCreateCourse: Boolean get() = detail?.status == "completed"
+
+    fun openCreateCourseDialog() {
+        courseName = ""
+        courseDescription = ""
+        isLoop = false
+        publish = true
+        createCourseError = null
+        showCreateCourseDialog = true
+    }
+
+    fun dismissCreateCourseDialog() {
+        if (!isCreatingCourse) showCreateCourseDialog = false
+    }
+
+    fun createCourse() {
+        if (courseName.isBlank()) {
+            createCourseError = "코스 이름을 입력해 주세요."
+            return
+        }
+        viewModelScope.launch {
+            isCreatingCourse = true
+            createCourseError = null
+            val request = CreateCourseFromRunRequest(
+                name = courseName.trim(),
+                description = courseDescription.trim().ifBlank { null },
+                isLoop = isLoop,
+                publish = publish,
+            )
+            when (val result = courseRepository.createCourseFromRun(runId, request)) {
+                is NetworkResult.Success -> {
+                    showCreateCourseDialog = false
+                    _courseCreated.send(result.data.courseId)
+                }
+                is NetworkResult.ApiError -> createCourseError = when (result.errorCode) {
+                    "NOT_COMPLETED_RUN" -> "완료된 러닝만 코스로 만들 수 있습니다."
+                    else -> result.message
+                }
+                is NetworkResult.NetworkError -> createCourseError = "네트워크 오류가 발생했습니다."
+            }
+            isCreatingCourse = false
+        }
+    }
 
     fun retry() {
         isLoading = true

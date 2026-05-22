@@ -312,6 +312,9 @@ fun RunwayNavGraph() {
                 onShareImage = { runId ->
                     navController.navigate(RunwayRoutes.runShare(runId))
                 },
+                onNavigateToCourseDetail = { courseId ->
+                    navController.navigate(RunwayRoutes.courseDetail(courseId))
+                },
             )
         }
 
