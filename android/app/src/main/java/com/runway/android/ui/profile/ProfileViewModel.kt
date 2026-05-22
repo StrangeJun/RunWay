@@ -70,13 +70,16 @@ class ProfileViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             isRefreshing = true
-            loadProfile()
+            doLoad()
             isRefreshing = false
         }
     }
 
     private fun loadProfile() {
-        viewModelScope.launch {
+        viewModelScope.launch { doLoad() }
+    }
+
+    private suspend fun doLoad() = kotlinx.coroutines.coroutineScope {
             val profileDeferred = async { userRepository.getMe() }
             val recordsDeferred = async { runningRepository.getPersonalRecords() }
             val statsDeferred = async { runningRepository.getRunningStats("all") }
@@ -109,7 +112,6 @@ class ProfileViewModel @Inject constructor(
             }
 
             isLoading = false
-        }
     }
 
     fun startEditing() {
