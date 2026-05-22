@@ -429,7 +429,25 @@ private fun calculateCourseDistance(points: List<MapPoint>): Double {
 
 private fun nearestDistanceToCourse(current: MapPoint, course: List<MapPoint>): Double? {
     if (course.isEmpty()) return null
-    return course.minOf { point -> distanceMeters(current, point) }
+    if (course.size == 1) return distanceMeters(current, course[0])
+    // Use segment-based distance to avoid false off-course on long straight segments
+    return course.zipWithNext().minOf { (a, b) -> distanceToSegmentMeters(current, a, b) }
+}
+
+private fun distanceToSegmentMeters(p: MapPoint, a: MapPoint, b: MapPoint): Double {
+    val segLenSq = distanceMeters(a, b).let { it * it }
+    if (segLenSq < 0.01) return distanceMeters(p, a)  // degenerate segment
+    // Project p onto segment ab (in lat/lon space — approximate but fine for small distances)
+    val t = ((p.latitude - a.latitude) * (b.latitude - a.latitude) +
+            (p.longitude - a.longitude) * (b.longitude - a.longitude)) /
+            ((b.latitude - a.latitude) * (b.latitude - a.latitude) +
+             (b.longitude - a.longitude) * (b.longitude - a.longitude))
+    val tClamped = t.coerceIn(0.0, 1.0)
+    val proj = MapPoint(
+        latitude = a.latitude + tClamped * (b.latitude - a.latitude),
+        longitude = a.longitude + tClamped * (b.longitude - a.longitude),
+    )
+    return distanceMeters(p, proj)
 }
 
 private fun distanceMeters(from: MapPoint, to: MapPoint): Double {
