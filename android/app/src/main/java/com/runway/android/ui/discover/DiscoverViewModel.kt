@@ -92,7 +92,7 @@ class DiscoverViewModel @Inject constructor(
         if (isLocationRequired || !hasLocation) return
         viewModelScope.launch {
             isRefreshing = true
-            loadCourses()
+            doLoadCourses()
             isRefreshing = false
         }
     }
@@ -132,22 +132,24 @@ class DiscoverViewModel @Inject constructor(
 
     private fun loadCourses() {
         loadJob?.cancel()
-        loadJob = viewModelScope.launch {
-            isLoading = true
-            errorMessage = null
-            when (val result = courseRepository.getNearbyCourses(
-                latitude = currentLatitude,
-                longitude = currentLongitude,
-                radiusMeters = radiusMeters,
-                isLoop = isLoopFilter,
-                keyword = keyword.trim().takeIf { it.isNotBlank() },
-            )) {
-                is NetworkResult.Success -> rawCourses = result.data.content
-                is NetworkResult.ApiError -> errorMessage = result.message
-                is NetworkResult.NetworkError -> errorMessage = "네트워크 오류가 발생했습니다."
-            }
-            isLoading = false
+        loadJob = viewModelScope.launch { doLoadCourses() }
+    }
+
+    private suspend fun doLoadCourses() {
+        isLoading = true
+        errorMessage = null
+        when (val result = courseRepository.getNearbyCourses(
+            latitude = currentLatitude,
+            longitude = currentLongitude,
+            radiusMeters = radiusMeters,
+            isLoop = isLoopFilter,
+            keyword = keyword.trim().takeIf { it.isNotBlank() },
+        )) {
+            is NetworkResult.Success -> rawCourses = result.data.content
+            is NetworkResult.ApiError -> errorMessage = result.message
+            is NetworkResult.NetworkError -> errorMessage = "네트워크 오류가 발생했습니다."
         }
+        isLoading = false
     }
 
     companion object {
