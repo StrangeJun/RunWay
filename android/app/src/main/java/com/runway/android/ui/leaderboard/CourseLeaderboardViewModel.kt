@@ -25,8 +25,8 @@ class CourseLeaderboardViewModel @Inject constructor(
     val courseId: String = checkNotNull(savedStateHandle["courseId"])
 
     val isPR: Boolean = savedStateHandle["isPR"] ?: false
-    val previousBestSeconds: Int? = (savedStateHandle["previousBestSeconds"] as? Int)?.takeIf { it >= 0 }
-    val improvementSeconds: Int? = (savedStateHandle["improvementSeconds"] as? Int)?.takeIf { it >= 0 }
+    val previousBestSeconds: Int? = (savedStateHandle["previousBestSeconds"] as? Int)?.takeIf { it != Int.MIN_VALUE }
+    val improvementSeconds: Int? = (savedStateHandle["improvementSeconds"] as? Int)?.takeIf { it != Int.MIN_VALUE }
     val justCompleted: Boolean = savedStateHandle["justCompleted"] ?: false
 
     var isLoading by mutableStateOf(false)

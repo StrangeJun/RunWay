@@ -336,8 +336,8 @@ fun RunwayNavGraph() {
             arguments = listOf(
                 navArgument("courseId") { type = NavType.StringType },
                 navArgument("isPR") { type = NavType.BoolType; defaultValue = false },
-                navArgument("previousBestSeconds") { type = NavType.IntType; defaultValue = -1 },
-                navArgument("improvementSeconds") { type = NavType.IntType; defaultValue = -1 },
+                navArgument("previousBestSeconds") { type = NavType.IntType; defaultValue = Int.MIN_VALUE },
+                navArgument("improvementSeconds") { type = NavType.IntType; defaultValue = Int.MIN_VALUE },
                 navArgument("justCompleted") { type = NavType.BoolType; defaultValue = false },
             ),
         ) {
