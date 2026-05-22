@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.attempt.model.LeaderboardItem
+import com.runway.android.data.attempt.model.MyBestAttemptResponse
 import com.runway.android.data.attempt.model.StartAttemptRequest
 import com.runway.android.data.course.model.CourseDetailResponse
 import com.runway.android.data.course.model.CoursePointResponse
@@ -50,6 +51,8 @@ class CourseDetailViewModel @Inject constructor(
     var previewLeaderboard by mutableStateOf<List<LeaderboardItem>>(emptyList())
         private set
     var isLoadingLeaderboard by mutableStateOf(false)
+        private set
+    var myBestAttempt by mutableStateOf<MyBestAttemptResponse?>(null)
         private set
 
     var isFavorited by mutableStateOf(false)
@@ -318,6 +321,7 @@ class CourseDetailViewModel @Inject constructor(
                 isLoadingLeaderboard = true
                 courseAttemptRepository.getLeaderboard(courseId, page = 0, size = 5)
             }
+            val myBestDeferred = async { courseAttemptRepository.getMyBestAttempt(courseId) }
 
             when (val result = detailDeferred.await()) {
                 is NetworkResult.Success -> {
@@ -338,6 +342,11 @@ class CourseDetailViewModel @Inject constructor(
                 else -> { /* 리더보드 로드 실패 시 조용히 빈 상태 유지 */ }
             }
             isLoadingLeaderboard = false
+
+            when (val result = myBestDeferred.await()) {
+                is NetworkResult.Success -> myBestAttempt = result.data.takeIf { it.completionCount > 0 }
+                else -> { /* 내 기록 없으면 null 유지 */ }
+            }
 
             isLoading = false
         }

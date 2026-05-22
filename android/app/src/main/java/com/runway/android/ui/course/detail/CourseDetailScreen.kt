@@ -57,6 +57,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.map.MapPoint
 import com.runway.android.core.share.ShareUtils
 import com.runway.android.data.attempt.model.LeaderboardItem
+import com.runway.android.data.attempt.model.MyBestAttemptResponse
 import com.runway.android.ui.components.RouteMapView
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -609,6 +610,14 @@ private fun CourseDetailContent(
                 }
             }
 
+            // ─── 내 기록 섹션 ───
+            viewModel.myBestAttempt?.let { best ->
+                Spacer(modifier = Modifier.height(20.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                Spacer(modifier = Modifier.height(20.dp))
+                MyBestAttemptSection(best = best)
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // ─── 도전 CTA ───
@@ -778,6 +787,65 @@ private fun MetadataChip(label: String) {
         onClick = {},
         label = { Text(label, style = MaterialTheme.typography.labelSmall) },
     )
+}
+
+@Composable
+private fun MyBestAttemptSection(best: MyBestAttemptResponse) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Person,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = "내 기록",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+    }
+    Spacer(modifier = Modifier.height(12.dp))
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = if (best.bestTimeSeconds != null) formatSeconds(best.bestTimeSeconds) else "--",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = "베스트 기록",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "${best.completionCount}회",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = "완주 횟수",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
 }
 
 private fun difficultyLabel(v: String) = when (v) { "easy" -> "난이도: 쉬움"; "hard" -> "난이도: 어려움"; else -> "난이도: 보통" }
