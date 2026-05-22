@@ -709,16 +709,38 @@ private fun CourseDetailContent(
             }
 
             // ─── 내 기록 섹션 ───
-            viewModel.myBestAttempt?.let { best ->
-                Spacer(modifier = Modifier.height(20.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-                Spacer(modifier = Modifier.height(20.dp))
-                MyBestAttemptSection(best = best)
+            Spacer(modifier = Modifier.height(20.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            Spacer(modifier = Modifier.height(20.dp))
+            if (viewModel.myBestAttempt != null) {
+                MyBestAttemptSection(best = viewModel.myBestAttempt!!)
+            } else if (!viewModel.isLoading) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "내 기록",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "아직 이 코스를 완주한 기록이 없어요. 도전해 보세요!",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
             // ─── 도전 CTA ───
+            val hasCompletions = (viewModel.myBestAttempt?.completionCount ?: 0) > 0
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.extraLarge,
@@ -754,7 +776,7 @@ private fun CourseDetailContent(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "코스 도전하기",
+                            text = if (hasCompletions) "다시 도전하기" else "코스 도전하기",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onPrimary,
                         )

@@ -195,7 +195,7 @@ fun DiscoverScreen(
             }
         }
 
-        // ─── 반경 + 루프 필터 ───
+        // ─── 반경 + 루프 + 거리 필터 ───
         item {
             Spacer(modifier = Modifier.height(12.dp))
             LazyRow(
@@ -221,6 +221,17 @@ fun DiscoverScreen(
                         label = "루프",
                         selected = viewModel.isLoopFilter == true,
                         onClick = { viewModel.onIsLoopFilterChange(true) },
+                    )
+                }
+                items(DistanceFilterOption.entries.drop(1)) { option ->
+                    FilterChip(
+                        label = option.label,
+                        selected = viewModel.distanceFilter == option,
+                        onClick = {
+                            viewModel.onDistanceFilterChange(
+                                if (viewModel.distanceFilter == option) DistanceFilterOption.ALL else option
+                            )
+                        },
                     )
                 }
             }

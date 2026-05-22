@@ -17,6 +17,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
+enum class DistanceFilterOption(val label: String, val minMeters: Double?, val maxMeters: Double?) {
+    ALL("전체 거리", null, null),
+    SHORT("5km 이하", null, 5000.0),
+    MEDIUM("5~10km", 5000.0, 10000.0),
+    LONG("10km 이상", 10000.0, null),
+}
+
 enum class CourseSortOption(val label: String) {
     NEAREST("가까운 순"),
     POPULAR("인기 순"),
@@ -38,6 +45,8 @@ class DiscoverViewModel @Inject constructor(
     var radiusMeters by mutableStateOf(3000)
         private set
     var isLoopFilter by mutableStateOf<Boolean?>(null)
+        private set
+    var distanceFilter by mutableStateOf<DistanceFilterOption>(DistanceFilterOption.ALL)
         private set
     var isLocationRequired by mutableStateOf(false)
         private set
@@ -72,6 +81,12 @@ class DiscoverViewModel @Inject constructor(
     fun onIsLoopFilterChange(value: Boolean?) {
         if (isLoopFilter == value) return
         isLoopFilter = value
+        if (hasLocation) loadCourses()
+    }
+
+    fun onDistanceFilterChange(option: DistanceFilterOption) {
+        if (distanceFilter == option) return
+        distanceFilter = option
         if (hasLocation) loadCourses()
     }
 
@@ -142,6 +157,8 @@ class DiscoverViewModel @Inject constructor(
             latitude = currentLatitude,
             longitude = currentLongitude,
             radiusMeters = radiusMeters,
+            minDistanceMeters = distanceFilter.minMeters,
+            maxDistanceMeters = distanceFilter.maxMeters,
             isLoop = isLoopFilter,
             keyword = keyword.trim().takeIf { it.isNotBlank() },
         )) {
