@@ -31,6 +31,8 @@ class CourseLeaderboardViewModel @Inject constructor(
 
     var isLoading by mutableStateOf(false)
         private set
+    var isRefreshing by mutableStateOf(false)
+        private set
     var errorMessage by mutableStateOf<String?>(null)
         private set
     var leaderboard by mutableStateOf<LeaderboardResponse?>(null)
@@ -55,7 +57,13 @@ class CourseLeaderboardViewModel @Inject constructor(
         load()
     }
 
-    fun refresh() = load()
+    fun refresh() {
+        viewModelScope.launch {
+            isRefreshing = true
+            doLoad()
+            isRefreshing = false
+        }
+    }
 
     fun dismissRateDialog() {
         if (!isSubmittingRating) showRateDialog = false
@@ -103,15 +111,17 @@ class CourseLeaderboardViewModel @Inject constructor(
     }
 
     private fun load() {
-        viewModelScope.launch {
-            isLoading = true
-            errorMessage = null
-            when (val result = courseAttemptRepository.getLeaderboard(courseId, sortBy = sortBy)) {
-                is NetworkResult.Success -> leaderboard = result.data
-                is NetworkResult.ApiError -> errorMessage = result.message
-                is NetworkResult.NetworkError -> errorMessage = "네트워크 연결을 확인해 주세요."
-            }
-            isLoading = false
+        viewModelScope.launch { doLoad() }
+    }
+
+    private suspend fun doLoad() {
+        isLoading = true
+        errorMessage = null
+        when (val result = courseAttemptRepository.getLeaderboard(courseId, sortBy = sortBy)) {
+            is NetworkResult.Success -> leaderboard = result.data
+            is NetworkResult.ApiError -> errorMessage = result.message
+            is NetworkResult.NetworkError -> errorMessage = "네트워크 연결을 확인해 주세요."
         }
+        isLoading = false
     }
 }

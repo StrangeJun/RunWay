@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -101,7 +102,9 @@ fun CourseLeaderboardScreen(
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
-        Box(
+        PullToRefreshBox(
+            isRefreshing = viewModel.isRefreshing,
+            onRefresh = viewModel::refresh,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
