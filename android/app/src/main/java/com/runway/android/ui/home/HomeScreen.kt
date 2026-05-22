@@ -173,7 +173,10 @@ fun HomeScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "주변에 코스가 없어요",
+                            text = if (viewModel.locationPermissionGranted)
+                                "주변 3km 내에 코스가 없어요. 직접 만들어보세요!"
+                            else
+                                "위치 권한이 필요해요",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
