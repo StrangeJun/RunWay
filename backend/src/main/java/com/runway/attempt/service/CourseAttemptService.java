@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -165,15 +166,32 @@ public class CourseAttemptService {
             }
         }
 
+        // ─── PR 계산 (complete() 호출 전 이전 기록 조회) ───
+        Optional<Integer> previousBestOpt = courseAttemptRepository
+                .findMinDurationSecondsByCourseIdAndUserId(attempt.getCourseId(), userId);
+        boolean isPR;
+        Integer previousBestSeconds;
+        Integer improvementSeconds;
+        if (previousBestOpt.isPresent()) {
+            previousBestSeconds = previousBestOpt.get();
+            isPR = request.getDurationSeconds() < previousBestSeconds;
+            improvementSeconds = previousBestSeconds - request.getDurationSeconds();
+        } else {
+            // 첫 완주
+            isPR = true;
+            previousBestSeconds = null;
+            improvementSeconds = null;
+        }
+
         // course_attempt 완료 처리
         attempt.complete(endedAt, request.getDurationSeconds(), request.getDistanceMeters(), verificationStatus);
 
         // courses.completion_count 증가 (동일 트랜잭션)
         course.incrementCompletionCount();
 
-        log.info("Attempt finished: attemptId={} courseId={} durationSeconds={}",
-                attemptId, attempt.getCourseId(), request.getDurationSeconds());
-        return FinishAttemptResponse.from(attempt);
+        log.info("Attempt finished: attemptId={} courseId={} durationSeconds={} isPR={}",
+                attemptId, attempt.getCourseId(), request.getDurationSeconds(), isPR);
+        return FinishAttemptResponse.from(attempt, isPR, previousBestSeconds, improvementSeconds);
     }
 
     @Transactional
@@ -283,6 +301,37 @@ public class CourseAttemptService {
                 .hasNext(page < totalPages - 1)
                 .sortBy(byCompletions ? "most_completions" : "fastest_time")
                 .myRank(myRank)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public MyBestAttemptResponse getMyBestAttempt(UUID userId, UUID courseId) {
+        Course course = courseRepository.findByIdAndDeletedAtIsNull(courseId)
+                .orElseThrow(() -> new RunwayException(ErrorCode.COURSE_NOT_FOUND));
+        if (!course.isVisibleTo(userId)) {
+            throw new RunwayException(ErrorCode.FORBIDDEN);
+        }
+
+        long count = courseAttemptRepository.countByCourseIdAndUserIdAndStatus(
+                courseId, userId, com.runway.attempt.domain.enums.CourseAttemptStatus.COMPLETED);
+        Optional<Integer> bestTime = courseAttemptRepository
+                .findMinDurationSecondsByCourseIdAndUserId(courseId, userId);
+        // 가장 최근 완주 시각
+        com.runway.attempt.domain.enums.CourseAttemptStatus completed =
+                com.runway.attempt.domain.enums.CourseAttemptStatus.COMPLETED;
+        java.time.Instant lastAttemptAt = courseAttemptRepository
+                .findByCourseIdAndUserIdOrderByStartedAtDesc(courseId, userId,
+                        org.springframework.data.domain.PageRequest.of(0, 1))
+                .getContent().stream()
+                .filter(a -> a.getStatus() == completed)
+                .map(com.runway.attempt.domain.CourseAttempt::getCompletedAt)
+                .findFirst()
+                .orElse(null);
+
+        return MyBestAttemptResponse.builder()
+                .completionCount(count)
+                .bestTimeSeconds(bestTime.orElse(null))
+                .lastAttemptAt(lastAttemptAt)
                 .build();
     }
 

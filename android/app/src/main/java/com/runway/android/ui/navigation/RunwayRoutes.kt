@@ -16,7 +16,7 @@ object RunwayRoutes {
     const val RUN_DETAIL = "run_detail/{runId}"
     const val COURSE_DETAIL = "course_detail/{courseId}"
     const val COURSE_ATTEMPT = "course_attempt/{courseId}/{courseAttemptId}/{runningRecordId}"
-    const val COURSE_LEADERBOARD = "course_leaderboard/{courseId}"
+    const val COURSE_LEADERBOARD = "course_leaderboard/{courseId}?isPR={isPR}&previousBestSeconds={previousBestSeconds}&improvementSeconds={improvementSeconds}"
     const val COURSE_MAP_DETAIL = "course_map_detail/{courseId}"
     const val RUN_SHARE = "run_share/{runId}"
     const val STATS = "stats"
@@ -37,6 +37,16 @@ object RunwayRoutes {
         runningRecordId: String,
     ) = "course_attempt/${Uri.encode(courseId)}/${Uri.encode(courseAttemptId)}/${Uri.encode(runningRecordId)}"
 
-    fun courseLeaderboard(courseId: String) = "course_leaderboard/${Uri.encode(courseId)}"
+    fun courseLeaderboard(
+        courseId: String,
+        isPR: Boolean = false,
+        previousBestSeconds: Int? = null,
+        improvementSeconds: Int? = null,
+    ) = buildString {
+        append("course_leaderboard/${Uri.encode(courseId)}")
+        append("?isPR=$isPR")
+        if (previousBestSeconds != null) append("&previousBestSeconds=$previousBestSeconds")
+        if (improvementSeconds != null) append("&improvementSeconds=$improvementSeconds")
+    }
     fun courseMapDetail(courseId: String) = "course_map_detail/${Uri.encode(courseId)}"
 }

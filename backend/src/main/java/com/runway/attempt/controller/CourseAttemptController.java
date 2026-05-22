@@ -70,6 +70,16 @@ public class CourseAttemptController {
         return ResponseEntity.ok(ApiResponse.success("코스 리더보드 조회가 완료되었습니다.", data));
     }
 
+    @Operation(summary = "내 코스 최고 기록 조회", security = @SecurityRequirement(name = "bearerAuth"))
+    @GetMapping("/courses/{courseId}/attempts/me/best")
+    public ResponseEntity<ApiResponse<MyBestAttemptResponse>> getMyBestAttempt(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID courseId) {
+        MyBestAttemptResponse data = courseAttemptService.getMyBestAttempt(
+                principal.getUserId(), courseId);
+        return ResponseEntity.ok(ApiResponse.success("내 최고 기록 조회가 완료되었습니다.", data));
+    }
+
     @Operation(summary = "내 코스 도전 기록 조회", security = @SecurityRequirement(name = "bearerAuth"))
     @GetMapping("/courses/{courseId}/attempts/me")
     public ResponseEntity<ApiResponse<PageResponse<CourseAttemptResponse>>> getMyAttempts(

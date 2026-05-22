@@ -139,6 +139,9 @@ fun CourseLeaderboardScreen(
                     leaderboard = viewModel.leaderboard!!,
                     sortBy = viewModel.sortBy,
                     onSortChange = viewModel::updateSortBy,
+                    isPR = viewModel.isPR,
+                    previousBestSeconds = viewModel.previousBestSeconds,
+                    improvementSeconds = viewModel.improvementSeconds,
                 )
             }
         }
@@ -150,9 +153,48 @@ private fun LeaderboardContent(
     leaderboard: LeaderboardResponse,
     sortBy: String,
     onSortChange: (String) -> Unit,
+    isPR: Boolean = false,
+    previousBestSeconds: Int? = null,
+    improvementSeconds: Int? = null,
 ) {
     val items = leaderboard.items
     Column {
+        // PR 배너
+        if (isPR) {
+            Surface(
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.EmojiEvents,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Column {
+                        Text(
+                            text = "코스 신기록!",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                        if (improvementSeconds != null && improvementSeconds > 0 && previousBestSeconds != null) {
+                            Text(
+                                text = "이전 기록보다 ${formatTime(improvementSeconds)} 빠름 (이전: ${formatTime(previousBestSeconds)})",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // 정렬 필터 탭
         val tabs = listOf("fastest_time" to "빠른 시간 순", "most_completions" to "완주 횟수 순")
         val selectedIndex = tabs.indexOfFirst { it.first == sortBy }.coerceAtLeast(0)

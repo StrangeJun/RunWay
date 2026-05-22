@@ -21,6 +21,10 @@ class CourseLeaderboardViewModel @Inject constructor(
 
     val courseId: String = checkNotNull(savedStateHandle["courseId"])
 
+    val isPR: Boolean = savedStateHandle["isPR"] ?: false
+    val previousBestSeconds: Int? = (savedStateHandle["previousBestSeconds"] as? Int)?.takeIf { it >= 0 }
+    val improvementSeconds: Int? = (savedStateHandle["improvementSeconds"] as? Int)?.takeIf { it >= 0 }
+
     var isLoading by mutableStateOf(false)
         private set
     var errorMessage by mutableStateOf<String?>(null)

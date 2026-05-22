@@ -45,7 +45,12 @@ import javax.inject.Inject
 import javax.inject.Named
 
 sealed class AttemptNavEvent {
-    data class NavigateToLeaderboard(val courseId: String) : AttemptNavEvent()
+    data class NavigateToLeaderboard(
+        val courseId: String,
+        val isPR: Boolean = false,
+        val previousBestSeconds: Int? = null,
+        val improvementSeconds: Int? = null,
+    ) : AttemptNavEvent()
     object NavigateBack : AttemptNavEvent()
 }
 
@@ -332,7 +337,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                 }
             }
 
-            when (courseAttemptRepository.finishAttempt(
+            val finishResult = courseAttemptRepository.finishAttempt(
                 attemptId = courseAttemptId,
                 request = FinishAttemptRequest(
                     endedAt = Instant.now().toString(),
@@ -341,7 +346,9 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                     avgPaceSecondsPerKm = if (distance > 0.001) (seconds / distance).toInt() else 0,
                     caloriesBurned = (distance * 72).toInt(),
                 ),
-            )) {
+            )
+
+            when (finishResult) {
                 is NetworkResult.ApiError,
                 is NetworkResult.NetworkError -> {
                     isFinishing = false
@@ -349,14 +356,21 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                     return@launch
                 }
                 is NetworkResult.Success -> {
+                    val response = finishResult.data
                     sessionStore.clearSnapshot()
                     pendingPointQueue.deleteByRunningRecordId(runningRecordId)
+                    stopServiceAndJobs()
+                    isDone = true
+                    _navEvent.emit(
+                        AttemptNavEvent.NavigateToLeaderboard(
+                            courseId = courseId,
+                            isPR = response.isPR,
+                            previousBestSeconds = response.previousBestSeconds,
+                            improvementSeconds = response.improvementSeconds,
+                        )
+                    )
                 }
             }
-
-            stopServiceAndJobs()
-            isDone = true
-            _navEvent.emit(AttemptNavEvent.NavigateToLeaderboard(courseId))
         }
     }
 

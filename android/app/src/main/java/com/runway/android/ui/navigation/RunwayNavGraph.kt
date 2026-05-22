@@ -253,8 +253,10 @@ fun RunwayNavGraph() {
             ),
         ) {
             CourseAttemptTrackingScreen(
-                onNavigateToLeaderboard = { courseId ->
-                    navController.navigate(RunwayRoutes.courseLeaderboard(courseId)) {
+                onNavigateToLeaderboard = { courseId, isPR, previousBestSeconds, improvementSeconds ->
+                    navController.navigate(
+                        RunwayRoutes.courseLeaderboard(courseId, isPR, previousBestSeconds, improvementSeconds)
+                    ) {
                         popUpTo(RunwayRoutes.COURSE_ATTEMPT) { inclusive = true }
                     }
                 },
@@ -319,7 +321,12 @@ fun RunwayNavGraph() {
 
         composable(
             route = RunwayRoutes.COURSE_LEADERBOARD,
-            arguments = listOf(navArgument("courseId") { type = NavType.StringType }),
+            arguments = listOf(
+                navArgument("courseId") { type = NavType.StringType },
+                navArgument("isPR") { type = NavType.BoolType; defaultValue = false },
+                navArgument("previousBestSeconds") { type = NavType.IntType; defaultValue = -1 },
+                navArgument("improvementSeconds") { type = NavType.IntType; defaultValue = -1 },
+            ),
         ) {
             CourseLeaderboardScreen(
                 onBack = { navController.popBackStack() },

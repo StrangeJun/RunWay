@@ -63,14 +63,16 @@ import com.runway.android.ui.components.rememberBatteryOptimizationIgnored
 
 @Composable
 fun CourseAttemptTrackingScreen(
-    onNavigateToLeaderboard: (courseId: String) -> Unit,
+    onNavigateToLeaderboard: (courseId: String, isPR: Boolean, previousBestSeconds: Int?, improvementSeconds: Int?) -> Unit,
     onNavigateBack: () -> Unit,
     viewModel: CourseAttemptTrackingViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(Unit) {
         viewModel.navEvent.collect { event ->
             when (event) {
-                is AttemptNavEvent.NavigateToLeaderboard -> onNavigateToLeaderboard(event.courseId)
+                is AttemptNavEvent.NavigateToLeaderboard -> onNavigateToLeaderboard(
+                    event.courseId, event.isPR, event.previousBestSeconds, event.improvementSeconds,
+                )
                 is AttemptNavEvent.NavigateBack -> onNavigateBack()
             }
         }
