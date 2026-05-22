@@ -104,7 +104,27 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             isRefreshing = true
             nearbyCourses = emptyList()
-            loadData()
+            // Inline the essential awaits to correctly track completion
+            val runsResult = runningRepository.getMyRuns(page = 0, size = 20)
+            if (runsResult is NetworkResult.Success) {
+                recentRuns = runsResult.data.content.map { it.toRecentRun() }
+            }
+            runningRepository.getRunningStats("weekly").let { r ->
+                if (r is NetworkResult.Success) {
+                    val s = r.data
+                    val pace = if (s.averagePaceSecondsPerKm > 0)
+                        "%d'%02d\"".format(s.averagePaceSecondsPerKm / 60, s.averagePaceSecondsPerKm % 60)
+                    else "--'--\""
+                    val streakSuffix = if (s.currentStreakDays > 0) " · ${s.currentStreakDays}day streak" else ""
+                    weeklyStats = WeeklyStats(
+                        distanceKm = if (s.totalDistanceMeters < 1000) "%.2f".format(s.totalDistanceMeters / 1000.0)
+                                     else "%.1f".format(s.totalDistanceMeters / 1000.0),
+                        runs = "${s.totalRuns}$streakSuffix",
+                        avgPace = pace,
+                        calories = s.totalCaloriesBurned.toString(),
+                    )
+                }
+            }
             loadNearbyCoursesIfPermitted()
             isRefreshing = false
         }

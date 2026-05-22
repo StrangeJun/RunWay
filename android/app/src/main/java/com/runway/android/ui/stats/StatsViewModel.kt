@@ -41,26 +41,26 @@ class StatsViewModel @Inject constructor(
         loadStats()
     }
 
-    fun retry() = loadStats()
+    fun retry() = viewModelScope.launch { doLoadStats() }
 
     fun refresh() {
         viewModelScope.launch {
             isRefreshing = true
-            loadStats()
+            doLoadStats()
             isRefreshing = false
         }
     }
 
-    private fun loadStats() {
+    private fun loadStats() = viewModelScope.launch { doLoadStats() }
+
+    private suspend fun doLoadStats() {
         isLoading = true
         errorMessage = null
-        viewModelScope.launch {
             when (val result = runningRepository.getRunningStats(periods[selectedPeriodIndex])) {
                 is NetworkResult.Success -> stats = result.data
                 is NetworkResult.ApiError -> errorMessage = result.message
                 is NetworkResult.NetworkError -> errorMessage = "네트워크 연결을 확인해 주세요."
             }
             isLoading = false
-        }
     }
 }
