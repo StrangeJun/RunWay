@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.InfiniteRepeatableSpec
@@ -32,10 +33,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -124,6 +127,29 @@ fun RunningTrackingScreen(
     }
 
     val isRunning = viewModel.runningState == RunningState.RUNNING
+
+    var showExitDialog by remember { mutableStateOf(false) }
+    BackHandler(enabled = !viewModel.isFinishing) {
+        showExitDialog = true
+    }
+
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text("러닝 화면을 나가시겠어요?") },
+            text = { Text("러닝은 백그라운드에서 계속됩니다. 홈으로 돌아가도 기록은 유지됩니다.") },
+            confirmButton = {
+                TextButton(onClick = { showExitDialog = false; onBack() }) {
+                    Text("나가기")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitDialog = false }) {
+                    Text("계속 달리기")
+                }
+            },
+        )
+    }
 
     Column(
         modifier = Modifier
