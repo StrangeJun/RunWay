@@ -42,6 +42,8 @@ class CourseDetailViewModel @Inject constructor(
 
     var isLoading by mutableStateOf(false)
         private set
+    var isRefreshing by mutableStateOf(false)
+        private set
     var errorMessage by mutableStateOf<String?>(null)
         private set
     var courseDetail by mutableStateOf<CourseDetailResponse?>(null)
@@ -110,6 +112,14 @@ class CourseDetailViewModel @Inject constructor(
     }
 
     fun refresh() = load()
+
+    fun pullRefresh() {
+        viewModelScope.launch {
+            isRefreshing = true
+            load()
+            isRefreshing = false
+        }
+    }
 
     fun clearStartAttemptError() {
         startAttemptError = null
