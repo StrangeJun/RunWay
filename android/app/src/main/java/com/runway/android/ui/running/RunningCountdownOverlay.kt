@@ -84,7 +84,7 @@ fun RunningCountdownOverlay(
         // Subtle brand mark at top
         Text(
             text = "RUNWAY",
-            fontSize = 11.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.ExtraBold,
             letterSpacing = 5.sp,
             color = Color.White.copy(alpha = 0.10f),

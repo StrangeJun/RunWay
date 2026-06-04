@@ -92,8 +92,6 @@ fun DiscoverCourseCard(
                         text = formatDistance(course.distanceMeters),
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            letterSpacing = 0.5.sp,
                         ),
                         color = if (isDark) Color.White.copy(alpha = 0.90f)
                                 else Color.Black.copy(alpha = 0.65f),

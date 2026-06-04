@@ -102,15 +102,15 @@ fun RunHeroSection(
         ) {
             Text(
                 text = "YOUR RUNWAY",
-                fontSize = 10.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                letterSpacing = 2.5.sp,
+                letterSpacing = 2.8.sp,
                 color = LimeGreen,
             )
-            Spacer(Modifier.height(3.dp))
+            Spacer(Modifier.height(4.dp))
             Text(
                 text = "Run your way.",
-                fontSize = 26.sp,
+                fontSize = 28.sp,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = (-0.5).sp,
                 color = onHero,
@@ -334,7 +334,7 @@ private fun GpsWeatherPill(
 private fun WeatherChip(text: String, onPill: Color) {
     Text(
         text = text,
-        fontSize = 11.sp,
+        fontSize = 13.sp,
         color = onPill.copy(alpha = 0.75f),
     )
 }
@@ -347,7 +347,7 @@ private fun DustChip(label: String, quality: String, color: Color, onPill: Color
     ) {
         Text(
             text = label,
-            fontSize = 11.sp,
+            fontSize = 13.sp,
             color = onPill.copy(alpha = 0.55f),
         )
         Box(
@@ -357,7 +357,7 @@ private fun DustChip(label: String, quality: String, color: Color, onPill: Color
         )
         Text(
             text = quality,
-            fontSize = 11.sp,
+            fontSize = 13.sp,
             color = color,
         )
     }

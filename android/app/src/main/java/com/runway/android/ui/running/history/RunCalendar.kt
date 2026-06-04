@@ -177,7 +177,7 @@ private fun CalendarDay(
             Text(
                 text = dayNum.toString(),
                 style = MaterialTheme.typography.bodySmall,
-                fontSize = 13.sp,
+                fontSize = 14.sp,
                 fontWeight = if (isToday && !isSelected) FontWeight.Bold else FontWeight.Normal,
                 color = textColor,
             )
