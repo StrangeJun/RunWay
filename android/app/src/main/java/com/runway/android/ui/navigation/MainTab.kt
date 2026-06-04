@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.ui.graphics.vector.ImageVector
 
 enum class MainTab(
@@ -15,4 +16,5 @@ enum class MainTab(
     DISCOVER(Icons.Filled.Explore, "탐색"),
     COURSES(Icons.Filled.Route, "코스"),
     PROFILE(Icons.Filled.Person, "내 정보"),
+    POSTURE(Icons.Filled.SelfImprovement, "자세"),
 }
