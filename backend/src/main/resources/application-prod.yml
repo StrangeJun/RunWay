@@ -21,3 +21,4 @@ logging:
     com.runway: INFO
     org.flywaydb: INFO
     org.hibernate: WARN
+    org.springframework.web: WARN
