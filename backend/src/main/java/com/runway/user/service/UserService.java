@@ -5,9 +5,9 @@ import com.runway.attempt.repository.CourseAttemptRepository;
 import com.runway.common.exception.ErrorCode;
 import com.runway.common.exception.RunwayException;
 import com.runway.course.repository.CourseRepository;
-import com.runway.run.domain.RunningRecord;
 import com.runway.run.domain.enums.RunningRecordStatus;
 import com.runway.run.repository.RunningRecordRepository;
+import com.runway.run.repository.RunSummaryProjection;
 import com.runway.user.domain.User;
 import com.runway.user.dto.AchievementItemResponse;
 import com.runway.user.dto.AchievementsResponse;
@@ -76,23 +76,24 @@ public class UserService {
     public AchievementsResponse getAchievements(UUID userId) {
         RunningRecordStatus completed = RunningRecordStatus.COMPLETED;
 
-        // 기본 집계
-        List<RunningRecord> allRuns = runningRecordRepository
-                .findAllByUserIdAndStatusOrderByStartedAt(userId, completed);
-        long completedRuns = allRuns.size();
-        double totalDistanceMeters = allRuns.stream()
-                .mapToDouble(r -> r.getDistanceMeters() != null ? r.getDistanceMeters() : 0.0).sum();
+        // DB aggregate 쿼리로 기본 집계
+        long completedRuns = runningRecordRepository.countByUserIdAndStatus(userId, completed);
+        double totalDistanceMeters = runningRecordRepository.sumDistanceMetersByUserIdAndStatus(userId, completed);
 
         long completedAttempts = courseAttemptRepository.countByUserIdAndStatus(userId, CourseAttemptStatus.COMPLETED);
         long createdCourses = courseRepository.countByCreatorIdAndDeletedAtIsNull(userId);
 
-        // streak 계산 (RunningService 의존성 없이 직접 계산)
-        int longestStreak = computeLongestStreak(allRuns);
+        // 경량 summary projection으로 streak 및 unlock 날짜 계산
+        List<RunSummaryProjection> runSummaries = runningRecordRepository
+                .findRunSummariesByUserIdAndStatus(userId, completed);
+
+        // streak 계산
+        int longestStreak = computeLongestStreak(runSummaries);
 
         List<AchievementItemResponse> items = new ArrayList<>();
 
         // FIRST_RUN
-        Instant firstRunAt = allRuns.isEmpty() ? null : allRuns.get(0).getStartedAt();
+        Instant firstRunAt = runSummaries.isEmpty() ? null : runSummaries.get(0).getStartedAt();
         items.add(AchievementItemResponse.builder()
                 .code("FIRST_RUN")
                 .title("첫 러닝")
@@ -105,11 +106,11 @@ public class UserService {
 
         // TOTAL_10K / 50K / 100K
         items.add(buildDistanceAchievement("TOTAL_10K", "누적 10km", "총 10km를 달성했습니다.",
-                10_000, totalDistanceMeters, allRuns));
+                10_000, totalDistanceMeters, runSummaries));
         items.add(buildDistanceAchievement("TOTAL_50K", "누적 50km", "총 50km를 달성했습니다.",
-                50_000, totalDistanceMeters, allRuns));
+                50_000, totalDistanceMeters, runSummaries));
         items.add(buildDistanceAchievement("TOTAL_100K", "누적 100km", "총 100km를 달성했습니다.",
-                100_000, totalDistanceMeters, allRuns));
+                100_000, totalDistanceMeters, runSummaries));
 
         // STREAK_3 / STREAK_7
         items.add(buildStreakAchievement("STREAK_3", "3일 연속 러닝", "3일 연속으로 러닝을 완료했습니다.",
@@ -149,14 +150,14 @@ public class UserService {
 
     private AchievementItemResponse buildDistanceAchievement(
             String code, String title, String description,
-            long targetMeters, double totalDistance, List<RunningRecord> runs) {
+            long targetMeters, double totalDistance, List<RunSummaryProjection> runs) {
 
         boolean unlocked = totalDistance >= targetMeters;
         Instant unlockedAt = null;
         if (unlocked) {
             // 누적 거리가 threshold를 넘은 시점의 런 날짜를 계산
             double acc = 0;
-            for (RunningRecord r : runs) {
+            for (RunSummaryProjection r : runs) {
                 acc += r.getDistanceMeters() != null ? r.getDistanceMeters() : 0.0;
                 if (acc >= targetMeters) {
                     unlockedAt = r.getStartedAt();
@@ -175,10 +176,10 @@ public class UserService {
                 .build();
     }
 
-    private int computeLongestStreak(List<RunningRecord> allRuns) {
-        if (allRuns.isEmpty()) return 0;
+    private int computeLongestStreak(List<RunSummaryProjection> runs) {
+        if (runs.isEmpty()) return 0;
         Set<LocalDate> dates = new HashSet<>();
-        for (RunningRecord r : allRuns) {
+        for (RunSummaryProjection r : runs) {
             dates.add(r.getStartedAt().atZone(ZoneOffset.UTC).toLocalDate());
         }
         List<LocalDate> sorted = new ArrayList<>(dates);

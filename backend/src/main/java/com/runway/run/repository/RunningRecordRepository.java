@@ -58,4 +58,43 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, UU
     List<RunningRecord> findAllByUserIdAndStatusOrderByStartedAt(
             @Param("userId") UUID userId,
             @Param("status") RunningRecordStatus status);
+
+    // ─── Aggregate projection 쿼리 ───
+
+    @Query(value = """
+        SELECT
+            COUNT(*)                                               AS totalRuns,
+            COALESCE(SUM(distance_meters), 0)                    AS totalDistanceMeters,
+            COALESCE(SUM(duration_seconds), 0)                   AS totalDurationSeconds,
+            COALESCE(SUM(calories_burned), 0)                    AS totalCaloriesBurned,
+            COALESCE(MAX(distance_meters), 0)                    AS longestRunMeters,
+            COUNT(DISTINCT DATE(started_at AT TIME ZONE 'UTC'))  AS activeDays
+        FROM running_records
+        WHERE user_id = :userId
+          AND status = :status
+          AND started_at >= :from
+          AND started_at < :to
+        """, nativeQuery = true)
+    RunningStatsProjection aggregateStatsByPeriod(
+            @Param("userId") UUID userId,
+            @Param("status") String status,
+            @Param("from") Instant from,
+            @Param("to") Instant to);
+
+    @Query(value = """
+        SELECT DISTINCT DATE(started_at AT TIME ZONE 'UTC') AS runDate
+        FROM running_records
+        WHERE user_id = :userId AND status = :status
+        ORDER BY runDate ASC
+        """, nativeQuery = true)
+    List<RunDateProjection> findDistinctRunDatesByUserId(
+            @Param("userId") UUID userId,
+            @Param("status") String status);
+
+    @Query("SELECT r.distanceMeters AS distanceMeters, r.startedAt AS startedAt " +
+           "FROM RunningRecord r WHERE r.userId = :userId AND r.status = :status " +
+           "ORDER BY r.startedAt ASC")
+    List<RunSummaryProjection> findRunSummariesByUserIdAndStatus(
+            @Param("userId") UUID userId,
+            @Param("status") RunningRecordStatus status);
 }

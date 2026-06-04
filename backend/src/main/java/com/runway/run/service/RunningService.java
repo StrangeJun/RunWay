@@ -9,9 +9,11 @@ import com.runway.run.domain.enums.RunningRecordStatus;
 import com.runway.run.dto.*;
 import com.runway.run.dto.PersonalRecordItemResponse;
 import com.runway.run.dto.PersonalRecordsResponse;
+import com.runway.run.repository.RunDateProjection;
 import com.runway.run.repository.RunningPointBatchInserter;
 import com.runway.run.repository.RunningPointRepository;
 import com.runway.run.repository.RunningRecordRepository;
+import com.runway.run.repository.RunningStatsProjection;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.Coordinate;
@@ -239,30 +241,26 @@ public class RunningService {
 
         RunningRecordStatus completed = RunningRecordStatus.COMPLETED;
 
-        // 기간 내 완료된 런 목록
-        List<RunningRecord> periodRuns = "all".equals(period.toLowerCase())
-                ? runningRecordRepository.findAllByUserIdAndStatusOrderByStartedAt(userId, completed)
-                : runningRecordRepository.findByUserIdAndStatusAndPeriod(userId, completed, periodStart, periodEnd);
+        // DB aggregate projection으로 기간 내 통계 조회
+        RunningStatsProjection stats = runningRecordRepository
+                .aggregateStatsByPeriod(userId, completed.name(), periodStart, periodEnd);
 
-        long totalRuns = periodRuns.size();
-        double totalDistanceMeters = periodRuns.stream().mapToDouble(r -> r.getDistanceMeters() != null ? r.getDistanceMeters() : 0.0).sum();
-        long totalDurationSeconds = periodRuns.stream().mapToLong(r -> r.getDurationSeconds() != null ? r.getDurationSeconds() : 0).sum();
-        long totalCaloriesBurned = periodRuns.stream().mapToLong(r -> r.getCaloriesBurned() != null ? r.getCaloriesBurned() : 0).sum();
-        double longestRunMeters = periodRuns.stream().mapToDouble(r -> r.getDistanceMeters() != null ? r.getDistanceMeters() : 0.0).max().orElse(0.0);
+        long totalRuns = stats.getTotalRuns();
+        double totalDistanceMeters = stats.getTotalDistanceMeters();
+        long totalDurationSeconds = stats.getTotalDurationSeconds();
+        long totalCaloriesBurned = stats.getTotalCaloriesBurned();
+        double longestRunMeters = stats.getLongestRunMeters();
+        long activeDays = stats.getActiveDays();
+
         int avgPace = (totalDistanceMeters > 1.0) ? (int) (totalDurationSeconds / (totalDistanceMeters / 1000.0)) : 0;
 
-        // 활동일 수 (날짜 중복 제거)
-        Set<LocalDate> activeDateSet = new HashSet<>();
-        for (RunningRecord r : periodRuns) {
-            activeDateSet.add(r.getStartedAt().atZone(ZoneOffset.UTC).toLocalDate());
-        }
-        long activeDays = activeDateSet.size();
-
         // streak 계산 — 전체 완료 런 기준 (기간 무관)
-        List<RunningRecord> allCompleted = "all".equals(period.toLowerCase())
-                ? periodRuns
-                : runningRecordRepository.findAllByUserIdAndStatusOrderByStartedAt(userId, completed);
-        int[] streaks = calculateStreaks(allCompleted, today);
+        List<LocalDate> runDates = runningRecordRepository
+                .findDistinctRunDatesByUserId(userId, completed.name())
+                .stream()
+                .map(RunDateProjection::getRunDate)
+                .collect(java.util.stream.Collectors.toList());
+        int[] streaks = calculateStreaksFromDates(runDates, today);
 
         return RunningStatsResponse.builder()
                 .period(period.toLowerCase())
@@ -281,27 +279,24 @@ public class RunningService {
     }
 
     // [0] = currentStreak, [1] = longestStreak
-    private int[] calculateStreaks(List<RunningRecord> allCompleted, LocalDate today) {
-        if (allCompleted.isEmpty()) return new int[]{0, 0};
+    private int[] calculateStreaksFromDates(List<LocalDate> runDates, LocalDate today) {
+        if (runDates.isEmpty()) return new int[]{0, 0};
 
-        Set<LocalDate> runDates = new HashSet<>();
-        for (RunningRecord r : allCompleted) {
-            runDates.add(r.getStartedAt().atZone(ZoneOffset.UTC).toLocalDate());
-        }
+        Set<LocalDate> runDateSet = new HashSet<>(runDates);
 
         // 현재 streak: 오늘 또는 어제부터 연속일 수
         int current = 0;
         LocalDate check = today;
-        if (!runDates.contains(check)) {
+        if (!runDateSet.contains(check)) {
             check = today.minusDays(1);
         }
-        while (runDates.contains(check)) {
+        while (runDateSet.contains(check)) {
             current++;
             check = check.minusDays(1);
         }
 
         // 최장 streak: 날짜 정렬 후 연속일 카운트
-        List<LocalDate> sorted = new ArrayList<>(runDates);
+        List<LocalDate> sorted = new ArrayList<>(runDateSet);
         sorted.sort(null);
         int longest = 1, cur = 1;
         for (int i = 1; i < sorted.size(); i++) {
