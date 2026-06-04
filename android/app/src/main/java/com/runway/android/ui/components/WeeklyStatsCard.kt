@@ -1,5 +1,7 @@
 package com.runway.android.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +40,15 @@ fun WeeklyStatsCard(
     stats: WeeklyStats,
     modifier: Modifier = Modifier,
 ) {
+    var triggered by remember { mutableStateOf(false) }
+    val distTarget = stats.distanceKm.toFloatOrNull() ?: 0f
+    LaunchedEffect(stats.distanceKm) { triggered = true }
+    val animatedDist by animateFloatAsState(
+        targetValue = if (triggered) distTarget else 0f,
+        animationSpec = tween(900),
+        label = "weeklyDist",
+    )
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -59,7 +75,7 @@ fun WeeklyStatsCard(
 
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    text = stats.distanceKm,
+                    text = "%.1f".format(animatedDist),
                     style = MaterialTheme.typography.displayMedium,
                     color = MaterialTheme.colorScheme.onPrimary,
                 )

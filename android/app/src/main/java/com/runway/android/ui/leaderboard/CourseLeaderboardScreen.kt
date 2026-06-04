@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -462,13 +464,23 @@ private fun LeaderboardContent(
                 }
 
                 // ─── 나머지 순위 ───
-                items(if (items.size >= 2) items.drop(3) else items) { item ->
-                    RankRow(
-                        item = item,
-                        modifier = Modifier
-                            .padding(horizontal = 20.dp)
-                            .padding(bottom = 8.dp),
-                    )
+                itemsIndexed(if (items.size >= 2) items.drop(3) else items) { index, item ->
+                    var visible by remember { mutableStateOf(false) }
+                    LaunchedEffect(item.userId) {
+                        delay(index.coerceAtMost(6) * 60L)
+                        visible = true
+                    }
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it / 2 },
+                    ) {
+                        RankRow(
+                            item = item,
+                            modifier = Modifier
+                                .padding(horizontal = 20.dp)
+                                .padding(bottom = 8.dp),
+                        )
+                    }
                 }
             }
         }

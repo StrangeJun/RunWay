@@ -17,9 +17,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -331,14 +341,24 @@ fun DiscoverScreen(
                 }
             }
 
-            else -> items(viewModel.courses) { course ->
-                DiscoverCourseCard(
-                    course = course,
-                    modifier = Modifier
-                        .padding(horizontal = 20.dp)
-                        .padding(bottom = 12.dp),
-                    onClick = { onNavigateToCourseDetail(course.courseId) },
-                )
+            else -> itemsIndexed(viewModel.courses, key = { _, c -> c.courseId }) { index, course ->
+                var visible by remember { mutableStateOf(false) }
+                LaunchedEffect(course.courseId) {
+                    delay(index.coerceAtMost(8) * 50L)
+                    visible = true
+                }
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(250)) + slideInVertically(tween(250)) { it / 3 },
+                ) {
+                    DiscoverCourseCard(
+                        course = course,
+                        modifier = Modifier
+                            .padding(horizontal = 20.dp)
+                            .padding(bottom = 12.dp),
+                        onClick = { onNavigateToCourseDetail(course.courseId) },
+                    )
+                }
             }
         }
     }
