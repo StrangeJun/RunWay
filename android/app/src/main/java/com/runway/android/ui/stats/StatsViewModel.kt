@@ -26,6 +26,8 @@ class StatsViewModel @Inject constructor(
         private set
     var isLoading by mutableStateOf(false)
         private set
+    var isRefreshing by mutableStateOf(false)
+        private set
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
@@ -39,18 +41,26 @@ class StatsViewModel @Inject constructor(
         loadStats()
     }
 
-    fun retry() = loadStats()
+    fun retry() = viewModelScope.launch { doLoadStats() }
 
-    private fun loadStats() {
+    fun refresh() {
+        viewModelScope.launch {
+            isRefreshing = true
+            doLoadStats()
+            isRefreshing = false
+        }
+    }
+
+    private fun loadStats() = viewModelScope.launch { doLoadStats() }
+
+    private suspend fun doLoadStats() {
         isLoading = true
         errorMessage = null
-        viewModelScope.launch {
             when (val result = runningRepository.getRunningStats(periods[selectedPeriodIndex])) {
                 is NetworkResult.Success -> stats = result.data
                 is NetworkResult.ApiError -> errorMessage = result.message
                 is NetworkResult.NetworkError -> errorMessage = "네트워크 연결을 확인해 주세요."
             }
             isLoading = false
-        }
     }
 }

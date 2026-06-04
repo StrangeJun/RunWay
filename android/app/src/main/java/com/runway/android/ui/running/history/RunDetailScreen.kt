@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.TextSnippet
+import androidx.compose.material.icons.filled.AddLocation
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.map.MapPoint
+import com.runway.android.ui.course.CreateCourseDialog
 import com.runway.android.core.share.ShareUtils
 import com.runway.android.core.util.formatDuration
 import com.runway.android.core.util.formatPace
@@ -61,14 +63,25 @@ import com.runway.android.ui.components.RunSplitsCard
 @Composable
 fun RunDetailScreen(
     onBack: () -> Unit,
+    onDeleted: (runId: String) -> Unit = {},
     onShareImage: (runId: String) -> Unit = {},
+    onNavigateToCourseDetail: (String) -> Unit = {},
     viewModel: RunDetailViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
 
-    // 삭제 완료 시 자동 뒤로가기
+    // 삭제 완료 시 onDeleted 콜백 호출 (NavGraph에서 pop + savedStateHandle 전파 처리)
     LaunchedEffect(viewModel.isDeleted) {
-        if (viewModel.isDeleted) onBack()
+        if (viewModel.isDeleted) {
+            onDeleted(viewModel.runId)
+        }
+    }
+
+    // 코스 생성 완료 시 코스 상세로 이동
+    LaunchedEffect(Unit) {
+        viewModel.courseCreated.collect { courseId ->
+            onNavigateToCourseDetail(courseId)
+        }
     }
 
     // 삭제 확인 다이얼로그
@@ -135,6 +148,24 @@ fun RunDetailScreen(
             dismissButton = {
                 TextButton(onClick = viewModel::dismissTrimDialog) { Text("취소") }
             },
+        )
+    }
+
+    // 코스 생성 다이얼로그
+    if (viewModel.showCreateCourseDialog) {
+        CreateCourseDialog(
+            courseName = viewModel.courseName,
+            onCourseNameChange = { viewModel.courseName = it },
+            courseDescription = viewModel.courseDescription,
+            onDescriptionChange = { viewModel.courseDescription = it },
+            isLoop = viewModel.isLoop,
+            onIsLoopChange = { viewModel.isLoop = it },
+            publish = viewModel.publish,
+            onPublishChange = { viewModel.publish = it },
+            isCreating = viewModel.isCreatingCourse,
+            errorMessage = viewModel.createCourseError,
+            onConfirm = viewModel::createCourse,
+            onDismiss = viewModel::dismissCreateCourseDialog,
         )
     }
 
@@ -208,6 +239,22 @@ fun RunDetailScreen(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false },
                 ) {
+                    if (viewModel.canCreateCourse) {
+                        DropdownMenuItem(
+                            text = { Text("코스 만들기") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Filled.AddLocation,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                viewModel.openCreateCourseDialog()
+                            },
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text("거리 수정") },
                         leadingIcon = {

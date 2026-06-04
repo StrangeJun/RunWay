@@ -17,4 +17,6 @@ public class LeaderboardResponse {
     private long totalElements;
     private int totalPages;
     private boolean hasNext;
+    private String sortBy;
+    private Long myRank;
 }

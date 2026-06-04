@@ -27,9 +27,11 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -40,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -49,12 +52,14 @@ import com.runway.android.ui.components.DiscoverCourseCard
 
 private val RADIUS_OPTIONS = listOf(1000 to "1km", 3000 to "3km", 5000 to "5km")
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscoverScreen(
     onNavigateToCourseDetail: (String) -> Unit = {},
     viewModel: DiscoverViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -88,6 +93,11 @@ fun DiscoverScreen(
 
     val radiusLabel = RADIUS_OPTIONS.find { it.first == viewModel.radiusMeters }?.second ?: "3km"
 
+    PullToRefreshBox(
+        isRefreshing = viewModel.isRefreshing,
+        onRefresh = onRefresh,
+        modifier = Modifier.fillMaxSize(),
+    ) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -169,7 +179,10 @@ fun DiscoverScreen(
                         }
                     } else null,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { viewModel.onSearch() }),
+                    keyboardActions = KeyboardActions(onSearch = {
+                        keyboardController?.hide()
+                        viewModel.onSearch()
+                    }),
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodyLarge,
                     colors = TextFieldDefaults.colors(
@@ -182,7 +195,7 @@ fun DiscoverScreen(
             }
         }
 
-        // ─── 반경 + 루프 필터 ───
+        // ─── 반경 + 루프 + 거리 필터 ───
         item {
             Spacer(modifier = Modifier.height(12.dp))
             LazyRow(
@@ -208,6 +221,17 @@ fun DiscoverScreen(
                         label = "루프",
                         selected = viewModel.isLoopFilter == true,
                         onClick = { viewModel.onIsLoopFilterChange(true) },
+                    )
+                }
+                items(DistanceFilterOption.entries.drop(1)) { option ->
+                    FilterChip(
+                        label = option.label,
+                        selected = viewModel.distanceFilter == option,
+                        onClick = {
+                            viewModel.onDistanceFilterChange(
+                                if (viewModel.distanceFilter == option) DistanceFilterOption.ALL else option
+                            )
+                        },
                     )
                 }
             }
@@ -280,6 +304,8 @@ fun DiscoverScreen(
             }
 
             viewModel.courses.isEmpty() -> item {
+                val hasActiveFilter = viewModel.distanceFilter != DistanceFilterOption.ALL ||
+                    viewModel.isLoopFilter != null
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -294,8 +320,11 @@ fun DiscoverScreen(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = if (viewModel.keyword.isNotBlank()) "다른 검색어나 더 넓은 반경으로 시도해 보세요."
-                               else "반경을 늘리거나 직접 코스를 만들어 보세요.",
+                        text = when {
+                            viewModel.keyword.isNotBlank() -> "다른 검색어나 더 넓은 반경으로 시도해 보세요."
+                            hasActiveFilter -> "필터를 해제하거나 반경을 늘려 보세요."
+                            else -> "반경을 늘리거나 직접 코스를 만들어 보세요."
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -313,6 +342,7 @@ fun DiscoverScreen(
             }
         }
     }
+    } // PullToRefreshBox
 }
 
 @Composable

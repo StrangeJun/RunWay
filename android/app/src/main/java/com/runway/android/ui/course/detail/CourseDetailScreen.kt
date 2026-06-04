@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +29,8 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -34,14 +38,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +62,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.map.MapPoint
 import com.runway.android.core.share.ShareUtils
 import com.runway.android.data.attempt.model.LeaderboardItem
+import com.runway.android.data.attempt.model.MyBestAttemptResponse
 import com.runway.android.ui.components.RouteMapView
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,6 +80,18 @@ fun CourseDetailScreen(
         viewModel.navigateToAttempt.collect { event ->
             onNavigateToAttempt(event.courseId, event.courseAttemptId, event.runningRecordId)
         }
+    }
+
+    // 화면으로 돌아올 때 데이터 갱신 (완주 후 내 기록 업데이트 등)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refresh()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // 즐겨찾기 에러 다이얼로그
@@ -130,6 +153,83 @@ fun CourseDetailScreen(
             errorMessage = viewModel.ratingError,
             onConfirm = viewModel::submitRating,
             onDismiss = viewModel::dismissRateDialog,
+        )
+    }
+
+    // 발행 성공 다이얼로그
+    if (viewModel.publishSuccess) {
+        AlertDialog(
+            onDismissRequest = viewModel::clearPublishSuccess,
+            title = { Text("코스 공개 완료") },
+            text = { Text("코스가 공개되었습니다. 다른 러너들이 이 코스에 도전할 수 있습니다.") },
+            confirmButton = {
+                TextButton(onClick = viewModel::clearPublishSuccess) { Text("확인") }
+            },
+        )
+    }
+
+    // 보관 성공 다이얼로그
+    if (viewModel.archiveSuccess) {
+        AlertDialog(
+            onDismissRequest = viewModel::clearArchiveSuccess,
+            title = { Text("코스 보관 완료") },
+            text = { Text("코스가 보관되었습니다. 탐색 결과에서 더 이상 표시되지 않습니다.") },
+            confirmButton = {
+                TextButton(onClick = viewModel::clearArchiveSuccess) { Text("확인") }
+            },
+        )
+    }
+
+    // 보관 확인 다이얼로그
+    if (viewModel.showArchiveDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissArchiveDialog,
+            title = { Text("코스를 보관할까요?") },
+            text = {
+                Column {
+                    Text("보관된 코스는 탐색 결과에 표시되지 않으며, 더 이상 도전을 시작할 수 없습니다.")
+                    if (viewModel.archiveError != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = viewModel.archiveError!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = viewModel::submitArchive,
+                    enabled = !viewModel.isArchiving,
+                ) {
+                    if (viewModel.isArchiving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    } else {
+                        Text("보관하기", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = viewModel::dismissArchiveDialog,
+                    enabled = !viewModel.isArchiving,
+                ) { Text("취소") }
+            },
+        )
+    }
+
+    // 발행 다이얼로그
+    if (viewModel.showPublishDialog) {
+        PublishCourseDialog(
+            isPublishing = viewModel.isPublishing,
+            error = viewModel.publishError,
+            onDismiss = viewModel::dismissPublishDialog,
+            onPublish = viewModel::submitPublish,
         )
     }
 
@@ -217,7 +317,9 @@ fun CourseDetailScreen(
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
-        Box(
+        PullToRefreshBox(
+            isRefreshing = viewModel.isRefreshing,
+            onRefresh = viewModel::pullRefresh,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
@@ -472,6 +574,66 @@ private fun CourseDetailContent(
                 )
             }
 
+            // ─── 코스 메타데이터 ───
+            val hasMetadata = course.difficulty != null || course.riskLevel != null ||
+                    course.slopeLevel != null || course.surfaceType != null ||
+                    course.recommendedTime != null || !course.warnings.isNullOrBlank()
+            if (hasMetadata) {
+                Spacer(modifier = Modifier.height(20.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                Spacer(modifier = Modifier.height(20.dp))
+                CourseMetadataSection(course = course)
+            }
+
+            // ─── 초안 상태 + 소유자 → 공개하기 버튼 ───
+            if (course.status == "draft" && course.isOwner) {
+                Spacer(modifier = Modifier.height(20.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                Spacer(modifier = Modifier.height(16.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    onClick = viewModel::openPublishDialog,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 14.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "공개하기",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
+                }
+            }
+
+            // ─── 공개 상태 + 소유자 → 보관하기 버튼 ───
+            if (course.status == "published" && course.isOwner) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    onClick = viewModel::openArchiveDialog,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 14.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "보관하기",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             Spacer(modifier = Modifier.height(20.dp))
@@ -546,9 +708,39 @@ private fun CourseDetailContent(
                 }
             }
 
+            // ─── 내 기록 섹션 ───
+            Spacer(modifier = Modifier.height(20.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            Spacer(modifier = Modifier.height(20.dp))
+            if (viewModel.myBestAttempt != null) {
+                MyBestAttemptSection(best = viewModel.myBestAttempt!!)
+            } else if (!viewModel.isLoading) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "내 기록",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "아직 이 코스를 완주한 기록이 없어요. 도전해 보세요!",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // ─── 도전 CTA ───
+            val hasCompletions = (viewModel.myBestAttempt?.completionCount ?: 0) > 0
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.extraLarge,
@@ -584,7 +776,7 @@ private fun CourseDetailContent(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "코스 도전하기",
+                            text = if (hasCompletions) "다시 도전하기" else "코스 도전하기",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onPrimary,
                         )
@@ -661,3 +853,123 @@ private fun formatDistance(meters: Double): String = when {
     meters >= 1000 -> "%.1f km".format(meters / 1000)
     else -> "${meters.toInt()} m"
 }
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CourseMetadataSection(course: com.runway.android.data.course.model.CourseDetailResponse) {
+    Text(
+        text = "코스 정보",
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(modifier = Modifier.height(10.dp))
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        course.difficulty?.let { MetadataChip(label = difficultyLabel(it)) }
+        course.slopeLevel?.let { MetadataChip(label = slopeLabel(it)) }
+        course.riskLevel?.let { MetadataChip(label = riskLabel(it)) }
+        course.surfaceType?.let { MetadataChip(label = surfaceLabel(it)) }
+        course.recommendedTime?.let { MetadataChip(label = timeLabel(it)) }
+    }
+    if (!course.warnings.isNullOrBlank()) {
+        Spacer(modifier = Modifier.height(10.dp))
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
+            ),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Flag,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(
+                    text = course.warnings,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetadataChip(label: String) {
+    SuggestionChip(
+        onClick = {},
+        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+    )
+}
+
+@Composable
+private fun MyBestAttemptSection(best: MyBestAttemptResponse) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Person,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = "내 기록",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+    }
+    Spacer(modifier = Modifier.height(12.dp))
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = if (best.bestTimeSeconds != null) formatSeconds(best.bestTimeSeconds) else "--",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = "베스트 기록",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "${best.completionCount}회",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = "완주 횟수",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+private fun difficultyLabel(v: String) = when (v) { "easy" -> "난이도: 쉬움"; "hard" -> "난이도: 어려움"; else -> "난이도: 보통" }
+private fun slopeLabel(v: String) = when (v) { "flat" -> "경사: 평탄"; "steep" -> "경사: 가파름"; else -> "경사: 완만" }
+private fun riskLabel(v: String) = when (v) { "low" -> "위험도: 낮음"; "high" -> "위험도: 높음"; else -> "위험도: 보통" }
+private fun surfaceLabel(v: String) = when (v) { "road" -> "도로"; "park" -> "공원"; "trail" -> "트레일"; else -> "혼합" }
+private fun timeLabel(v: String) = when (v) { "morning" -> "추천: 아침"; "day" -> "추천: 낮"; "night" -> "추천: 저녁"; else -> "추천: 무관" }

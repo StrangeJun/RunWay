@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -97,6 +98,11 @@ fun StatsScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        PullToRefreshBox(
+            isRefreshing = viewModel.isRefreshing,
+            onRefresh = viewModel::refresh,
+            modifier = Modifier.fillMaxSize(),
+        ) {
         when {
             viewModel.isLoading -> {
                 Box(
@@ -136,6 +142,7 @@ fun StatsScreen(
                 )
             }
         }
+        } // PullToRefreshBox
     }
 }
 
@@ -158,37 +165,44 @@ private fun StatsContent(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        // 핵심 지표 그리드
-        StatsSummaryCard(
-            label = "총 러닝",
-            value = "${stats.totalRuns}회",
+        // 핵심 지표 2열 그리드
+        StatsRow(
+            left = Pair("총 러닝", "${stats.totalRuns}회"),
+            right = Pair("활동일", "${stats.activeDays}일"),
         )
-        StatsSummaryCard(
-            label = "총 거리",
-            value = formatDistance(stats.totalDistanceMeters),
+        StatsRow(
+            left = Pair("총 거리", formatDistance(stats.totalDistanceMeters)),
+            right = Pair("최장 러닝", formatDistance(stats.longestRunMeters)),
         )
-        StatsSummaryCard(
-            label = "총 시간",
-            value = formatDuration(stats.totalDurationSeconds),
+        StatsRow(
+            left = Pair("총 시간", formatDuration(stats.totalDurationSeconds)),
+            right = Pair("평균 페이스", formatPace(stats.averagePaceSecondsPerKm)),
         )
         StatsSummaryCard(
             label = "총 칼로리",
             value = "${stats.totalCaloriesBurned} kcal",
         )
-        StatsSummaryCard(
-            label = "평균 페이스",
-            value = formatPace(stats.averagePaceSecondsPerKm),
-        )
-        StatsSummaryCard(
-            label = "최장 러닝",
-            value = formatDistance(stats.longestRunMeters),
-        )
-        StatsSummaryCard(
-            label = "활동일",
-            value = "${stats.activeDays}일",
-        )
 
         Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun StatsRow(left: Pair<String, String>, right: Pair<String, String>) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        StatsSummaryCard(
+            label = left.first,
+            value = left.second,
+            modifier = Modifier.weight(1f),
+        )
+        StatsSummaryCard(
+            label = right.first,
+            value = right.second,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 

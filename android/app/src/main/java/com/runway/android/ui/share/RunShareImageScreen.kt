@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -42,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.runway.android.core.share.MetricPreset
 import com.runway.android.core.share.ShareTemplate
 import com.runway.android.core.util.formatDuration
 import com.runway.android.data.running.model.RunDetailResponse
@@ -124,6 +126,7 @@ fun RunShareImageScreen(
                     ShareCardPreview(
                         detail = detail,
                         template = viewModel.selectedTemplate,
+                        preset = viewModel.selectedPreset,
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(1f)
@@ -148,6 +151,25 @@ fun RunShareImageScreen(
                                 template = template,
                                 selected = viewModel.selectedTemplate == template,
                                 onClick = { viewModel.onTemplateChange(template) },
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // ─── 지표 프리셋 선택 ───
+                    Text(
+                        text = "지표 선택",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MetricPreset.entries.forEach { preset ->
+                            FilterChip(
+                                selected = viewModel.selectedPreset == preset,
+                                onClick = { viewModel.onPresetChange(preset) },
+                                label = { Text(preset.displayName, style = MaterialTheme.typography.labelMedium) },
                             )
                         }
                     }
@@ -200,6 +222,7 @@ fun RunShareImageScreen(
 private fun ShareCardPreview(
     detail: RunDetailResponse,
     template: ShareTemplate,
+    preset: MetricPreset,
     modifier: Modifier = Modifier,
 ) {
     val bgColor = Color(template.bgColor)
@@ -255,31 +278,65 @@ private fun ShareCardPreview(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Metrics
-            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                Column {
-                    Text(text = "시간", color = textSecondary, fontSize = 11.sp)
-                    Text(
-                        text = formatPreviewDuration(detail.durationSeconds),
-                        color = textPrimary,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
+            // Metrics — preset-dependent
+            when (preset) {
+                MetricPreset.FULL_STATS -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        Column {
+                            Text(text = "시간", color = textSecondary, fontSize = 11.sp)
+                            Text(
+                                text = formatPreviewDuration(detail.durationSeconds),
+                                color = textPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                        Column {
+                            Text(text = "페이스", color = textSecondary, fontSize = 11.sp)
+                            Text(
+                                text = formatPreviewPace(detail.avgPaceSecondsPerKm),
+                                color = textPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                        if (detail.caloriesBurned != null) {
+                            Column {
+                                Text(text = "칼로리", color = textSecondary, fontSize = 11.sp)
+                                Text(
+                                    text = "${detail.caloriesBurned} kcal",
+                                    color = textPrimary,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                    }
                 }
-                Column {
-                    Text(text = "페이스", color = textSecondary, fontSize = 11.sp)
-                    Text(
-                        text = formatPreviewPace(detail.avgPaceSecondsPerKm),
-                        color = textPrimary,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-                if (detail.caloriesBurned != null) {
+                MetricPreset.DISTANCE_FOCUS -> {
                     Column {
-                        Text(text = "칼로리", color = textSecondary, fontSize = 11.sp)
+                        Text(text = "소요 시간", color = textSecondary, fontSize = 11.sp)
                         Text(
-                            text = "${detail.caloriesBurned} kcal",
+                            text = formatPreviewDuration(detail.durationSeconds),
+                            color = textPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+                MetricPreset.PACE_FOCUS -> {
+                    Column {
+                        Text(text = "평균 페이스", color = textSecondary, fontSize = 11.sp)
+                        Text(
+                            text = formatPreviewPace(detail.avgPaceSecondsPerKm),
+                            color = accentColor,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Black,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = "소요 시간", color = textSecondary, fontSize = 11.sp)
+                        Text(
+                            text = formatPreviewDuration(detail.durationSeconds),
                             color = textPrimary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,

@@ -12,9 +12,12 @@ import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.data.course.model.CreateCourseFromRunRequest
 import com.runway.android.data.course.model.NearbyCourseItem
 import com.runway.android.data.course.model.ParticipatedCourseItem
+import com.runway.android.data.course.model.CourseStatusResponse
+import com.runway.android.data.course.model.PublishCourseRequest
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -90,4 +93,15 @@ interface CourseApi {
     suspend fun removeFavorite(
         @Path("courseId") courseId: String,
     ): ApiResponse<Unit>
+
+    @PATCH("api/courses/{courseId}/publish")
+    suspend fun publishCourse(
+        @Path("courseId") courseId: String,
+        @Body request: PublishCourseRequest,
+    ): ApiResponse<CourseStatusResponse>
+
+    @PATCH("api/courses/{courseId}/archive")
+    suspend fun archiveCourse(
+        @Path("courseId") courseId: String,
+    ): ApiResponse<CourseStatusResponse>
 }

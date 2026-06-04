@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +30,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +50,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.data.course.model.ParticipatedCourseItem
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CoursesLibraryScreen(
     onNavigateToCourseDetail: (String) -> Unit = {},
@@ -61,6 +64,8 @@ fun CoursesLibraryScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.loadFavoriteCourses()
+                viewModel.loadMyCourses()
+                viewModel.loadParticipatedCourses()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -99,7 +104,9 @@ fun CoursesLibraryScreen(
             }
         }
 
-        Box(
+        PullToRefreshBox(
+            isRefreshing = viewModel.isRefreshing,
+            onRefresh = viewModel::refresh,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
@@ -126,6 +133,7 @@ fun CoursesLibraryScreen(
                     onRetry = viewModel::loadParticipatedCourses,
                     onCourseClick = onNavigateToCourseDetail,
                 )
+                else -> {}
             }
         }
     }

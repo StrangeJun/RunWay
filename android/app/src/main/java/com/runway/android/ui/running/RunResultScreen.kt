@@ -47,12 +47,12 @@ fun RunResultScreen(
     onBackToHome: () -> Unit,
     onShareImage: (runId: String) -> Unit = {},
     onOpenRunDetail: (String) -> Unit = {},
+    onNavigateToCourseDetail: (String) -> Unit = {},
     viewModel: RunResultViewModel = hiltViewModel(),
 ) {
-    // 코스 생성 성공 시 홈으로 이동 (Phase B-9에서 CourseDetail로 대체 예정)
     LaunchedEffect(Unit) {
-        viewModel.courseCreated.collect {
-            onBackToHome()
+        viewModel.courseCreated.collect { courseId ->
+            onNavigateToCourseDetail(courseId)
         }
     }
 

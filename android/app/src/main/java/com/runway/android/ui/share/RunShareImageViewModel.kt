@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.core.share.ImageCaptureUtil
 import com.runway.android.core.share.ImageShareUtil
+import com.runway.android.core.share.MetricPreset
 import com.runway.android.core.share.ShareTemplate
 import com.runway.android.data.running.model.RunDetailResponse
 import com.runway.android.domain.running.RunningRepository
@@ -38,6 +39,8 @@ class RunShareImageViewModel @Inject constructor(
         private set
     var selectedTemplate by mutableStateOf(ShareTemplate.DARK_SPORT)
         private set
+    var selectedPreset by mutableStateOf(MetricPreset.FULL_STATS)
+        private set
     var isSharing by mutableStateOf(false)
         private set
     var shareError by mutableStateOf<String?>(null)
@@ -54,6 +57,10 @@ class RunShareImageViewModel @Inject constructor(
         selectedTemplate = template
     }
 
+    fun onPresetChange(preset: MetricPreset) {
+        selectedPreset = preset
+    }
+
     fun captureAndShare(context: Context) {
         if (isSharing) return
         val d = detail ?: return
@@ -62,7 +69,7 @@ class RunShareImageViewModel @Inject constructor(
 
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                val bitmap = ImageCaptureUtil.draw(d, selectedTemplate)
+                val bitmap = ImageCaptureUtil.draw(d, selectedTemplate, selectedPreset)
                 ImageShareUtil.saveToCache(context, bitmap)
                     ?: error("이미지를 캐시에 저장하지 못했습니다.")
             }.onSuccess { uri ->

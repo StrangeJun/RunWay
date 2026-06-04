@@ -14,6 +14,13 @@ data class CourseDetailResponse(
     val avgRating: Double?,
     val ratingCount: Long?,
     val isFavorited: Boolean = false,
+    val isOwner: Boolean = false,
+    val difficulty: String? = null,
+    val slopeLevel: String? = null,
+    val riskLevel: String? = null,
+    val surfaceType: String? = null,
+    val recommendedTime: String? = null,
+    val warnings: String? = null,
     val creator: CourseCreatorResponse,
     val createdAt: String,
 )

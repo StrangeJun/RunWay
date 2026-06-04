@@ -4,13 +4,17 @@ import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.InfiniteRepeatableSpec
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -32,10 +36,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -93,7 +99,10 @@ fun RunningTrackingScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
+    var countdownDone by remember { mutableStateOf(false) }
+
+    LaunchedEffect(countdownDone) {
+        if (!countdownDone) return@LaunchedEffect
         val hasFine = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
@@ -125,6 +134,30 @@ fun RunningTrackingScreen(
 
     val isRunning = viewModel.runningState == RunningState.RUNNING
 
+    var showExitDialog by remember { mutableStateOf(false) }
+    BackHandler(enabled = !viewModel.isFinishing) {
+        if (!countdownDone) onBack() else showExitDialog = true
+    }
+
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text("러닝 화면을 나가시겠어요?") },
+            text = { Text("러닝은 백그라운드에서 계속됩니다. 홈으로 돌아가도 기록은 유지됩니다.") },
+            confirmButton = {
+                TextButton(onClick = { showExitDialog = false; onBack() }) {
+                    Text("나가기")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitDialog = false }) {
+                    Text("계속 달리기")
+                }
+            },
+        )
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -282,6 +315,15 @@ fun RunningTrackingScreen(
 
         Spacer(modifier = Modifier.height(44.dp))
     }
+
+    AnimatedVisibility(
+        visible = !countdownDone,
+        enter = EnterTransition.None,
+        exit = fadeOut(tween(350)),
+    ) {
+        RunningCountdownOverlay(onFinished = { countdownDone = true })
+    }
+    } // Box
 }
 
 @Composable

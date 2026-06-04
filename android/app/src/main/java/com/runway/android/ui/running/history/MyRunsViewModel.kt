@@ -30,6 +30,8 @@ class MyRunsViewModel @Inject constructor(
         private set
     var isLoading by mutableStateOf(true)
         private set
+    var isRefreshing by mutableStateOf(false)
+        private set
     var hasError by mutableStateOf(false)
         private set
     var totalCount by mutableStateOf(0L)
@@ -78,7 +80,16 @@ class MyRunsViewModel @Inject constructor(
         isLoading = true
         hasError = false
         allRuns = emptyList()
-        loadRuns()
+        viewModelScope.launch { doLoad() }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            isRefreshing = true
+            hasError = false
+            doLoad()
+            isRefreshing = false
+        }
     }
 
     fun deleteRun(runId: String) {
@@ -86,6 +97,10 @@ class MyRunsViewModel @Inject constructor(
             runningRepository.deleteRun(runId)
             allRuns = allRuns.filterNot { it.runId == runId }
         }
+    }
+
+    fun removeRunLocally(runId: String) {
+        allRuns = allRuns.filterNot { it.runId == runId }
     }
 
     fun previousMonth() {
@@ -106,17 +121,19 @@ class MyRunsViewModel @Inject constructor(
     }
 
     private fun loadRuns() {
-        viewModelScope.launch {
-            val result = runningRepository.getMyRuns(page = 0, size = 200)
-            when (result) {
-                is NetworkResult.Success -> {
-                    totalCount = result.data.totalElements
-                    allRuns = result.data.content.map { it.toHistoryItem() }
-                }
-                else -> hasError = true
+        viewModelScope.launch { doLoad() }
+    }
+
+    private suspend fun doLoad() {
+        val result = runningRepository.getMyRuns(page = 0, size = 200)
+        when (result) {
+            is NetworkResult.Success -> {
+                totalCount = result.data.totalElements
+                allRuns = result.data.content.map { it.toHistoryItem() }
             }
-            isLoading = false
+            else -> hasError = true
         }
+        isLoading = false
     }
 
     private fun RunSummaryResponse.toHistoryItem(): RunHistoryItem {

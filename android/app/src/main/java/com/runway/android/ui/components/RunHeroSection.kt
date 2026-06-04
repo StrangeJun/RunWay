@@ -1,5 +1,10 @@
 package com.runway.android.ui.components
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,16 +15,22 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -56,62 +67,86 @@ fun RunHeroSection(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.58f)
+                .fillMaxHeight(0.62f)
                 .align(Alignment.BottomCenter)
                 .background(
                     Brush.verticalGradient(
                         0.00f to Color.Transparent,
-                        0.40f to HeroScrim.copy(alpha = 0.65f),
+                        0.35f to HeroScrim.copy(alpha = 0.70f),
                         1.00f to HeroScrim,
                     )
                 ),
         )
 
-        // ── Header ────────────────────────────────────────────────────────
-        Text(
-            text = "러닝",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
+        // ── Header tagline ────────────────────────────────────────────────
+        Column(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(horizontal = 20.dp, vertical = 14.dp),
-        )
+        ) {
+            Text(
+                text = "YOUR RUNWAY",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 2.5.sp,
+                color = LimeGreen,
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = "Run your way.",
+                fontSize = 26.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = (-0.5).sp,
+                color = Color.White,
+            )
+        }
 
         // ── GPS + Weather pill ────────────────────────────────────────────
         GpsWeatherPill(
             weatherInfo = weatherInfo,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 90.dp)
+                .padding(top = 110.dp)
                 .padding(horizontal = 20.dp),
+        )
+
+        // ── 스크롤 유도 애니메이션 (좌/우) ──────────────────────────────────
+        ScrollHintIndicator(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 28.dp, bottom = 88.dp),
+        )
+        ScrollHintIndicator(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 28.dp, bottom = 88.dp),
         )
 
         // ── 시작 button + 목표 설정 ─────────────────────────────────────────
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 36.dp),
+                .padding(bottom = 80.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Surface(
                 onClick = onStartRun,
-                modifier = Modifier.size(84.dp),
+                modifier = Modifier.size(96.dp),
                 shape = CircleShape,
                 color = LimeGreen,
-                shadowElevation = 12.dp,
+                shadowElevation = 14.dp,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = "시작",
-                        style = MaterialTheme.typography.titleLarge,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF0A0B10),
                     )
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(20.dp))
 
             Surface(
                 onClick = onSetGoal,
@@ -125,12 +160,56 @@ fun RunHeroSection(
                         is RunGoal.IntervalGoal -> "목표설정: ${selectedGoal.label()}"
                         null -> "목표 설정"
                     },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (selectedGoal != null) LimeGreen else Color.White.copy(alpha = 0.60f),
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (selectedGoal != null) LimeGreen else Color.White.copy(alpha = 0.65f),
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ScrollHintIndicator(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "scroll_hint")
+    val offsetY by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 700),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "bounce",
+    )
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.45f,
+        targetValue = 0.85f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 700),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "alpha",
+    )
+
+    Column(
+        modifier = modifier.offset(y = offsetY.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.KeyboardArrowDown,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = alpha * 0.4f),
+            modifier = Modifier
+                .size(30.dp)
+                .offset(y = (-6).dp),
+        )
+        Icon(
+            imageVector = Icons.Filled.KeyboardArrowDown,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = alpha),
+            modifier = Modifier.size(30.dp),
+        )
     }
 }
 

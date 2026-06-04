@@ -7,6 +7,7 @@ import com.runway.android.data.attempt.model.AbandonAttemptResponse
 import com.runway.android.data.attempt.model.FinishAttemptRequest
 import com.runway.android.data.attempt.model.FinishAttemptResponse
 import com.runway.android.data.attempt.model.LeaderboardResponse
+import com.runway.android.data.attempt.model.MyBestAttemptResponse
 import com.runway.android.data.attempt.model.StartAttemptRequest
 import com.runway.android.data.attempt.model.StartAttemptResponse
 import com.runway.android.data.attempt.remote.CourseAttemptApi
@@ -41,6 +42,10 @@ class CourseAttemptRepositoryImpl @Inject constructor(
         courseId: String,
         page: Int,
         size: Int,
+        sortBy: String,
     ): NetworkResult<LeaderboardResponse> =
-        safeApiCall { courseAttemptApi.getLeaderboard(courseId, page, size) }
+        safeApiCall { courseAttemptApi.getLeaderboard(courseId, page, size, sortBy) }
+
+    override suspend fun getMyBestAttempt(courseId: String): NetworkResult<MyBestAttemptResponse> =
+        safeApiCall { courseAttemptApi.getMyBestAttempt(courseId) }
 }

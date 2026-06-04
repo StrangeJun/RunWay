@@ -4,9 +4,17 @@ import com.runway.common.exception.ErrorCode;
 import com.runway.common.exception.RunwayException;
 import com.runway.common.response.PageResponse;
 import com.runway.course.domain.Course;
+import com.runway.attempt.domain.enums.AttemptVerificationStatus;
+import com.runway.attempt.domain.enums.CourseAttemptStatus;
+import com.runway.attempt.repository.CourseAttemptRepository;
 import com.runway.course.domain.CourseFavorite;
 import com.runway.course.domain.CourseFavoriteId;
 import com.runway.course.domain.CoursePoint;
+import com.runway.course.domain.enums.CourseDifficulty;
+import com.runway.course.domain.enums.CourseRecommendedTime;
+import com.runway.course.domain.enums.CourseRiskLevel;
+import com.runway.course.domain.enums.CourseSlopeLevel;
+import com.runway.course.domain.enums.CourseSurfaceType;
 import com.runway.course.domain.enums.CourseStatus;
 import com.runway.course.dto.*;
 import com.runway.course.repository.CourseFavoriteRepository;
@@ -43,8 +51,10 @@ public class CourseService {
 
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
     private static final int MAX_COURSE_POINTS = 200;
+    private static final int OWNER_COMPLETIONS_REQUIRED_FOR_PUBLIC = 10;
 
     private final CourseRepository courseRepository;
+    private final CourseAttemptRepository courseAttemptRepository;
     private final CourseFavoriteRepository courseFavoriteRepository;
     private final CoursePointRepository coursePointRepository;
     private final CourseRatingRepository courseRatingRepository;
@@ -377,14 +387,49 @@ public class CourseService {
     }
 
     @Transactional
-    public CourseStatusResponse publishCourse(UUID userId, UUID courseId) {
+    public CourseStatusResponse publishCourse(UUID userId, UUID courseId, PublishCourseRequest request) {
         Course course = findOwnedCourse(courseId, userId);
         if (course.getStatus() == CourseStatus.PUBLISHED) {
             throw new RunwayException(ErrorCode.INVALID_COURSE_STATUS);
         }
+
+        // 메타데이터 파싱 및 저장
+        CourseDifficulty difficulty = parseEnum(request.getDifficulty(), CourseDifficulty::from, "difficulty");
+        CourseSlopeLevel slopeLevel = parseEnum(request.getSlopeLevel(), CourseSlopeLevel::from, "slopeLevel");
+        CourseRiskLevel riskLevel = parseEnum(request.getRiskLevel(), CourseRiskLevel::from, "riskLevel");
+        CourseSurfaceType surfaceType = parseEnum(request.getSurfaceType(), CourseSurfaceType::from, "surfaceType");
+        CourseRecommendedTime recommendedTime = parseEnum(request.getRecommendedTime(), CourseRecommendedTime::from, "recommendedTime");
+
+        course.updateMetadata(difficulty, slopeLevel, riskLevel, surfaceType, recommendedTime,
+                request.getWarnings(), request.getDescription());
+
+        // 필수 메타데이터 검증
+        if (!course.hasRequiredPublishMetadata()) {
+            throw new RunwayException(ErrorCode.COURSE_PUBLISH_METADATA_REQUIRED);
+        }
+
+        // 소유자 완주 횟수 검증
+        long ownerCompletions = courseAttemptRepository
+                .countByCourseIdAndUserIdAndStatusAndVerificationStatus(
+                        courseId, userId,
+                        CourseAttemptStatus.COMPLETED,
+                        AttemptVerificationStatus.VERIFIED);
+        if (ownerCompletions < OWNER_COMPLETIONS_REQUIRED_FOR_PUBLIC) {
+            throw new RunwayException(ErrorCode.COURSE_PUBLISH_NOT_ENOUGH_COMPLETIONS);
+        }
+
         course.publish();
-        log.info("Course published: courseId={}", courseId);
+        log.info("Course published: courseId={} ownerCompletions={}", courseId, ownerCompletions);
         return CourseStatusResponse.from(course);
+    }
+
+    private <T> T parseEnum(String value, java.util.function.Function<String, T> parser, String fieldName) {
+        if (value == null) return null;
+        try {
+            return parser.apply(value.toLowerCase());
+        } catch (IllegalArgumentException e) {
+            throw new RunwayException(ErrorCode.INVALID_REQUEST, "유효하지 않은 " + fieldName + " 값입니다: " + value);
+        }
     }
 
     @Transactional

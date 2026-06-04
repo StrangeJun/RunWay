@@ -12,6 +12,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.runway.android.ui.MainViewModel
 import com.runway.android.ui.achievements.AchievementsScreen
+import com.runway.android.ui.home.HomeViewModel
+import com.runway.android.ui.running.history.MyRunsViewModel
+import com.runway.android.ui.permission.PermissionScreen
 import com.runway.android.ui.attempt.CourseAttemptTrackingScreen
 import com.runway.android.ui.auth.login.LoginScreen
 import com.runway.android.ui.share.RunShareImageScreen
@@ -103,6 +106,18 @@ fun RunwayNavGraph() {
         composable(RunwayRoutes.ONBOARDING) {
             OnboardingScreen(
                 onComplete = {
+                    navController.navigate(RunwayRoutes.PERMISSION) {
+                        popUpTo(RunwayRoutes.ONBOARDING) { inclusive = true }
+                    }
+                },
+            )
+        }
+
+        // ─── 권한 설명 ───
+
+        composable(RunwayRoutes.PERMISSION) {
+            PermissionScreen(
+                onContinue = {
                     navController.navigate(RunwayRoutes.MAIN) {
                         popUpTo(0) { inclusive = true }
                     }
@@ -112,7 +127,26 @@ fun RunwayNavGraph() {
 
         // ─── Main shell (BottomNav 포함) ───
 
-        composable(RunwayRoutes.MAIN) {
+        composable(RunwayRoutes.MAIN) { backStackEntry ->
+            val homeViewModel: HomeViewModel = hiltViewModel()
+            val deletedRunId by backStackEntry.savedStateHandle
+                .getStateFlow<String?>("deletedRunId", null)
+                .collectAsState()
+            LaunchedEffect(deletedRunId) {
+                deletedRunId?.let {
+                    homeViewModel.removeRecentRun(it)
+                    backStackEntry.savedStateHandle.remove<String>("deletedRunId")
+                }
+            }
+            val newRunCompleted by backStackEntry.savedStateHandle
+                .getStateFlow("newRunCompleted", false)
+                .collectAsState()
+            LaunchedEffect(newRunCompleted) {
+                if (newRunCompleted) {
+                    homeViewModel.reloadRecentRuns()
+                    backStackEntry.savedStateHandle["newRunCompleted"] = false
+                }
+            }
             MainScaffold(
                 onStartRun = { navController.navigate(RunwayRoutes.RUNNING) },
                 onLogout = {
@@ -131,6 +165,7 @@ fun RunwayNavGraph() {
                 onNavigateToStats = { navController.navigate(RunwayRoutes.STATS) },
                 onNavigateToAchievements = { navController.navigate(RunwayRoutes.ACHIEVEMENTS) },
                 onNavigateToReminder = { navController.navigate(RunwayRoutes.REMINDER) },
+                homeViewModel = homeViewModel,
             )
         }
 
@@ -159,6 +194,10 @@ fun RunwayNavGraph() {
         ) {
             RunResultScreen(
                 onBackToHome = {
+                    runCatching {
+                        navController.getBackStackEntry(RunwayRoutes.MAIN)
+                            .savedStateHandle["newRunCompleted"] = true
+                    }
                     navController.popBackStack(RunwayRoutes.MAIN, inclusive = false)
                 },
                 onShareImage = { runId ->
@@ -166,6 +205,15 @@ fun RunwayNavGraph() {
                 },
                 onOpenRunDetail = { runId ->
                     navController.navigate(RunwayRoutes.runDetail(runId))
+                },
+                onNavigateToCourseDetail = { courseId ->
+                    runCatching {
+                        navController.getBackStackEntry(RunwayRoutes.MAIN)
+                            .savedStateHandle["newRunCompleted"] = true
+                    }
+                    navController.navigate(RunwayRoutes.courseDetail(courseId)) {
+                        popUpTo(RunwayRoutes.MAIN) { inclusive = false }
+                    }
                 },
             )
         }
@@ -214,8 +262,10 @@ fun RunwayNavGraph() {
             ),
         ) {
             CourseAttemptTrackingScreen(
-                onNavigateToLeaderboard = { courseId ->
-                    navController.navigate(RunwayRoutes.courseLeaderboard(courseId)) {
+                onNavigateToLeaderboard = { courseId, isPR, previousBestSeconds, improvementSeconds ->
+                    navController.navigate(
+                        RunwayRoutes.courseLeaderboard(courseId, isPR, previousBestSeconds, improvementSeconds, justCompleted = true)
+                    ) {
                         popUpTo(RunwayRoutes.COURSE_ATTEMPT) { inclusive = true }
                     }
                 },
@@ -225,12 +275,23 @@ fun RunwayNavGraph() {
 
         // ─── 내 러닝 기록 목록 (BottomNav 없음) ───
 
-        composable(RunwayRoutes.MY_RUNS) {
+        composable(RunwayRoutes.MY_RUNS) { backStackEntry ->
+            val myRunsViewModel: MyRunsViewModel = hiltViewModel()
+            val deletedRunId by backStackEntry.savedStateHandle
+                .getStateFlow<String?>("deletedRunId", null)
+                .collectAsState()
+            LaunchedEffect(deletedRunId) {
+                deletedRunId?.let {
+                    myRunsViewModel.removeRunLocally(it)
+                    backStackEntry.savedStateHandle.remove<String>("deletedRunId")
+                }
+            }
             MyRunsScreen(
                 onBack = { navController.popBackStack() },
                 onNavigateToDetail = { runId ->
                     navController.navigate(RunwayRoutes.runDetail(runId))
                 },
+                viewModel = myRunsViewModel,
             )
         }
 
@@ -242,8 +303,17 @@ fun RunwayNavGraph() {
         ) {
             RunDetailScreen(
                 onBack = { navController.popBackStack() },
+                onDeleted = { deletedRunId ->
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("deletedRunId", deletedRunId)
+                    navController.popBackStack()
+                },
                 onShareImage = { runId ->
                     navController.navigate(RunwayRoutes.runShare(runId))
+                },
+                onNavigateToCourseDetail = { courseId ->
+                    navController.navigate(RunwayRoutes.courseDetail(courseId))
                 },
             )
         }
@@ -263,7 +333,13 @@ fun RunwayNavGraph() {
 
         composable(
             route = RunwayRoutes.COURSE_LEADERBOARD,
-            arguments = listOf(navArgument("courseId") { type = NavType.StringType }),
+            arguments = listOf(
+                navArgument("courseId") { type = NavType.StringType },
+                navArgument("isPR") { type = NavType.BoolType; defaultValue = false },
+                navArgument("previousBestSeconds") { type = NavType.IntType; defaultValue = Int.MIN_VALUE },
+                navArgument("improvementSeconds") { type = NavType.IntType; defaultValue = Int.MIN_VALUE },
+                navArgument("justCompleted") { type = NavType.BoolType; defaultValue = false },
+            ),
         ) {
             CourseLeaderboardScreen(
                 onBack = { navController.popBackStack() },

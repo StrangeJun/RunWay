@@ -1,5 +1,6 @@
 package com.runway.android.ui.profile
 
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -35,11 +36,15 @@ class ProfileViewModel @Inject constructor(
         private set
     var bio by mutableStateOf("")
         private set
+    var profileImageUrl by mutableStateOf<String?>(null)
+        private set
     var stats by mutableStateOf<ProfileStats?>(null)
         private set
     var personalRecords by mutableStateOf<PersonalRecordsResponse?>(null)
         private set
     var isLoading by mutableStateOf(true)
+        private set
+    var isRefreshing by mutableStateOf(false)
         private set
     var profileError by mutableStateOf(false)
         private set
@@ -51,6 +56,8 @@ class ProfileViewModel @Inject constructor(
         private set
     var editBio by mutableStateOf("")
         private set
+    var selectedImageUri by mutableStateOf<Uri?>(null)
+        private set
     var isSaving by mutableStateOf(false)
         private set
     var saveError by mutableStateOf<String?>(null)
@@ -60,8 +67,19 @@ class ProfileViewModel @Inject constructor(
         loadProfile()
     }
 
-    private fun loadProfile() {
+    fun refresh() {
         viewModelScope.launch {
+            isRefreshing = true
+            doLoad()
+            isRefreshing = false
+        }
+    }
+
+    private fun loadProfile() {
+        viewModelScope.launch { doLoad() }
+    }
+
+    private suspend fun doLoad() = kotlinx.coroutines.coroutineScope {
             val profileDeferred = async { userRepository.getMe() }
             val recordsDeferred = async { runningRepository.getPersonalRecords() }
             val statsDeferred = async { runningRepository.getRunningStats("all") }
@@ -74,6 +92,7 @@ class ProfileViewModel @Inject constructor(
                 nickname = profileResult.data.nickname
                 email = profileResult.data.email
                 bio = profileResult.data.bio ?: ""
+                profileImageUrl = profileResult.data.profileImageUrl
             } else {
                 profileError = true
             }
@@ -93,23 +112,25 @@ class ProfileViewModel @Inject constructor(
             }
 
             isLoading = false
-        }
     }
 
     fun startEditing() {
         editNickname = nickname
         editBio = bio
+        selectedImageUri = null
         saveError = null
         isEditing = true
     }
 
     fun cancelEditing() {
         isEditing = false
+        selectedImageUri = null
         saveError = null
     }
 
     fun updateEditNickname(value: String) { editNickname = value }
     fun updateEditBio(value: String) { editBio = value }
+    fun onImageSelected(uri: Uri?) { selectedImageUri = uri }
 
     fun saveProfile() {
         val trimmedNickname = editNickname.trim()
@@ -130,6 +151,8 @@ class ProfileViewModel @Inject constructor(
                 is NetworkResult.Success -> {
                     nickname = result.data.nickname
                     bio = result.data.bio ?: ""
+                    profileImageUrl = result.data.profileImageUrl
+                    selectedImageUri = null
                     isEditing = false
                 }
                 is NetworkResult.ApiError -> saveError = when (result.errorCode) {

@@ -128,9 +128,10 @@ public class CourseController {
     @PatchMapping("/{courseId}/publish")
     public ResponseEntity<ApiResponse<CourseStatusResponse>> publishCourse(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable UUID courseId) {
+            @PathVariable UUID courseId,
+            @Valid @RequestBody PublishCourseRequest request) {
         CourseStatusResponse data = courseService.publishCourse(
-                principal.getUserId(), courseId);
+                principal.getUserId(), courseId, request);
         return ResponseEntity.ok(ApiResponse.success("코스가 공개되었습니다.", data));
     }
 

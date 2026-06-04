@@ -45,7 +45,12 @@ import javax.inject.Inject
 import javax.inject.Named
 
 sealed class AttemptNavEvent {
-    data class NavigateToLeaderboard(val courseId: String) : AttemptNavEvent()
+    data class NavigateToLeaderboard(
+        val courseId: String,
+        val isPR: Boolean = false,
+        val previousBestSeconds: Int? = null,
+        val improvementSeconds: Int? = null,
+    ) : AttemptNavEvent()
     object NavigateBack : AttemptNavEvent()
 }
 
@@ -91,11 +96,15 @@ class CourseAttemptTrackingViewModel @Inject constructor(
         private set
     var isAutoPaused by mutableStateOf(false)
         private set
+    var isPaused by mutableStateOf(false)
+        private set
     var milestoneMessage by mutableStateOf<String?>(null)
         private set
     var courseDistanceMeters by mutableStateOf(0.0)
         private set
     var nearestCourseDistanceMeters by mutableStateOf<Double?>(null)
+        private set
+    var showDeviationWarning by mutableStateOf(false)
         private set
 
     private var lastSpeedMps by mutableStateOf<Float?>(null)
@@ -155,6 +164,11 @@ class CourseAttemptTrackingViewModel @Inject constructor(
 
     private var isDone = false
     private var serviceStarted = false
+    private var lastTrackStatus: CourseTrackStatus = CourseTrackStatus.UNKNOWN
+    private var nearFinishMessageShown = false
+    private var pausedByDeviation = false
+    // true 동안에는 연속 재일시정지 중복 실행 방지 (isPaused=true 확인 후 리셋)
+    private var repausingForDeviation = false
 
     private var stateObserveJob: Job? = null
     private var batchJob: Job? = null
@@ -207,9 +221,52 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                 lastSpeedMps = state.currentSpeedMps
                 cadenceSpm = state.cadenceSpm
                 isAutoPaused = state.isAutoPaused
+                isPaused = state.isPaused
+                if (isPaused) repausingForDeviation = false
                 currentLocationPoint = state.lastLocation?.let { location ->
                     MapPoint(location.latitude, location.longitude).also { point ->
                         nearestCourseDistanceMeters = nearestDistanceToCourse(point, coursePoints)
+                        val currentStatus = trackStatus
+                        if (currentStatus != lastTrackStatus) {
+                            if (currentStatus == CourseTrackStatus.OFF_COURSE) {
+                                showDeviationWarning = true
+                                vibrateDeviation()
+                                // 최초 이탈 시 즉시 일시정지
+                                if (!isPaused && !isAutoPaused) {
+                                    pausedByDeviation = true
+                                    repausingForDeviation = true
+                                    pause()
+                                }
+                            } else if (lastTrackStatus == CourseTrackStatus.OFF_COURSE) {
+                                showDeviationWarning = false
+                                if (pausedByDeviation) {
+                                    pausedByDeviation = false
+                                    repausingForDeviation = false
+                                    resume()
+                                }
+                            }
+                            lastTrackStatus = currentStatus
+                        }
+                        // 이탈 중 재생 버튼으로 재개한 경우 → 진동+재일시정지 (매 틱 확인)
+                        if (currentStatus == CourseTrackStatus.OFF_COURSE &&
+                            !isPaused && !isAutoPaused && !repausingForDeviation
+                        ) {
+                            repausingForDeviation = true
+                            pausedByDeviation = true
+                            vibrate()
+                            pause()
+                        }
+                        // 90% 도달 시 1회만 동기부여 메시지 표시
+                        if (!nearFinishMessageShown && courseProgressPercent >= 90 && courseProgressPercent < 100) {
+                            nearFinishMessageShown = true
+                            vibrate()
+                            milestoneDisplayJob?.cancel()
+                            milestoneMessage = "거의 다 왔어요! 조금만 더 달려요!"
+                            milestoneDisplayJob = viewModelScope.launch {
+                                delay(4_000)
+                                milestoneMessage = null
+                            }
+                        }
                     }
                 }
             }
@@ -228,6 +285,35 @@ class CourseAttemptTrackingViewModel @Inject constructor(
             delay(4_000)
             milestoneMessage = null
         }
+    }
+
+    fun pause() {
+        manager.pause()
+        viewModelScope.launch { runningRepository.pauseRun(runningRecordId) }
+    }
+
+    fun resume() {
+        val wasAutoPaused = manager.state.value.isAutoPaused
+        manager.resume()
+        if (!wasAutoPaused) {
+            viewModelScope.launch { runningRepository.resumeRun(runningRecordId) }
+        }
+    }
+
+    fun dismissDeviationWarning() {
+        showDeviationWarning = false
+    }
+
+    @Suppress("DEPRECATION")
+    private fun vibrateDeviation() {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+        } else {
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+        vibrator.vibrate(
+            VibrationEffect.createWaveform(longArrayOf(0, 300, 100, 300, 100, 300), -1)
+        )
     }
 
     @Suppress("DEPRECATION")
@@ -303,7 +389,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                 }
             }
 
-            when (courseAttemptRepository.finishAttempt(
+            val finishResult = courseAttemptRepository.finishAttempt(
                 attemptId = courseAttemptId,
                 request = FinishAttemptRequest(
                     endedAt = Instant.now().toString(),
@@ -312,7 +398,9 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                     avgPaceSecondsPerKm = if (distance > 0.001) (seconds / distance).toInt() else 0,
                     caloriesBurned = (distance * 72).toInt(),
                 ),
-            )) {
+            )
+
+            when (finishResult) {
                 is NetworkResult.ApiError,
                 is NetworkResult.NetworkError -> {
                     isFinishing = false
@@ -320,14 +408,21 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                     return@launch
                 }
                 is NetworkResult.Success -> {
+                    val response = finishResult.data
                     sessionStore.clearSnapshot()
                     pendingPointQueue.deleteByRunningRecordId(runningRecordId)
+                    stopServiceAndJobs()
+                    isDone = true
+                    _navEvent.emit(
+                        AttemptNavEvent.NavigateToLeaderboard(
+                            courseId = courseId,
+                            isPR = response.isPR,
+                            previousBestSeconds = response.previousBestSeconds,
+                            improvementSeconds = response.improvementSeconds,
+                        )
+                    )
                 }
             }
-
-            stopServiceAndJobs()
-            isDone = true
-            _navEvent.emit(AttemptNavEvent.NavigateToLeaderboard(courseId))
         }
     }
 
@@ -386,7 +481,25 @@ private fun calculateCourseDistance(points: List<MapPoint>): Double {
 
 private fun nearestDistanceToCourse(current: MapPoint, course: List<MapPoint>): Double? {
     if (course.isEmpty()) return null
-    return course.minOf { point -> distanceMeters(current, point) }
+    if (course.size == 1) return distanceMeters(current, course[0])
+    // Use segment-based distance to avoid false off-course on long straight segments
+    return course.zipWithNext().minOf { (a, b) -> distanceToSegmentMeters(current, a, b) }
+}
+
+private fun distanceToSegmentMeters(p: MapPoint, a: MapPoint, b: MapPoint): Double {
+    val segLenSq = distanceMeters(a, b).let { it * it }
+    if (segLenSq < 0.01) return distanceMeters(p, a)  // degenerate segment
+    // Project p onto segment ab (in lat/lon space — approximate but fine for small distances)
+    val t = ((p.latitude - a.latitude) * (b.latitude - a.latitude) +
+            (p.longitude - a.longitude) * (b.longitude - a.longitude)) /
+            ((b.latitude - a.latitude) * (b.latitude - a.latitude) +
+             (b.longitude - a.longitude) * (b.longitude - a.longitude))
+    val tClamped = t.coerceIn(0.0, 1.0)
+    val proj = MapPoint(
+        latitude = a.latitude + tClamped * (b.latitude - a.latitude),
+        longitude = a.longitude + tClamped * (b.longitude - a.longitude),
+    )
+    return distanceMeters(p, proj)
 }
 
 private fun distanceMeters(from: MapPoint, to: MapPoint): Double {

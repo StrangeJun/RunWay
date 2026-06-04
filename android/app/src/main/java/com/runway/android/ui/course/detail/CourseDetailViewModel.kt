@@ -8,11 +8,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.attempt.model.LeaderboardItem
+import com.runway.android.data.attempt.model.MyBestAttemptResponse
 import com.runway.android.data.attempt.model.StartAttemptRequest
 import com.runway.android.data.course.model.CourseDetailResponse
 import com.runway.android.data.course.model.CoursePointResponse
 import com.runway.android.data.course.model.CourseRatingRequest
 import com.runway.android.data.course.model.CourseReportRequest
+import com.runway.android.data.course.model.PublishCourseRequest
 import com.runway.android.domain.attempt.CourseAttemptRepository
 import com.runway.android.domain.course.CourseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,6 +42,8 @@ class CourseDetailViewModel @Inject constructor(
 
     var isLoading by mutableStateOf(false)
         private set
+    var isRefreshing by mutableStateOf(false)
+        private set
     var errorMessage by mutableStateOf<String?>(null)
         private set
     var courseDetail by mutableStateOf<CourseDetailResponse?>(null)
@@ -49,6 +53,8 @@ class CourseDetailViewModel @Inject constructor(
     var previewLeaderboard by mutableStateOf<List<LeaderboardItem>>(emptyList())
         private set
     var isLoadingLeaderboard by mutableStateOf(false)
+        private set
+    var myBestAttempt by mutableStateOf<MyBestAttemptResponse?>(null)
         private set
 
     var isFavorited by mutableStateOf(false)
@@ -76,6 +82,24 @@ class CourseDetailViewModel @Inject constructor(
     var reportSuccess by mutableStateOf(false)
         private set
 
+    var showPublishDialog by mutableStateOf(false)
+        private set
+    var isPublishing by mutableStateOf(false)
+        private set
+    var publishError by mutableStateOf<String?>(null)
+        private set
+    var publishSuccess by mutableStateOf(false)
+        private set
+
+    var showArchiveDialog by mutableStateOf(false)
+        private set
+    var isArchiving by mutableStateOf(false)
+        private set
+    var archiveError by mutableStateOf<String?>(null)
+        private set
+    var archiveSuccess by mutableStateOf(false)
+        private set
+
     var showRateDialog by mutableStateOf(false)
         private set
     var ratingValue by mutableStateOf(0)
@@ -97,6 +121,14 @@ class CourseDetailViewModel @Inject constructor(
     }
 
     fun refresh() = load()
+
+    fun pullRefresh() {
+        viewModelScope.launch {
+            isRefreshing = true
+            load()
+            isRefreshing = false
+        }
+    }
 
     fun clearStartAttemptError() {
         startAttemptError = null
@@ -204,6 +236,80 @@ class CourseDetailViewModel @Inject constructor(
         }
     }
 
+    fun openPublishDialog() {
+        publishError = null
+        publishSuccess = false
+        showPublishDialog = true
+    }
+
+    fun dismissPublishDialog() {
+        if (!isPublishing) showPublishDialog = false
+    }
+
+    fun clearPublishSuccess() {
+        publishSuccess = false
+    }
+
+    fun submitPublish(request: PublishCourseRequest) {
+        if (isPublishing) return
+        isPublishing = true
+        publishError = null
+
+        viewModelScope.launch {
+            when (val result = courseRepository.publishCourse(courseId, request)) {
+                is NetworkResult.Success -> {
+                    publishSuccess = true
+                    showPublishDialog = false
+                    load()
+                }
+                is NetworkResult.ApiError -> publishError = when (result.errorCode) {
+                    "COURSE_PUBLISH_METADATA_REQUIRED" -> "공개에 필요한 정보를 모두 입력해주세요."
+                    "COURSE_PUBLISH_NOT_ENOUGH_COMPLETIONS" -> "공개하려면 이 코스를 10회 이상 완주해야 합니다."
+                    "INVALID_COURSE_STATUS" -> "이미 공개된 코스입니다."
+                    else -> result.message
+                }
+                is NetworkResult.NetworkError -> publishError = "네트워크 연결을 확인해 주세요."
+            }
+            isPublishing = false
+        }
+    }
+
+    fun openArchiveDialog() {
+        archiveError = null
+        archiveSuccess = false
+        showArchiveDialog = true
+    }
+
+    fun dismissArchiveDialog() {
+        if (!isArchiving) showArchiveDialog = false
+    }
+
+    fun clearArchiveSuccess() {
+        archiveSuccess = false
+    }
+
+    fun submitArchive() {
+        if (isArchiving) return
+        isArchiving = true
+        archiveError = null
+
+        viewModelScope.launch {
+            when (val result = courseRepository.archiveCourse(courseId)) {
+                is NetworkResult.Success -> {
+                    archiveSuccess = true
+                    showArchiveDialog = false
+                    load()
+                }
+                is NetworkResult.ApiError -> archiveError = when (result.errorCode) {
+                    "INVALID_COURSE_STATUS" -> "이미 보관된 코스입니다."
+                    else -> result.message
+                }
+                is NetworkResult.NetworkError -> archiveError = "네트워크 연결을 확인해 주세요."
+            }
+            isArchiving = false
+        }
+    }
+
     fun clearFavoriteError() {
         favoriteError = null
     }
@@ -270,6 +376,7 @@ class CourseDetailViewModel @Inject constructor(
                 isLoadingLeaderboard = true
                 courseAttemptRepository.getLeaderboard(courseId, page = 0, size = 5)
             }
+            val myBestDeferred = async { courseAttemptRepository.getMyBestAttempt(courseId) }
 
             when (val result = detailDeferred.await()) {
                 is NetworkResult.Success -> {
@@ -290,6 +397,11 @@ class CourseDetailViewModel @Inject constructor(
                 else -> { /* 리더보드 로드 실패 시 조용히 빈 상태 유지 */ }
             }
             isLoadingLeaderboard = false
+
+            when (val result = myBestDeferred.await()) {
+                is NetworkResult.Success -> myBestAttempt = result.data.takeIf { it.completionCount > 0 }
+                else -> { /* 내 기록 없으면 null 유지 */ }
+            }
 
             isLoading = false
         }

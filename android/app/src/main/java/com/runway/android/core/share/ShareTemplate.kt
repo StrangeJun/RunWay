@@ -28,4 +28,18 @@ enum class ShareTemplate(
         textPrimary = 0xFFFFFFFF,
         textSecondary = 0xFF9CA3AF,
     ),
+    SUNRISE_RUN(
+        displayName = "Sunrise",
+        bgColor = 0xFF1A0A00,
+        accentColor = 0xFFFF6B35,
+        textPrimary = 0xFFFFF5E4,
+        textSecondary = 0xFFBB8866,
+    ),
+    OCEAN_PULSE(
+        displayName = "Ocean",
+        bgColor = 0xFF001B2E,
+        accentColor = 0xFF00D4FF,
+        textPrimary = 0xFFE0F7FF,
+        textSecondary = 0xFF6CA3B8,
+    ),
 }

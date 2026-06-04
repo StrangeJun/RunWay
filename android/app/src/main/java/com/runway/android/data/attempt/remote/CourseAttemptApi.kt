@@ -6,6 +6,7 @@ import com.runway.android.data.attempt.model.AbandonAttemptResponse
 import com.runway.android.data.attempt.model.FinishAttemptRequest
 import com.runway.android.data.attempt.model.FinishAttemptResponse
 import com.runway.android.data.attempt.model.LeaderboardResponse
+import com.runway.android.data.attempt.model.MyBestAttemptResponse
 import com.runway.android.data.attempt.model.StartAttemptRequest
 import com.runway.android.data.attempt.model.StartAttemptResponse
 import retrofit2.http.Body
@@ -34,10 +35,16 @@ interface CourseAttemptApi {
         @Body request: AbandonAttemptRequest,
     ): ApiResponse<AbandonAttemptResponse>
 
+    @GET("api/courses/{courseId}/attempts/me/best")
+    suspend fun getMyBestAttempt(
+        @Path("courseId") courseId: String,
+    ): ApiResponse<MyBestAttemptResponse>
+
     @GET("api/courses/{courseId}/leaderboard")
     suspend fun getLeaderboard(
         @Path("courseId") courseId: String,
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 50,
+        @Query("sortBy") sortBy: String = "fastest_time",
     ): ApiResponse<LeaderboardResponse>
 }

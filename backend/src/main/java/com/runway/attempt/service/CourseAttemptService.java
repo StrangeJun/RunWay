@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -165,15 +166,32 @@ public class CourseAttemptService {
             }
         }
 
+        // ─── PR 계산 (complete() 호출 전 이전 기록 조회) ───
+        Optional<Integer> previousBestOpt = courseAttemptRepository
+                .findMinDurationSecondsByCourseIdAndUserId(attempt.getCourseId(), userId);
+        boolean isPR;
+        Integer previousBestSeconds;
+        Integer improvementSeconds;
+        if (previousBestOpt.isPresent()) {
+            previousBestSeconds = previousBestOpt.get();
+            isPR = request.getDurationSeconds() < previousBestSeconds;
+            improvementSeconds = previousBestSeconds - request.getDurationSeconds();
+        } else {
+            // 첫 완주
+            isPR = true;
+            previousBestSeconds = null;
+            improvementSeconds = null;
+        }
+
         // course_attempt 완료 처리
         attempt.complete(endedAt, request.getDurationSeconds(), request.getDistanceMeters(), verificationStatus);
 
         // courses.completion_count 증가 (동일 트랜잭션)
         course.incrementCompletionCount();
 
-        log.info("Attempt finished: attemptId={} courseId={} durationSeconds={}",
-                attemptId, attempt.getCourseId(), request.getDurationSeconds());
-        return FinishAttemptResponse.from(attempt);
+        log.info("Attempt finished: attemptId={} courseId={} durationSeconds={} isPR={}",
+                attemptId, attempt.getCourseId(), request.getDurationSeconds(), isPR);
+        return FinishAttemptResponse.from(attempt, isPR, previousBestSeconds, improvementSeconds);
     }
 
     @Transactional
@@ -204,22 +222,26 @@ public class CourseAttemptService {
     }
 
     @Transactional(readOnly = true)
-    public LeaderboardResponse getLeaderboard(UUID userId, UUID courseId, int page, int size) {
+    public LeaderboardResponse getLeaderboard(UUID userId, UUID courseId, int page, int size, String sortBy) {
         Course course = courseRepository.findByIdAndDeletedAtIsNull(courseId)
                 .orElseThrow(() -> new RunwayException(ErrorCode.COURSE_NOT_FOUND));
         if (!course.isVisibleTo(userId)) {
             throw new RunwayException(ErrorCode.FORBIDDEN);
         }
 
-        // CTE + RANK() OVER 로 유저별 최단 완주 시간 기준 랭킹 계산
-        String dataSql = """
+        boolean byCompletions = "most_completions".equalsIgnoreCase(sortBy);
+        String rankOrder = byCompletions
+                ? "ORDER BY COUNT(*) DESC, MIN(ca.duration_seconds) ASC"
+                : "ORDER BY MIN(ca.duration_seconds) ASC";
+
+        String dataSql = String.format("""
                 WITH ranked AS (
                     SELECT
                         u.id               AS user_id,
                         u.nickname         AS nickname,
                         MIN(ca.duration_seconds) AS best_time_seconds,
                         COUNT(*)           AS completion_count,
-                        RANK() OVER (ORDER BY MIN(ca.duration_seconds) ASC) AS rank
+                        RANK() OVER (%s) AS rank
                     FROM course_attempts ca
                     JOIN users u ON ca.user_id = u.id
                     WHERE ca.course_id = ?
@@ -230,7 +252,7 @@ public class CourseAttemptService {
                 SELECT * FROM ranked
                 ORDER BY rank ASC
                 LIMIT ? OFFSET ?
-                """;
+                """, rankOrder);
 
         String countSql = """
                 SELECT COUNT(DISTINCT ca.user_id)
@@ -239,6 +261,19 @@ public class CourseAttemptService {
                   AND ca.status = 'completed'
                   AND ca.verification_status = 'verified'
                 """;
+
+        String myRankSql = String.format("""
+                SELECT ranked.rank FROM (
+                    SELECT ca.user_id,
+                           RANK() OVER (%s) AS rank
+                    FROM course_attempts ca
+                    WHERE ca.course_id = ?
+                      AND ca.status = 'completed'
+                      AND ca.verification_status = 'verified'
+                    GROUP BY ca.user_id
+                ) ranked
+                WHERE ranked.user_id = ?
+                """, rankOrder);
 
         List<Object> dataParams = new ArrayList<>();
         dataParams.add(courseId);
@@ -252,6 +287,10 @@ public class CourseAttemptService {
         long total = ((Number) buildQuery(countSql, List.of(courseId)).getSingleResult()).longValue();
         int totalPages = size == 0 ? 0 : (int) Math.ceil((double) total / size);
 
+        @SuppressWarnings("unchecked")
+        List<Object> myRankRows = buildQuery(myRankSql, List.of(courseId, userId)).getResultList();
+        Long myRank = myRankRows.isEmpty() ? null : ((Number) myRankRows.get(0)).longValue();
+
         return LeaderboardResponse.builder()
                 .courseId(courseId)
                 .items(items)
@@ -260,6 +299,39 @@ public class CourseAttemptService {
                 .totalElements(total)
                 .totalPages(totalPages)
                 .hasNext(page < totalPages - 1)
+                .sortBy(byCompletions ? "most_completions" : "fastest_time")
+                .myRank(myRank)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public MyBestAttemptResponse getMyBestAttempt(UUID userId, UUID courseId) {
+        Course course = courseRepository.findByIdAndDeletedAtIsNull(courseId)
+                .orElseThrow(() -> new RunwayException(ErrorCode.COURSE_NOT_FOUND));
+        if (!course.isVisibleTo(userId)) {
+            throw new RunwayException(ErrorCode.FORBIDDEN);
+        }
+
+        long count = courseAttemptRepository.countByCourseIdAndUserIdAndStatus(
+                courseId, userId, com.runway.attempt.domain.enums.CourseAttemptStatus.COMPLETED);
+        Optional<Integer> bestTime = courseAttemptRepository
+                .findMinDurationSecondsByCourseIdAndUserId(courseId, userId);
+        // 가장 최근 완주 시각
+        com.runway.attempt.domain.enums.CourseAttemptStatus completed =
+                com.runway.attempt.domain.enums.CourseAttemptStatus.COMPLETED;
+        java.time.Instant lastAttemptAt = courseAttemptRepository
+                .findByCourseIdAndUserIdOrderByStartedAtDesc(courseId, userId,
+                        org.springframework.data.domain.PageRequest.of(0, 1))
+                .getContent().stream()
+                .filter(a -> a.getStatus() == completed)
+                .map(com.runway.attempt.domain.CourseAttempt::getCompletedAt)
+                .findFirst()
+                .orElse(null);
+
+        return MyBestAttemptResponse.builder()
+                .completionCount(count)
+                .bestTimeSeconds(bestTime.orElse(null))
+                .lastAttemptAt(lastAttemptAt)
                 .build();
     }
 

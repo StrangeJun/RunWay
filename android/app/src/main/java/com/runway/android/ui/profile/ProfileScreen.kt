@@ -1,7 +1,11 @@
 package com.runway.android.ui.profile
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,12 +23,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -34,11 +41,15 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.runway.android.ui.components.PersonalRecordsSection
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit,
@@ -50,6 +61,15 @@ fun ProfileScreen(
     onNavigateToReminder: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> viewModel.onImageSelected(uri) }
+
+    PullToRefreshBox(
+        isRefreshing = viewModel.isRefreshing,
+        onRefresh = viewModel::refresh,
+        modifier = Modifier.fillMaxSize(),
+    ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -86,17 +106,72 @@ fun ProfileScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
+            // ─── 아바타 ───
             Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .background(MaterialTheme.colorScheme.primary, CircleShape),
-                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(80.dp),
+                contentAlignment = Alignment.BottomEnd,
             ) {
-                Text(
-                    text = viewModel.nickname.firstOrNull()?.uppercaseChar()?.toString() ?: "R",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
+                val avatarModifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .then(
+                        if (viewModel.isEditing)
+                            Modifier.clickable {
+                                imagePicker.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            }
+                        else Modifier
+                    )
+
+                val localUri = viewModel.selectedImageUri
+                val remoteUrl = viewModel.profileImageUrl
+
+                if (localUri != null) {
+                    AsyncImage(
+                        model = localUri,
+                        contentDescription = "프로필 이미지",
+                        contentScale = ContentScale.Crop,
+                        modifier = avatarModifier,
+                    )
+                } else if (remoteUrl != null) {
+                    AsyncImage(
+                        model = remoteUrl,
+                        contentDescription = "프로필 이미지",
+                        contentScale = ContentScale.Crop,
+                        modifier = avatarModifier,
+                    )
+                } else {
+                    Box(
+                        modifier = avatarModifier.background(
+                            MaterialTheme.colorScheme.primary,
+                            CircleShape,
+                        ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = viewModel.nickname.firstOrNull()?.uppercaseChar()?.toString() ?: "R",
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    }
+                }
+
+                if (viewModel.isEditing) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.CameraAlt,
+                            contentDescription = "사진 변경",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -324,6 +399,7 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
     }
+    } // PullToRefreshBox
 }
 
 @Composable

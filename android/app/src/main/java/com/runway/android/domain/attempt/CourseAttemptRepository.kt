@@ -6,6 +6,7 @@ import com.runway.android.data.attempt.model.AbandonAttemptResponse
 import com.runway.android.data.attempt.model.FinishAttemptRequest
 import com.runway.android.data.attempt.model.FinishAttemptResponse
 import com.runway.android.data.attempt.model.LeaderboardResponse
+import com.runway.android.data.attempt.model.MyBestAttemptResponse
 import com.runway.android.data.attempt.model.StartAttemptRequest
 import com.runway.android.data.attempt.model.StartAttemptResponse
 
@@ -30,5 +31,8 @@ interface CourseAttemptRepository {
         courseId: String,
         page: Int = 0,
         size: Int = 50,
+        sortBy: String = "fastest_time",
     ): NetworkResult<LeaderboardResponse>
+
+    suspend fun getMyBestAttempt(courseId: String): NetworkResult<MyBestAttemptResponse>
 }

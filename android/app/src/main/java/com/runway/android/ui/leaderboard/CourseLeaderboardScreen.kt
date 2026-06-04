@@ -23,11 +23,16 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -40,6 +45,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.data.attempt.model.LeaderboardItem
+import com.runway.android.data.attempt.model.LeaderboardResponse
+import com.runway.android.ui.course.detail.RateCourseDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,6 +54,19 @@ fun CourseLeaderboardScreen(
     onBack: () -> Unit,
     viewModel: CourseLeaderboardViewModel = hiltViewModel(),
 ) {
+    if (viewModel.showRateDialog) {
+        RateCourseDialog(
+            selectedRating = viewModel.ratingValue,
+            onRatingChange = viewModel::onRatingValueChange,
+            comment = viewModel.ratingComment,
+            onCommentChange = viewModel::onRatingCommentChange,
+            isSubmitting = viewModel.isSubmittingRating,
+            errorMessage = viewModel.ratingError,
+            onConfirm = viewModel::submitRating,
+            onDismiss = viewModel::dismissRateDialog,
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -82,7 +102,9 @@ fun CourseLeaderboardScreen(
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
-        Box(
+        PullToRefreshBox(
+            isRefreshing = viewModel.isRefreshing,
+            onRefresh = viewModel::refresh,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
@@ -131,7 +153,12 @@ fun CourseLeaderboardScreen(
                 }
 
                 viewModel.leaderboard != null -> LeaderboardContent(
-                    items = viewModel.leaderboard!!.items,
+                    leaderboard = viewModel.leaderboard!!,
+                    sortBy = viewModel.sortBy,
+                    onSortChange = viewModel::updateSortBy,
+                    isPR = viewModel.isPR,
+                    previousBestSeconds = viewModel.previousBestSeconds,
+                    improvementSeconds = viewModel.improvementSeconds,
                 )
             }
         }
@@ -139,58 +166,223 @@ fun CourseLeaderboardScreen(
 }
 
 @Composable
-private fun LeaderboardContent(items: List<LeaderboardItem>) {
-    if (items.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    imageVector = Icons.Filled.EmojiEvents,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(48.dp),
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "아직 완주 기록이 없습니다",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "이 코스의 첫 번째 완주자가 되어보세요!",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+private fun LeaderboardContent(
+    leaderboard: LeaderboardResponse,
+    sortBy: String,
+    onSortChange: (String) -> Unit,
+    isPR: Boolean = false,
+    previousBestSeconds: Int? = null,
+    improvementSeconds: Int? = null,
+) {
+    val items = leaderboard.items
+    Column {
+        // 완주 결과 배너 (첫 완주 / 신기록 / 회귀)
+        val isFirstCompletion = isPR && previousBestSeconds == null
+        when {
+            isFirstCompletion -> {
+                Surface(
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.EmojiEvents,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(22.dp),
+                        )
+                        Column {
+                            Text(
+                                text = "첫 완주!",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                            Text(
+                                text = "이 코스를 처음 완주했습니다. 대단해요!",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                            )
+                        }
+                    }
+                }
+            }
+            isPR && previousBestSeconds != null -> {
+                Surface(
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.EmojiEvents,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(22.dp),
+                        )
+                        Column {
+                            Text(
+                                text = "코스 신기록!",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                            if (improvementSeconds != null && improvementSeconds > 0) {
+                                Text(
+                                    text = "이전 기록보다 ${formatTime(improvementSeconds)} 빠름 (이전: ${formatTime(previousBestSeconds)})",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            !isPR && improvementSeconds != null && previousBestSeconds != null && improvementSeconds <= 0 -> {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column {
+                            if (improvementSeconds == 0) {
+                                Text(
+                                    text = "지난번과 동일한 기록이에요!",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "최고 기록: ${formatTime(previousBestSeconds)} · 다음엔 더 빠르게 달려보세요!",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                )
+                            } else {
+                                val regressionSeconds = -improvementSeconds
+                                Text(
+                                    text = "지난번보다 ${formatTime(regressionSeconds)} 느림",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "최고 기록: ${formatTime(previousBestSeconds)} · 다음엔 더 잘 달릴 수 있어요!",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 정렬 필터 탭
+        val tabs = listOf("fastest_time" to "빠른 시간 순", "most_completions" to "완주 횟수 순")
+        val selectedIndex = tabs.indexOfFirst { it.first == sortBy }.coerceAtLeast(0)
+        TabRow(
+            selectedTabIndex = selectedIndex,
+            containerColor = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.primary,
+        ) {
+            tabs.forEachIndexed { index, (key, label) ->
+                Tab(
+                    selected = selectedIndex == index,
+                    onClick = { onSortChange(key) },
+                    text = { Text(label, style = MaterialTheme.typography.labelMedium) },
                 )
             }
         }
-        return
-    }
 
-    LazyColumn(
-        contentPadding = PaddingValues(bottom = 24.dp),
-    ) {
-        // ─── 시상대 (top 3) ───
-        if (items.size >= 2) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Podium(
-                    items = items.take(3),
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                )
-                Spacer(modifier = Modifier.height(20.dp))
+        // 내 순위 배너
+        leaderboard.myRank?.let { rank ->
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "내 순위",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    Text(
+                        text = "${rank}위",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        }
+
+        if (items.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Filled.EmojiEvents,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(48.dp),
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "아직 완주 기록이 없습니다",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "이 코스의 첫 번째 완주자가 되어보세요!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(bottom = 24.dp),
+            ) {
+                // ─── 시상대 (top 3) ───
+                if (items.size >= 2) {
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Podium(
+                            items = items.take(3),
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                    }
+                }
+
+                // ─── 나머지 순위 ───
+                items(if (items.size >= 2) items.drop(3) else items) { item ->
+                    RankRow(
+                        item = item,
+                        modifier = Modifier
+                            .padding(horizontal = 20.dp)
+                            .padding(bottom = 8.dp),
+                    )
+                }
             }
         }
-
-        // ─── 나머지 순위 ───
-        items(if (items.size >= 2) items.drop(3) else items) { item ->
-            RankRow(
-                item = item,
-                modifier = Modifier
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 8.dp),
-            )
-        }
-    }
+    } // Column 닫기
 }
 
 @Composable
