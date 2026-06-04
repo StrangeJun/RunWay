@@ -32,11 +32,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -122,16 +130,22 @@ fun RunShareImageScreen(
                 ) {
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // ─── 카드 미리보기 ───
-                    ShareCardPreview(
-                        detail = detail,
-                        template = viewModel.selectedTemplate,
-                        preset = viewModel.selectedPreset,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(1f)
-                            .clip(MaterialTheme.shapes.extraLarge),
-                    )
+                    // ─── 카드 미리보기 (crossfade on template change) ───
+                    Crossfade(
+                        targetState = viewModel.selectedTemplate,
+                        animationSpec = tween(300),
+                        label = "templateCrossfade",
+                    ) { template ->
+                        ShareCardPreview(
+                            detail = detail,
+                            template = template,
+                            preset = viewModel.selectedPreset,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .clip(MaterialTheme.shapes.extraLarge),
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(20.dp))
 
@@ -365,14 +379,24 @@ private fun TemplateChip(
 ) {
     val bgColor = Color(template.bgColor)
     val accentColor = Color(template.accentColor)
-    val borderColor = if (selected) accentColor else Color.Transparent
+    val borderWidth by animateDpAsState(
+        targetValue = if (selected) 2.dp else 0.dp,
+        animationSpec = tween(200),
+        label = "chipBorder",
+    )
+    val chipScale by animateFloatAsState(
+        targetValue = if (selected) 1.06f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "chipScale",
+    )
 
     Box(
         modifier = Modifier
             .size(width = 80.dp, height = 48.dp)
+            .scale(chipScale)
             .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
-            .border(2.dp, borderColor, RoundedCornerShape(10.dp))
+            .border(borderWidth, accentColor, RoundedCornerShape(10.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.BottomStart,
     ) {

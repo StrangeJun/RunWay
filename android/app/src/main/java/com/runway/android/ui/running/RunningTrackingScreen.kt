@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.InfiniteRepeatableSpec
@@ -14,7 +15,11 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -355,14 +360,23 @@ private fun FreeRunDataPanel(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = distanceText,
-                fontSize = 84.sp,
-                lineHeight = 88.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-            )
+            AnimatedContent(
+                targetState = distanceText,
+                transitionSpec = {
+                    (slideInVertically(tween(250)) { it } + fadeIn(tween(250))) togetherWith
+                        (slideOutVertically(tween(200)) { -it } + fadeOut(tween(200)))
+                },
+                label = "distanceSlot",
+            ) { text ->
+                Text(
+                    text = text,
+                    fontSize = 84.sp,
+                    lineHeight = 88.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                )
+            }
             Text(
                 text = "km",
                 style = MaterialTheme.typography.titleMedium,
