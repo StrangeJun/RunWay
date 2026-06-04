@@ -116,11 +116,19 @@ class CourseDetailViewModel @Inject constructor(
     private val _navigateToAttempt = MutableSharedFlow<AttemptStartedEvent>()
     val navigateToAttempt = _navigateToAttempt.asSharedFlow()
 
+    private var skipNextResume = true
+
     init {
         load()
     }
 
-    fun refresh() = load()
+    fun refresh() {
+        if (skipNextResume) {
+            skipNextResume = false
+            return
+        }
+        load()
+    }
 
     fun pullRefresh() {
         viewModelScope.launch {
