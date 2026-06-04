@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
@@ -73,6 +74,7 @@ fun ProfileScreen(
     onNavigateToStats: () -> Unit = {},
     onNavigateToAchievements: () -> Unit = {},
     onNavigateToReminder: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val imagePicker = rememberLauncherForActivityResult(
@@ -422,6 +424,15 @@ fun ProfileScreen(
             icon = Icons.Filled.NotificationsActive,
             label = "러닝 리마인더",
             onClick = onNavigateToReminder,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ─── Settings 메뉴 ───
+        ProfileMenuItem(
+            icon = Icons.Filled.Settings,
+            label = "설정",
+            onClick = onNavigateToSettings,
         )
 
         Spacer(modifier = Modifier.height(12.dp))
