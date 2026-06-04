@@ -103,6 +103,22 @@ class DiscoverViewModel @Inject constructor(
         if (hasLocation) loadCourses()
     }
 
+    fun resetFilters() {
+        radiusMeters = 3000
+        isLoopFilter = null
+        distanceFilter = DistanceFilterOption.ALL
+        sortOption = CourseSortOption.NEAREST
+        if (hasLocation) loadCourses()
+    }
+
+    val activeFilterCount: Int
+        get() = listOfNotNull(
+            if (radiusMeters != 3000) "r" else null,
+            isLoopFilter?.let { "l" },
+            if (distanceFilter != DistanceFilterOption.ALL) "d" else null,
+            if (sortOption != CourseSortOption.NEAREST) "s" else null,
+        ).size
+
     fun refresh() {
         if (isLocationRequired || !hasLocation) return
         viewModelScope.launch {
