@@ -167,6 +167,8 @@ class CourseAttemptTrackingViewModel @Inject constructor(
     private var lastTrackStatus: CourseTrackStatus = CourseTrackStatus.UNKNOWN
     private var nearFinishMessageShown = false
     private var pausedByDeviation = false
+    // true 동안에는 연속 재일시정지 중복 실행 방지 (isPaused=true 확인 후 리셋)
+    private var repausingForDeviation = false
 
     private var stateObserveJob: Job? = null
     private var batchJob: Job? = null
@@ -220,6 +222,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                 cadenceSpm = state.cadenceSpm
                 isAutoPaused = state.isAutoPaused
                 isPaused = state.isPaused
+                if (isPaused) repausingForDeviation = false
                 currentLocationPoint = state.lastLocation?.let { location ->
                     MapPoint(location.latitude, location.longitude).also { point ->
                         nearestCourseDistanceMeters = nearestDistanceToCourse(point, coursePoints)
@@ -228,18 +231,30 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                             if (currentStatus == CourseTrackStatus.OFF_COURSE) {
                                 showDeviationWarning = true
                                 vibrateDeviation()
+                                // 최초 이탈 시 즉시 일시정지
                                 if (!isPaused && !isAutoPaused) {
                                     pausedByDeviation = true
+                                    repausingForDeviation = true
                                     pause()
                                 }
                             } else if (lastTrackStatus == CourseTrackStatus.OFF_COURSE) {
                                 showDeviationWarning = false
                                 if (pausedByDeviation) {
                                     pausedByDeviation = false
+                                    repausingForDeviation = false
                                     resume()
                                 }
                             }
                             lastTrackStatus = currentStatus
+                        }
+                        // 이탈 중 재생 버튼으로 재개한 경우 → 진동+재일시정지 (매 틱 확인)
+                        if (currentStatus == CourseTrackStatus.OFF_COURSE &&
+                            !isPaused && !isAutoPaused && !repausingForDeviation
+                        ) {
+                            repausingForDeviation = true
+                            pausedByDeviation = true
+                            vibrate()
+                            pause()
                         }
                         // 90% 도달 시 1회만 동기부여 메시지 표시
                         if (!nearFinishMessageShown && courseProgressPercent >= 90 && courseProgressPercent < 100) {
