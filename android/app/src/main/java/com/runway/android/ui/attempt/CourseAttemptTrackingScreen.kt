@@ -9,6 +9,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
@@ -557,6 +560,8 @@ private fun StopStatBlock(label: String, value: String) {
     }
 }
 
+private val LimeGreen = Color(0xFFA4E168)
+
 @Composable
 private fun CourseMapPanel(
     points: List<com.runway.android.core.map.MapPoint>,
@@ -567,6 +572,17 @@ private fun CourseMapPanel(
     remainingDistanceText: String,
     modifier: Modifier = Modifier,
 ) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = (progressPercent / 100f).coerceIn(0f, 1f),
+        animationSpec = tween(800, easing = FastOutSlowInEasing),
+        label = "courseProgress",
+    )
+    val progressColor by animateColorAsState(
+        targetValue = if (progressPercent >= 90) LimeGreen else MaterialTheme.colorScheme.primary,
+        animationSpec = tween(400),
+        label = "progressColor",
+    )
+
     Column(modifier = modifier) {
         RouteMapView(
             points = points,
@@ -618,12 +634,12 @@ private fun CourseMapPanel(
                 }
                 Spacer(modifier = Modifier.height(10.dp))
                 LinearProgressIndicator(
-                    progress = { (progressPercent / 100f).coerceIn(0f, 1f) },
+                    progress = { animatedProgress },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(6.dp)
                         .clip(CircleShape),
-                    color = MaterialTheme.colorScheme.primary,
+                    color = progressColor,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 )
             }

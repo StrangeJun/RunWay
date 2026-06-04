@@ -1,5 +1,10 @@
 package com.runway.android.ui.leaderboard
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -37,7 +42,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -175,112 +189,188 @@ private fun LeaderboardContent(
     improvementSeconds: Int? = null,
 ) {
     val items = leaderboard.items
+
+    // 배너 슬라이드인: 첫 composition 후 visible = true로 전환
+    val isFirstCompletion = isPR && previousBestSeconds == null
+    val showBanner = isFirstCompletion ||
+        (isPR && previousBestSeconds != null) ||
+        (!isPR && improvementSeconds != null && previousBestSeconds != null && improvementSeconds <= 0)
+    var bannerVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { bannerVisible = true }
+
+    // PR/첫 완주 배너에 1회 shimmer
+    var shimmerTriggered by remember { mutableStateOf(false) }
+    LaunchedEffect(isPR) {
+        if (isPR) {
+            kotlinx.coroutines.delay(400)
+            shimmerTriggered = true
+        }
+    }
+    val shimmerProgress by animateFloatAsState(
+        targetValue = if (shimmerTriggered) 1f else 0f,
+        animationSpec = tween(800),
+        label = "prShimmer",
+    )
+
     Column {
         // 완주 결과 배너 (첫 완주 / 신기록 / 회귀)
-        val isFirstCompletion = isPR && previousBestSeconds == null
-        when {
-            isFirstCompletion -> {
-                Surface(
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.EmojiEvents,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(22.dp),
-                        )
-                        Column {
-                            Text(
-                                text = "첫 완주!",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                            )
-                            Text(
-                                text = "이 코스를 처음 완주했습니다. 대단해요!",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
-                            )
-                        }
-                    }
-                }
-            }
-            isPR && previousBestSeconds != null -> {
-                Surface(
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.EmojiEvents,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(22.dp),
-                        )
-                        Column {
-                            Text(
-                                text = "코스 신기록!",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                            )
-                            if (improvementSeconds != null && improvementSeconds > 0) {
-                                Text(
-                                    text = "이전 기록보다 ${formatTime(improvementSeconds)} 빠름 (이전: ${formatTime(previousBestSeconds)})",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+        AnimatedVisibility(
+            visible = bannerVisible && showBanner,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(350),
+            ) + fadeIn(tween(350)),
+        ) {
+            when {
+                isFirstCompletion -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .drawWithContent {
+                                drawContent()
+                                val center = size.width * (shimmerProgress * 2.5f - 0.5f)
+                                val halfWidth = size.width * 0.35f
+                                drawRect(
+                                    brush = Brush.horizontalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            Color.White.copy(alpha = 0.28f),
+                                            Color.Transparent,
+                                        ),
+                                        startX = center - halfWidth,
+                                        endX = center + halfWidth,
+                                    ),
+                                    topLeft = Offset.Zero,
+                                    size = size,
                                 )
+                            },
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.EmojiEvents,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(22.dp),
+                                )
+                                Column {
+                                    Text(
+                                        text = "첫 완주!",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                    )
+                                    Text(
+                                        text = "이 코스를 처음 완주했습니다. 대단해요!",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
-            !isPR && improvementSeconds != null && previousBestSeconds != null && improvementSeconds <= 0 -> {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                isPR && previousBestSeconds != null -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .drawWithContent {
+                                drawContent()
+                                val center = size.width * (shimmerProgress * 2.5f - 0.5f)
+                                val halfWidth = size.width * 0.35f
+                                drawRect(
+                                    brush = Brush.horizontalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            Color.White.copy(alpha = 0.28f),
+                                            Color.Transparent,
+                                        ),
+                                        startX = center - halfWidth,
+                                        endX = center + halfWidth,
+                                    ),
+                                    topLeft = Offset.Zero,
+                                    size = size,
+                                )
+                            },
                     ) {
-                        Column {
-                            if (improvementSeconds == 0) {
-                                Text(
-                                    text = "지난번과 동일한 기록이에요!",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.EmojiEvents,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(22.dp),
                                 )
-                                Text(
-                                    text = "최고 기록: ${formatTime(previousBestSeconds)} · 다음엔 더 빠르게 달려보세요!",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                                )
-                            } else {
-                                val regressionSeconds = -improvementSeconds
-                                Text(
-                                    text = "지난번보다 ${formatTime(regressionSeconds)} 느림",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Text(
-                                    text = "최고 기록: ${formatTime(previousBestSeconds)} · 다음엔 더 잘 달릴 수 있어요!",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                                )
+                                Column {
+                                    Text(
+                                        text = "코스 신기록!",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                    )
+                                    if (improvementSeconds != null && improvementSeconds > 0) {
+                                        Text(
+                                            text = "이전 기록보다 ${formatTime(improvementSeconds)} 빠름 (이전: ${formatTime(previousBestSeconds)})",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                !isPR && improvementSeconds != null && previousBestSeconds != null && improvementSeconds <= 0 -> {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column {
+                                if (improvementSeconds == 0) {
+                                    Text(
+                                        text = "지난번과 동일한 기록이에요!",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        text = "최고 기록: ${formatTime(previousBestSeconds)} · 다음엔 더 빠르게 달려보세요!",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                    )
+                                } else {
+                                    val regressionSeconds = -improvementSeconds
+                                    Text(
+                                        text = "지난번보다 ${formatTime(regressionSeconds)} 느림",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        text = "최고 기록: ${formatTime(previousBestSeconds)} · 다음엔 더 잘 달릴 수 있어요!",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                    )
+                                }
                             }
                         }
                     }
