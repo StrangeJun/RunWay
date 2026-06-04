@@ -1,15 +1,17 @@
 package com.runway.android.ui.components
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas as AndroidCanvas
+import android.graphics.Paint as AndroidPaint
 import android.location.Location
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.toArgb
 import com.runway.android.ui.theme.LocalIsDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -25,7 +27,6 @@ import com.google.android.gms.maps.model.JointType
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.RoundCap
-import com.google.maps.android.compose.Circle
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
@@ -48,7 +49,6 @@ fun RouteMapView(
     modifier: Modifier = Modifier,
     currentLocation: MapPoint? = null,
     gesturesEnabled: Boolean = false,
-    enableGesturesOnMapClick: Boolean = false,
     showKilometerMarkers: Boolean = false,
 ) {
     if (points.size >= 2) {
@@ -57,7 +57,6 @@ fun RouteMapView(
             currentLocation = currentLocation,
             modifier = modifier,
             gesturesEnabled = gesturesEnabled,
-            enableGesturesOnMapClick = enableGesturesOnMapClick,
             showKilometerMarkers = showKilometerMarkers,
         )
     } else {
@@ -71,7 +70,6 @@ private fun RouteGoogleMap(
     currentLocation: MapPoint?,
     modifier: Modifier,
     gesturesEnabled: Boolean,
-    enableGesturesOnMapClick: Boolean,
     showKilometerMarkers: Boolean,
 ) {
     val context = LocalContext.current
@@ -79,12 +77,10 @@ private fun RouteGoogleMap(
     val bounds = remember(points) { points.toLatLngBounds() }
     val cameraPositionState = rememberCameraPositionState()
     val primaryColor = MaterialTheme.colorScheme.primary
-    var isInteractive by remember(gesturesEnabled) {
-        mutableStateOf(gesturesEnabled)
-    }
     val kilometerMarkers = remember(points, showKilometerMarkers) {
         if (showKilometerMarkers) points.calculateKilometerMarkers() else emptyList()
     }
+    val primaryColorArgb = primaryColor.toArgb()
     val currentLatLng = remember(currentLocation) {
         currentLocation?.let { LatLng(it.latitude, it.longitude) }
     }
@@ -99,17 +95,14 @@ private fun RouteGoogleMap(
         cameraPositionState = cameraPositionState,
         properties = MapProperties(isMyLocationEnabled = false, mapStyleOptions = mapStyleOptions),
         uiSettings = MapUiSettings(
-            zoomControlsEnabled = isInteractive,
-            scrollGesturesEnabled = isInteractive,
-            zoomGesturesEnabled = isInteractive,
-            rotationGesturesEnabled = isInteractive,
-            tiltGesturesEnabled = isInteractive,
-            compassEnabled = isInteractive,
+            zoomControlsEnabled = gesturesEnabled,
+            scrollGesturesEnabled = gesturesEnabled,
+            zoomGesturesEnabled = gesturesEnabled,
+            rotationGesturesEnabled = gesturesEnabled,
+            tiltGesturesEnabled = gesturesEnabled,
+            compassEnabled = gesturesEnabled,
             mapToolbarEnabled = false,
         ),
-        onMapClick = {
-            if (enableGesturesOnMapClick) isInteractive = true
-        },
         onMapLoaded = {
             cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 48))
         },
@@ -123,13 +116,17 @@ private fun RouteGoogleMap(
             jointType = JointType.ROUND,
         )
         kilometerMarkers.forEach { marker ->
-            Circle(
-                center = marker.position,
-                radius = 12.0,
-                strokeColor = primaryColor,
-                fillColor = primaryColor.copy(alpha = 0.9f),
-                strokeWidth = 3f,
+            val icon = remember(marker.km, primaryColorArgb) {
+                BitmapDescriptorFactory.fromBitmap(
+                    createKmMarkerBitmap(context, marker.km, primaryColorArgb)
+                )
+            }
+            Marker(
+                state = MarkerState(position = marker.position),
+                icon = icon,
+                title = "${marker.km}km",
                 zIndex = 1f,
+                anchor = Offset(0.5f, 0.5f),
             )
         }
         Marker(
@@ -151,6 +148,7 @@ private fun RouteGoogleMap(
 }
 
 private data class KilometerMarker(
+    val km: Int,
     val position: LatLng,
 )
 
@@ -172,6 +170,7 @@ private fun List<MapPoint>.calculateKilometerMarkers(): List<KilometerMarker> {
             val fraction = (targetIntoSegment / segmentMeters).coerceIn(0.0, 1.0)
             markers.add(
                 KilometerMarker(
+                    km = nextKilometer,
                     position = LatLng(
                         start.latitude + (end.latitude - start.latitude) * fraction,
                         start.longitude + (end.longitude - start.longitude) * fraction,
@@ -185,6 +184,35 @@ private fun List<MapPoint>.calculateKilometerMarkers(): List<KilometerMarker> {
     }
 
     return markers
+}
+
+private fun createKmMarkerBitmap(context: Context, km: Int, fillColor: Int): Bitmap {
+    val density = context.resources.displayMetrics.density
+    val sizePx = (28 * density).toInt().coerceAtLeast(28)
+    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val canvas = AndroidCanvas(bitmap)
+    val paint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG)
+
+    // Filled circle
+    paint.color = fillColor
+    paint.style = AndroidPaint.Style.FILL
+    canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f, paint)
+
+    // White border
+    paint.color = android.graphics.Color.WHITE
+    paint.style = AndroidPaint.Style.STROKE
+    paint.strokeWidth = density * 2f
+    canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f - density, paint)
+
+    // km number
+    paint.style = AndroidPaint.Style.FILL
+    paint.color = android.graphics.Color.WHITE
+    paint.textSize = sizePx * 0.42f
+    paint.textAlign = AndroidPaint.Align.CENTER
+    val textY = sizePx / 2f - (paint.descent() + paint.ascent()) / 2f
+    canvas.drawText(km.toString(), sizePx / 2f, textY, paint)
+
+    return bitmap
 }
 
 private fun distanceMeters(start: MapPoint, end: MapPoint): Double {

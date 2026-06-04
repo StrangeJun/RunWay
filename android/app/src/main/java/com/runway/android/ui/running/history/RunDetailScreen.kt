@@ -1,6 +1,7 @@
 package com.runway.android.ui.running.history
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,12 +16,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.TextSnippet
 import androidx.compose.material.icons.filled.AddLocation
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -43,10 +47,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.map.MapPoint
 import com.runway.android.ui.course.CreateCourseDialog
@@ -327,6 +334,48 @@ fun RunDetailScreen(
                         ?: viewModel.chartPoints.minOfOrNull { it.paceSecondsPerKm }
                 }
 
+                var showFullScreenMap by remember { mutableStateOf(false) }
+
+                if (showFullScreenMap) {
+                    Dialog(
+                        onDismissRequest = { showFullScreenMap = false },
+                        properties = DialogProperties(
+                            usePlatformDefaultWidth = false,
+                            dismissOnClickOutside = true,
+                        ),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black),
+                        ) {
+                            RouteMapView(
+                                points = detail.points.map { MapPoint(it.latitude, it.longitude) },
+                                modifier = Modifier.fillMaxSize(),
+                                gesturesEnabled = true,
+                                showKilometerMarkers = true,
+                            )
+                            IconButton(
+                                onClick = { showFullScreenMap = false },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .statusBarsPadding()
+                                    .padding(12.dp)
+                                    .background(
+                                        color = Color.Black.copy(alpha = 0.5f),
+                                        shape = CircleShape,
+                                    ),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "닫기",
+                                    tint = Color.White,
+                                )
+                            }
+                        }
+                    }
+                }
+
                 LazyColumn(
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -371,15 +420,33 @@ fun RunDetailScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        RouteMapView(
-                            points = detail.points.map { MapPoint(it.latitude, it.longitude) },
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(220.dp)
-                                .clip(MaterialTheme.shapes.extraLarge),
-                            enableGesturesOnMapClick = true,
-                            showKilometerMarkers = true,
-                        )
+                                .clip(MaterialTheme.shapes.extraLarge)
+                                .clickable { showFullScreenMap = true },
+                        ) {
+                            RouteMapView(
+                                points = detail.points.map { MapPoint(it.latitude, it.longitude) },
+                                modifier = Modifier.fillMaxSize(),
+                                gesturesEnabled = false,
+                                showKilometerMarkers = true,
+                            )
+                            Icon(
+                                imageVector = Icons.Filled.Fullscreen,
+                                contentDescription = "전체 화면으로 보기",
+                                tint = Color.White,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(10.dp)
+                                    .background(
+                                        color = Color.Black.copy(alpha = 0.4f),
+                                        shape = CircleShape,
+                                    )
+                                    .padding(4.dp),
+                            )
+                        }
                     }
 
                     // ─── 페이스 차트 ───
