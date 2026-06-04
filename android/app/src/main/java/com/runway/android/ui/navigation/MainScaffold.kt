@@ -32,6 +32,7 @@ fun MainScaffold(
     onNavigateToStats: () -> Unit = {},
     onNavigateToAchievements: () -> Unit = {},
     onNavigateToReminder: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
     homeViewModel: HomeViewModel = hiltViewModel(),
 ) {
     val recoveryViewModel: TrackingRecoveryViewModel = hiltViewModel()
@@ -79,6 +80,7 @@ fun MainScaffold(
                     onNavigateToStats = onNavigateToStats,
                     onNavigateToAchievements = onNavigateToAchievements,
                     onNavigateToReminder = onNavigateToReminder,
+                    onNavigateToSettings = onNavigateToSettings,
                 )
             }
 

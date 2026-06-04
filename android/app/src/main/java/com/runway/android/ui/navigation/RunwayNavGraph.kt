@@ -32,6 +32,7 @@ import com.runway.android.ui.onboarding.OnboardingScreen
 import com.runway.android.ui.running.RunResultScreen
 import com.runway.android.ui.running.RunningTrackingScreen
 import com.runway.android.ui.reminder.ReminderScreen
+import com.runway.android.ui.settings.SettingsScreen
 import com.runway.android.ui.running.history.MyRunsScreen
 import com.runway.android.ui.running.history.RunDetailScreen
 import com.runway.android.ui.splash.RunwaySplashScreen
@@ -170,6 +171,7 @@ fun RunwayNavGraph() {
                 onNavigateToStats = { navController.navigate(RunwayRoutes.STATS) },
                 onNavigateToAchievements = { navController.navigate(RunwayRoutes.ACHIEVEMENTS) },
                 onNavigateToReminder = { navController.navigate(RunwayRoutes.REMINDER) },
+                onNavigateToSettings = { navController.navigate(RunwayRoutes.SETTINGS) },
                 homeViewModel = homeViewModel,
             )
         }
@@ -380,6 +382,12 @@ fun RunwayNavGraph() {
 
         composable(RunwayRoutes.REMINDER) {
             ReminderScreen(onBack = { navController.popBackStack() })
+        }
+
+        // ─── 설정 ───
+
+        composable(RunwayRoutes.SETTINGS) {
+            SettingsScreen(onBack = { navController.popBackStack() })
         }
     }
 }

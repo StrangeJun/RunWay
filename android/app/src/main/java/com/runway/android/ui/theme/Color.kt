@@ -2,25 +2,35 @@ package com.runway.android.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ─── Background layers (oklch 250° hue, blue-charcoal family) ───
-val BackgroundDark = Color(0xFF111119)        // oklch(0.14 0.01 250) — app background
-val SurfaceDark = Color(0xFF1B1B2B)          // oklch(0.18 0.012 250) — card surface
-val MutedDark = Color(0xFF222232)            // oklch(0.22 0.012 250) — input / muted bg
-val SecondaryContainerDark = Color(0xFF262638) // oklch(0.24 0.015 250) — secondary
+// ─── Dark theme backgrounds ───
+val BackgroundDark = Color(0xFF111119)
+val SurfaceDark = Color(0xFF1B1B2B)
+val MutedDark = Color(0xFF222232)
+val SecondaryContainerDark = Color(0xFF262638)
 
-// ─── Text ───
-val OnSurfaceWhite = Color(0xFFF8F8FC)       // oklch(0.98 0 0) — primary text
-val OnSurfaceMuted = Color(0xFF888AA8)       // oklch(0.65 0.015 250) — secondary text
+// ─── Light theme backgrounds ───
+val BackgroundLight = Color(0xFFF5F5FA)
+val SurfaceLight = Color(0xFFFFFFFF)
+val MutedLight = Color(0xFFEEEEF4)
+val SecondaryContainerLight = Color(0xFFE8E8F0)
+
+// ─── Text (dark theme) ───
+val OnSurfaceWhite = Color(0xFFF8F8FC)
+val OnSurfaceMuted = Color(0xFF888AA8)
+
+// ─── Text (light theme) ───
+val OnSurfaceDark = Color(0xFF111119)
+val OnSurfaceMutedLight = Color(0xFF666680)
 
 // ─── Border / Outline ───
-val BorderColorDark = Color(0xFF2B2B3D)      // oklch(0.26 0.014 250)
+val BorderColorDark = Color(0xFF2B2B3D)
+val BorderColorLight = Color(0xFFD8D8E8)
 
-// ─── Primary — Neon lime green (oklch 0.85 0.22 hue 130) ───
-// Future: refine to exact oklch match if design tooling allows
+// ─── Primary — Neon lime green ───
 val RunwayGreen = Color(0xFFA4E168)
-val OnRunwayGreen = Color(0xFF111119)        // dark text on green button
+val OnRunwayGreen = Color(0xFF111119)
 
 // ─── Semantic states ───
-val DestructiveRed = Color(0xFFDC5040)       // oklch(0.65 0.22 25)
-val SuccessGreen = Color(0xFF7FD98A)         // oklch(0.75 0.18 145)
-val WarningYellow = Color(0xFFCCBE50)        // oklch(0.80 0.18 75)
+val DestructiveRed = Color(0xFFDC5040)
+val SuccessGreen = Color(0xFF7FD98A)
+val WarningYellow = Color(0xFFCCBE50)
