@@ -46,7 +46,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -253,58 +256,84 @@ private fun PostureSilhouetteGuide(modifier: Modifier = Modifier) {
         val w = size.width
         val h = size.height
         val cx = w * 0.5f
-        val scale = h * 0.65f
+        val scale = h * 0.63f
 
-        val overlayColor = Color.Black.copy(alpha = 0.35f)
-        drawRect(overlayColor)
+        drawRect(Color.Black.copy(alpha = 0.30f))
 
-        val strokeColor = Color.White.copy(alpha = 0.85f)
-        val strokeW = 3.dp.toPx()
-        val stroke = Stroke(width = strokeW, cap = StrokeCap.Round)
+        val ink = Color.White.copy(alpha = 0.90f)
+        val sw = 3.8f.dp.toPx()
+        val dash = PathEffect.dashPathEffect(floatArrayOf(14f, 10f), 0f)
+        val stroke = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round, pathEffect = dash)
 
-        // head
-        val headR = scale * 0.055f
-        val headCy = h * 0.18f
-        drawCircle(strokeColor, headR, Offset(cx, headCy), style = stroke)
+        // ── HEAD ──
+        val headR = scale * 0.053f
+        val headCy = h * 0.175f
+        drawCircle(ink, headR, Offset(cx, headCy), style = stroke)
 
-        // torso — slight forward lean ~7 degrees
-        val shoulderY = headCy + headR * 1.6f
-        val hipY = shoulderY + scale * 0.25f
-        val leanOffset = scale * 0.06f
-        val shoulderX = cx - leanOffset * 0.3f
-        val hipX = cx + leanOffset * 0.3f
-        drawLine(strokeColor, Offset(shoulderX, shoulderY), Offset(hipX, hipY), strokeW, StrokeCap.Round)
+        // ── SKELETON ANCHORS (slight forward lean ~7°) ──
+        val lean = scale * 0.048f
+        val shX = cx - lean * 0.35f;  val shY = headCy + headR * 1.72f   // shoulder
+        val hipX = cx + lean * 0.35f; val hipY = shY + scale * 0.258f    // hip
 
-        // arms — left arm swinging forward
-        val elbowXL = shoulderX - scale * 0.10f
-        val elbowYL = shoulderY + scale * 0.13f
-        val wristXL = shoulderX - scale * 0.08f
-        val wristYL = elbowYL - scale * 0.10f
-        drawLine(strokeColor, Offset(shoulderX, shoulderY), Offset(elbowXL, elbowYL), strokeW, StrokeCap.Round)
-        drawLine(strokeColor, Offset(elbowXL, elbowYL), Offset(wristXL, wristYL), strokeW, StrokeCap.Round)
+        // ── TORSO OUTLINE (closed path with width) ──
+        val tw = scale * 0.030f   // half-width
+        val torso = Path().apply {
+            moveTo(shX - tw, shY)
+            cubicTo(
+                shX - tw * 1.15f, shY + scale * 0.085f,
+                hipX - tw * 0.85f, shY + scale * 0.175f,
+                hipX - tw * 0.55f, hipY,
+            )
+            lineTo(hipX + tw * 0.55f, hipY)
+            cubicTo(
+                hipX + tw * 0.85f, shY + scale * 0.175f,
+                shX + tw * 1.15f, shY + scale * 0.085f,
+                shX + tw, shY,
+            )
+            close()
+        }
+        drawPath(torso, ink, style = stroke)
 
-        // arms — right arm swinging back
-        val elbowXR = shoulderX + scale * 0.09f
-        val elbowYR = shoulderY + scale * 0.13f
-        val wristXR = shoulderX + scale * 0.07f
-        val wristYR = elbowYR + scale * 0.09f
-        drawLine(strokeColor, Offset(shoulderX, shoulderY), Offset(elbowXR, elbowYR), strokeW, StrokeCap.Round)
-        drawLine(strokeColor, Offset(elbowXR, elbowYR), Offset(wristXR, wristYR), strokeW, StrokeCap.Round)
+        // ── LEFT ARM — forward swing ──
+        val eXL = shX - scale * 0.107f; val eYL = shY + scale * 0.130f   // elbow
+        val wXL = shX - scale * 0.080f; val wYL = eYL - scale * 0.108f   // wrist
+        drawPath(Path().apply {
+            moveTo(shX - tw * 0.5f, shY)
+            cubicTo(shX - scale * 0.055f, shY + scale * 0.048f, eXL + scale * 0.01f, eYL - scale * 0.022f, eXL, eYL)
+            cubicTo(eXL - scale * 0.008f, eYL + scale * 0.010f, wXL - scale * 0.010f, wYL + scale * 0.032f, wXL, wYL)
+        }, ink, style = stroke)
 
-        // left leg — swing phase, knee up
-        val kneeXL = hipX - scale * 0.07f
-        val kneeYL = hipY + scale * 0.15f
-        val ankleXL = kneeXL + scale * 0.05f
-        val ankleYL = kneeYL + scale * 0.15f
-        drawLine(strokeColor, Offset(hipX, hipY), Offset(kneeXL, kneeYL), strokeW, StrokeCap.Round)
-        drawLine(strokeColor, Offset(kneeXL, kneeYL), Offset(ankleXL, ankleYL), strokeW, StrokeCap.Round)
+        // ── RIGHT ARM — back swing ──
+        val eXR = shX + scale * 0.098f; val eYR = shY + scale * 0.126f
+        val wXR = shX + scale * 0.076f; val wYR = eYR + scale * 0.096f
+        drawPath(Path().apply {
+            moveTo(shX + tw * 0.5f, shY)
+            cubicTo(shX + scale * 0.050f, shY + scale * 0.045f, eXR - scale * 0.010f, eYR - scale * 0.020f, eXR, eYR)
+            cubicTo(eXR + scale * 0.008f, eYR + scale * 0.010f, wXR + scale * 0.010f, wYR - scale * 0.028f, wXR, wYR)
+        }, ink, style = stroke)
 
-        // right leg — stance phase
-        val kneeXR = hipX + scale * 0.04f
-        val kneeYR = hipY + scale * 0.17f
-        val ankleXR = kneeXR - scale * 0.03f
-        val ankleYR = kneeYR + scale * 0.17f
-        drawLine(strokeColor, Offset(hipX, hipY), Offset(kneeXR, kneeYR), strokeW, StrokeCap.Round)
-        drawLine(strokeColor, Offset(kneeXR, kneeYR), Offset(ankleXR, ankleYR), strokeW, StrokeCap.Round)
+        // ── LEFT LEG — swing phase (knee lifted) ──
+        val kXL = hipX - scale * 0.073f; val kYL = hipY + scale * 0.152f  // knee
+        val aXL = kXL + scale * 0.056f; val aYL = kYL + scale * 0.148f   // ankle
+        drawPath(Path().apply {
+            moveTo(hipX - tw * 0.32f, hipY)
+            cubicTo(hipX - scale * 0.040f, hipY + scale * 0.058f, kXL + scale * 0.018f, kYL - scale * 0.038f, kXL, kYL)
+            cubicTo(kXL - scale * 0.010f, kYL + scale * 0.040f, aXL - scale * 0.018f, aYL - scale * 0.040f, aXL, aYL)
+        }, ink, style = stroke)
+
+        // ── RIGHT LEG — stance / push-off ──
+        val kXR = hipX + scale * 0.038f; val kYR = hipY + scale * 0.177f
+        val aXR = kXR - scale * 0.024f; val aYR = kYR + scale * 0.180f
+        drawPath(Path().apply {
+            moveTo(hipX + tw * 0.32f, hipY)
+            cubicTo(hipX + scale * 0.036f, hipY + scale * 0.064f, kXR + scale * 0.010f, kYR - scale * 0.038f, kXR, kYR)
+            cubicTo(kXR - scale * 0.005f, kYR + scale * 0.042f, aXR + scale * 0.010f, aYR - scale * 0.048f, aXR, aYR)
+        }, ink, style = stroke)
+
+        // ── FOOT (stance foot flat on ground) ──
+        drawPath(Path().apply {
+            moveTo(aXR - scale * 0.005f, aYR)
+            cubicTo(aXR + scale * 0.008f, aYR + scale * 0.012f, aXR + scale * 0.052f, aYR + scale * 0.010f, aXR + scale * 0.065f, aYR - scale * 0.002f)
+        }, ink, style = stroke)
     }
 }
