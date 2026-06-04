@@ -163,7 +163,7 @@ class DiscoverViewModel @Inject constructor(
             keyword = keyword.trim().takeIf { it.isNotBlank() },
         )) {
             is NetworkResult.Success -> rawCourses = result.data.content
-            is NetworkResult.ApiError -> errorMessage = result.message
+            is NetworkResult.ApiError -> rawCourses = listOf()
             is NetworkResult.NetworkError -> errorMessage = "네트워크 오류가 발생했습니다."
         }
         isLoading = false
