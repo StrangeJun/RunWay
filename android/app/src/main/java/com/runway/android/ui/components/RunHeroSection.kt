@@ -49,10 +49,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.runway.android.core.map.MapPoint
 import com.runway.android.ui.home.RunGoal
+import com.runway.android.ui.theme.LocalIsDarkTheme
 
-private val HeroScrim = Color(0xFF0A0B10)
+private val HeroScrimDark = Color(0xFF0A0B10)
+private val HeroScrimLight = Color(0xFFF5F5FA)
 private val LimeGreen = Color(0xFFA4E168)
-private val PillBg = Color(0x1EFFFFFF)
 
 @Composable
 fun RunHeroSection(
@@ -64,6 +65,11 @@ fun RunHeroSection(
     hasLocationPermission: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val isDark = LocalIsDarkTheme.current
+    val heroScrim = if (isDark) HeroScrimDark else HeroScrimLight
+    val onHero = if (isDark) Color.White else Color(0xFF111119)
+    val pillBg = if (isDark) Color(0x1EFFFFFF) else Color(0x14000000)
+
     Box(modifier = modifier) {
 
         // ── Real Google Map background ────────────────────────────────────
@@ -73,17 +79,17 @@ fun RunHeroSection(
             modifier = Modifier.fillMaxSize(),
         )
 
-        // ── Bottom scrim ──────────────────────────────────────────────────
+        // ── Bottom scrim — starts at 80% height for a more gradual fade ──
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.62f)
+                .fillMaxHeight(0.72f)
                 .align(Alignment.BottomCenter)
                 .background(
                     Brush.verticalGradient(
                         0.00f to Color.Transparent,
-                        0.35f to HeroScrim.copy(alpha = 0.70f),
-                        1.00f to HeroScrim,
+                        0.28f to heroScrim.copy(alpha = 0.55f),
+                        1.00f to heroScrim,
                     )
                 ),
         )
@@ -107,13 +113,15 @@ fun RunHeroSection(
                 fontSize = 26.sp,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = (-0.5).sp,
-                color = Color.White,
+                color = onHero,
             )
         }
 
         // ── GPS + Weather pill ────────────────────────────────────────────
         GpsWeatherPill(
             weatherInfo = weatherInfo,
+            pillBg = pillBg,
+            onPill = onHero,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 110.dp)
@@ -170,7 +178,7 @@ fun RunHeroSection(
             Surface(
                 onClick = onSetGoal,
                 shape = RoundedCornerShape(50),
-                color = if (selectedGoal != null) LimeGreen.copy(alpha = 0.18f) else PillBg,
+                color = if (selectedGoal != null) LimeGreen.copy(alpha = 0.18f) else pillBg,
             ) {
                 Text(
                     text = when (selectedGoal) {
@@ -181,7 +189,7 @@ fun RunHeroSection(
                     },
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (selectedGoal != null) LimeGreen else Color.White.copy(alpha = 0.65f),
+                    color = if (selectedGoal != null) LimeGreen else onHero.copy(alpha = 0.65f),
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
                 )
             }
@@ -235,6 +243,8 @@ private fun ScrollHintIndicator(modifier: Modifier = Modifier) {
 @Composable
 private fun GpsWeatherPill(
     weatherInfo: WeatherInfo?,
+    pillBg: Color,
+    onPill: Color,
     modifier: Modifier = Modifier,
 ) {
     val shimmerTransition = rememberInfiniteTransition(label = "pill_shimmer")
@@ -248,7 +258,7 @@ private fun GpsWeatherPill(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(PillBg)
+            .background(pillBg)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -266,7 +276,7 @@ private fun GpsWeatherPill(
                 text = "GPS 준비 완료",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White.copy(alpha = 0.90f),
+                color = onPill.copy(alpha = 0.90f),
             )
         }
 
@@ -276,14 +286,15 @@ private fun GpsWeatherPill(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                WeatherChip(text = "${weatherInfo.tempCelsius}°C")
-                WeatherChip(text = "습도 ${weatherInfo.humidity}%")
+                WeatherChip(text = "${weatherInfo.tempCelsius}°C", onPill = onPill)
+                WeatherChip(text = "습도 ${weatherInfo.humidity}%", onPill = onPill)
 
                 if (weatherInfo.pm10 > 0) {
                     DustChip(
                         label = "PM10",
                         quality = pm10Quality(weatherInfo.pm10),
                         color = pm10Color(weatherInfo.pm10),
+                        onPill = onPill,
                     )
                 }
                 if (weatherInfo.pm25 > 0) {
@@ -291,6 +302,7 @@ private fun GpsWeatherPill(
                         label = "PM2.5",
                         quality = pm25Quality(weatherInfo.pm25),
                         color = pm25Color(weatherInfo.pm25),
+                        onPill = onPill,
                     )
                 }
             }
@@ -300,14 +312,14 @@ private fun GpsWeatherPill(
                     .width(130.dp)
                     .height(11.dp)
                     .clip(RoundedCornerShape(5.dp))
-                    .background(Color.White.copy(alpha = 0.07f))
+                    .background(onPill.copy(alpha = 0.07f))
                     .drawWithContent {
                         drawContent()
                         val center = size.width * shimmerOffset
                         val half = size.width * 0.5f
                         drawRect(
                             brush = Brush.horizontalGradient(
-                                listOf(Color.Transparent, Color.White.copy(0.22f), Color.Transparent),
+                                listOf(Color.Transparent, onPill.copy(0.22f), Color.Transparent),
                                 startX = center - half,
                                 endX = center + half,
                             ),
@@ -319,16 +331,16 @@ private fun GpsWeatherPill(
 }
 
 @Composable
-private fun WeatherChip(text: String) {
+private fun WeatherChip(text: String, onPill: Color) {
     Text(
         text = text,
         fontSize = 11.sp,
-        color = Color.White.copy(alpha = 0.75f),
+        color = onPill.copy(alpha = 0.75f),
     )
 }
 
 @Composable
-private fun DustChip(label: String, quality: String, color: Color) {
+private fun DustChip(label: String, quality: String, color: Color, onPill: Color) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
@@ -336,7 +348,7 @@ private fun DustChip(label: String, quality: String, color: Color) {
         Text(
             text = label,
             fontSize = 11.sp,
-            color = Color.White.copy(alpha = 0.55f),
+            color = onPill.copy(alpha = 0.55f),
         )
         Box(
             modifier = Modifier
