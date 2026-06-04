@@ -23,6 +23,10 @@ object RunwayRoutes {
     const val ACHIEVEMENTS = "achievements"
     const val REMINDER = "reminder"
     const val SETTINGS = "settings"
+    const val POSTURE_CAPTURE = "posture_capture"
+    const val POSTURE_RESULT = "posture_result/{analysisId}"
+
+    fun postureResult(analysisId: String) = "posture_result/${Uri.encode(analysisId)}"
 
     fun courseDetail(courseId: String) = "course_detail/${Uri.encode(courseId)}"
     fun runShare(runId: String) = "run_share/${Uri.encode(runId)}"
