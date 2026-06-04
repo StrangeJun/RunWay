@@ -94,6 +94,7 @@ fun PostureResultScreen(
                 result = displayResult,
                 modifier = Modifier.padding(padding),
                 onRetake = onRetake,
+                onBack = onBack,
             )
         }
     }
@@ -104,6 +105,7 @@ private fun PostureResultContent(
     result: PostureResult,
     modifier: Modifier = Modifier,
     onRetake: () -> Unit,
+    onBack: () -> Unit,
 ) {
     Column(
         modifier = modifier
@@ -162,6 +164,13 @@ private fun PostureResultContent(
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
         ) {
             Text("다시 분석하기")
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = onBack,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("이력 보기")
         }
         Spacer(Modifier.height(16.dp))
     }
@@ -252,6 +261,7 @@ private fun PostureResultPreview() {
                 overstride = PostureCategoryResult(70, 0.18f, 0f, 0.10f, "%", "착지 위치가 약간 앞쪽입니다.", "발이 엉덩이 아래에 가깝게 착지하면 제동력을 줄일 수 있습니다."),
             ),
             onRetake = {},
+            onBack = {},
         )
     }
 }
