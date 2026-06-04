@@ -8,6 +8,7 @@ import kotlin.math.sqrt
 
 object PostureAngleCalculator {
 
+    private const val NOSE = 0
     private const val LEFT_SHOULDER = 11
     private const val RIGHT_SHOULDER = 12
     private const val LEFT_ELBOW = 13
@@ -40,14 +41,21 @@ object PostureAngleCalculator {
         val hipMidX = (landmarks[LEFT_HIP].x() + landmarks[RIGHT_HIP].x()) / 2f
         val shoulderMidY = (landmarks[LEFT_SHOULDER].y() + landmarks[RIGHT_SHOULDER].y()) / 2f
 
-        // Use the leading foot (highest x = furthest forward in side-view) for overstride
+        // Detect facing direction: right-facing when nose is to the right of hip midpoint.
+        // For right-facing runners the leading (forward) foot has the highest x;
+        // for left-facing runners it has the lowest x.
+        val facingRight = landmarks[NOSE].x() > hipMidX
         val leftAnkleX = landmarks[LEFT_ANKLE].x()
         val rightAnkleX = landmarks[RIGHT_ANKLE].x()
-        val leadingAnkleX = maxOf(leftAnkleX, rightAnkleX)
-        val leadingAnkleY = if (leftAnkleX >= rightAnkleX) landmarks[LEFT_ANKLE].y() else landmarks[RIGHT_ANKLE].y()
+        val leadingAnkleX = if (facingRight) maxOf(leftAnkleX, rightAnkleX) else minOf(leftAnkleX, rightAnkleX)
+        val leadingAnkleY = when {
+            facingRight -> if (leftAnkleX >= rightAnkleX) landmarks[LEFT_ANKLE].y() else landmarks[RIGHT_ANKLE].y()
+            else -> if (leftAnkleX <= rightAnkleX) landmarks[LEFT_ANKLE].y() else landmarks[RIGHT_ANKLE].y()
+        }
 
         val bodyHeight = abs(leadingAnkleY - shoulderMidY).coerceAtLeast(0.01f)
-        val overstrideRatio = ((leadingAnkleX - hipMidX) / bodyHeight).coerceAtLeast(0f)
+        // abs() handles both facing directions: deviation is always positive for a forward-landing foot.
+        val overstrideRatio = (abs(leadingAnkleX - hipMidX) / bodyHeight).coerceAtLeast(0f)
 
         // Landing frame: leading ankle is in the lower 35% of frame (y > 0.65 in normalized coords)
         // and below the hip (ankle y > hip y in screen coords)

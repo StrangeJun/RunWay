@@ -59,9 +59,12 @@ class PostureAnalysisViewModel @Inject constructor(
                     "분석 중 오류가 발생했습니다: ${e.message}"
                 )
             }.also {
-                // Delete temp cache file after analysis (privacy)
+                // Delete temp cache file after analysis (privacy).
+                // Only delete file:// URIs — content:// URIs are managed by the OS.
                 runCatching {
-                    videoUri.path?.let { path -> java.io.File(path).delete() }
+                    if (videoUri.scheme == "file") {
+                        videoUri.path?.let { path -> java.io.File(path).delete() }
+                    }
                 }
             }
         }

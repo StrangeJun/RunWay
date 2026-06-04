@@ -23,24 +23,26 @@ class PosturePoseAnalyzer(private val context: Context) {
                 val intervalMs = (1000L / targetFps).coerceAtLeast(100L)
                 val landmarker = buildLandmarker()
                 val frames = mutableListOf<PostureFrameAngles>()
-
-                var timeMs = 0L
-                while (timeMs < durationMs) {
-                    val bitmap = retriever.getFrameAtTime(
-                        timeMs * 1000L,
-                        MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
-                    )
-                    if (bitmap != null) {
-                        val mpImage = BitmapImageBuilder(bitmap).build()
-                        val result = landmarker.detect(mpImage)
-                        result.landmarks().firstOrNull()?.let { landmarkList ->
-                            PostureAngleCalculator.compute(landmarkList)?.let { frames.add(it) }
+                try {
+                    var timeMs = 0L
+                    while (timeMs < durationMs) {
+                        val bitmap = retriever.getFrameAtTime(
+                            timeMs * 1000L,
+                            MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+                        )
+                        if (bitmap != null) {
+                            val mpImage = BitmapImageBuilder(bitmap).build()
+                            val result = landmarker.detect(mpImage)
+                            result.landmarks().firstOrNull()?.let { landmarkList ->
+                                PostureAngleCalculator.compute(landmarkList)?.let { frames.add(it) }
+                            }
+                            bitmap.recycle()
                         }
-                        bitmap.recycle()
+                        timeMs += intervalMs
                     }
-                    timeMs += intervalMs
+                } finally {
+                    landmarker.close()
                 }
-                landmarker.close()
                 frames
             } finally {
                 retriever.release()

@@ -1,29 +1,46 @@
 package com.runway.android.core.posture
 
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 class PostureRuleEngine @Inject constructor() : PostureEvaluator {
 
     override fun evaluate(frames: List<PostureFrameAngles>): PostureResult {
         if (frames.isEmpty()) return emptyResult()
 
-        val landing = frames.filter { it.isLandingFrame }.takeIf { it.isNotEmpty() } ?: frames
-        val all = frames
+        val landing = frames.filter { it.isLandingFrame }
+        val hasLanding = landing.isNotEmpty()
+        val landingOrAll = if (hasLanding) landing else frames
 
-        val kneeMedian = landing.map { it.kneeFlexAngle }.median()
-        val trunkMedian = all.map { it.trunkLeanAngle }.median()
-        val elbowMedian = all.map { it.elbowAngle }.median()
-        val hipMedian = all.map { it.hipExtensionAngle }.median()
-        val overstrideMedian = landing.map { it.overstrideRatio }.median()
+        val kneeMedian = landingOrAll.map { it.kneeFlexAngle }.median()
+        val trunkMedian = frames.map { it.trunkLeanAngle }.median()
+        val elbowMedian = frames.map { it.elbowAngle }.median()
+        val hipMedian = frames.map { it.hipExtensionAngle }.median()
 
         val knee = evalKnee(kneeMedian)
         val trunk = evalTrunk(trunkMedian)
         val elbow = evalElbow(elbowMedian)
         val hip = evalHip(hipMedian)
-        val overstride = evalOverstride(overstrideMedian)
 
-        val overall = (knee.score * 0.30 + trunk.score * 0.25 + overstride.score * 0.20 +
-                elbow.score * 0.15 + hip.score * 0.10).toInt()
+        // Overstride is only reliable from landing frames; without them skip it from the score
+        // and redistribute its 20% weight proportionally to the remaining categories.
+        val overstride: PostureCategoryResult
+        val overall: Int
+        if (hasLanding) {
+            overstride = evalOverstride(landing.map { it.overstrideRatio }.median())
+            overall = (knee.score * 0.30 + trunk.score * 0.25 + overstride.score * 0.20 +
+                    elbow.score * 0.15 + hip.score * 0.10).roundToInt()
+        } else {
+            overstride = PostureCategoryResult(
+                score = 50, measuredValue = 0f, idealMin = 0f, idealMax = 0.10f, unit = "%",
+                feedback = "착지 프레임이 감지되지 않았습니다. 측면에서 촬영되었는지 확인해주세요.",
+                tip = "",
+            )
+            // Renormalized weights (30/25/15/10 → 37.5/31.25/18.75/12.5)
+            overall = (knee.score * 0.375 + trunk.score * 0.3125 +
+                    elbow.score * 0.1875 + hip.score * 0.125).roundToInt()
+        }
+
         val grade = PostureResult.gradeFrom(overall)
         val feedback = buildOverallFeedback(overall, knee, trunk, overstride)
 
@@ -87,8 +104,8 @@ class PostureRuleEngine @Inject constructor() : PostureEvaluator {
     private fun evalOverstride(ratio: Float): PostureCategoryResult {
         val score = when {
             ratio <= 0.10f -> 100
-            ratio <= 0.20f -> (100 - ((ratio - 0.10f) / 0.10f) * 40).toInt()
-            ratio <= 0.30f -> (60 - ((ratio - 0.20f) / 0.10f) * 30).toInt()
+            ratio <= 0.20f -> (100 - ((ratio - 0.10f) / 0.10f) * 40).toInt().coerceIn(0, 100)
+            ratio <= 0.30f -> (60 - ((ratio - 0.20f) / 0.10f) * 30).toInt().coerceIn(0, 100)
             else -> (30 - ((ratio - 0.30f) / 0.10f) * 30).toInt().coerceAtLeast(0)
         }
         val pct = (ratio * 100).toInt()

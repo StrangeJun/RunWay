@@ -105,8 +105,9 @@ class PostureRuleEngineTest {
 
     @Test
     fun `trunk score low for backward lean`() {
+        // -5° lean: deviation = 10°, score = 70 - ((10-5)/10)*30 = 55
         val result = engine.evaluate(listOf(perfectFrame().copy(trunkLeanAngle = -5f)))
-        assertTrue(result.trunk.score < 80)
+        assertTrue("expected score in 40..70", result.trunk.score in 40..70)
     }
 
     @Test
@@ -133,6 +134,20 @@ class PostureRuleEngineTest {
         assertEquals(0, result.overstride.score)
     }
 
+    // ─── hip category ───
+
+    @Test
+    fun `hip score 100 when angle in 160-180`() {
+        val result = engine.evaluate(listOf(perfectFrame().copy(hipExtensionAngle = 175f)))
+        assertEquals(100, result.hip.score)
+    }
+
+    @Test
+    fun `hip score drops when angle below 160`() {
+        val result = engine.evaluate(listOf(perfectFrame().copy(hipExtensionAngle = 145f)))
+        assertTrue("score should be low for hip flex < 145", result.hip.score < 70)
+    }
+
     // ─── landing frame selection ───
 
     @Test
@@ -145,6 +160,14 @@ class PostureRuleEngineTest {
     }
 
     @Test
+    fun `overstride uses only landing frames when available`() {
+        val landingFrame = perfectFrame().copy(isLandingFrame = true, overstrideRatio = 0.05f)
+        val nonLandingFrame = perfectFrame().copy(isLandingFrame = false, overstrideRatio = 0.50f)
+        val result = engine.evaluate(listOf(landingFrame, nonLandingFrame))
+        assertEquals(100, result.overstride.score)
+    }
+
+    @Test
     fun `falls back to all frames when no landing frames`() {
         val frames = listOf(
             perfectFrame().copy(isLandingFrame = false, kneeFlexAngle = 162f),
@@ -152,6 +175,8 @@ class PostureRuleEngineTest {
         )
         val result = engine.evaluate(frames)
         assertEquals(100, result.knee.score)
+        // Overstride not measured when no landing frames — score is neutral (50)
+        assertEquals(50, result.overstride.score)
     }
 
     // ─── weight sum sanity ───
@@ -160,6 +185,13 @@ class PostureRuleEngineTest {
     fun `weight sum totals 100 percent`() {
         // 30 + 25 + 20 + 15 + 10 = 100
         val weights = listOf(0.30, 0.25, 0.20, 0.15, 0.10)
+        assertEquals(1.00, weights.sum(), 0.001)
+    }
+
+    @Test
+    fun `renormalized weights without overstride sum to 100 percent`() {
+        // 37.5 + 31.25 + 18.75 + 12.5 = 100
+        val weights = listOf(0.375, 0.3125, 0.1875, 0.125)
         assertEquals(1.00, weights.sum(), 0.001)
     }
 

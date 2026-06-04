@@ -48,6 +48,7 @@ import com.runway.android.core.posture.PostureCategoryResult
 import com.runway.android.core.posture.PostureResult
 import com.runway.android.core.posture.local.PostureAnalysisEntity
 import com.runway.android.ui.theme.RunwayTheme
+import java.util.Locale
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,6 +65,7 @@ fun PostureResultScreen(
 
     LaunchedEffect(analysisId) {
         if (analysisId != null && result == null) {
+            loaded = false
             entity = viewModel.loadById(analysisId)
             loaded = true
         }
@@ -208,8 +210,8 @@ private fun PostureCategoryCard(label: String, category: PostureCategoryResult) 
             val displayValue = if (category.unit == "%") {
                 "착지 위치: 엉덩이 기준 ${(category.measuredValue * 100).roundToInt()}% 앞"
             } else {
-                "측정값: ${"%.1f".format(category.measuredValue)}${category.unit}  " +
-                        "이상범위: ${"%.0f".format(category.idealMin)}~${"%.0f".format(category.idealMax)}${category.unit}"
+                "측정값: ${String.format(Locale.US, "%.1f", category.measuredValue)}${category.unit}  " +
+                        "이상범위: ${String.format(Locale.US, "%.0f", category.idealMin)}~${String.format(Locale.US, "%.0f", category.idealMax)}${category.unit}"
             }
             Text(displayValue, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(6.dp))

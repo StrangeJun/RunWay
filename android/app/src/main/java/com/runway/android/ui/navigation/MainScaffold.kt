@@ -1,11 +1,13 @@
 package com.runway.android.ui.navigation
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -14,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.ui.components.RunwayBottomNav
 import com.runway.android.ui.discover.DiscoverScreen
@@ -43,6 +46,7 @@ fun MainScaffold(
     onNavigateToSettings: () -> Unit = {},
     homeViewModel: HomeViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val recoveryViewModel: TrackingRecoveryViewModel = hiltViewModel()
     val postureViewModel: PostureAnalysisViewModel = hiltViewModel()
 
@@ -51,6 +55,15 @@ fun MainScaffold(
     var showPostureCapture by remember { mutableStateOf(false) }
     var postureResultId by remember { mutableStateOf<String?>(null) }
     val postureState by postureViewModel.analysisState.collectAsState()
+
+    // Handle analysis errors without mutating state during composition
+    LaunchedEffect(postureState) {
+        if (postureState is PostureAnalysisState.Error) {
+            val msg = (postureState as PostureAnalysisState.Error).message
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            postureViewModel.resetState()
+        }
+    }
 
     BackHandler(enabled = currentTab != MainTab.HOME) {
         currentTabOrdinal = MainTab.HOME.ordinal
@@ -133,21 +146,11 @@ fun MainScaffold(
                         )
                     }
                     else -> {
-                        if (postureState is PostureAnalysisState.Error) {
-                            val msg = (postureState as PostureAnalysisState.Error).message
-                            postureViewModel.resetState()
-                            PostureHomeScreen(
-                                onStartCapture = { showPostureCapture = true },
-                                onOpenResult = { postureResultId = it },
-                                viewModel = postureViewModel,
-                            )
-                        } else {
-                            PostureHomeScreen(
-                                onStartCapture = { showPostureCapture = true },
-                                onOpenResult = { postureResultId = it },
-                                viewModel = postureViewModel,
-                            )
-                        }
+                        PostureHomeScreen(
+                            onStartCapture = { showPostureCapture = true },
+                            onOpenResult = { postureResultId = it },
+                            viewModel = postureViewModel,
+                        )
                     }
                 }
             }
