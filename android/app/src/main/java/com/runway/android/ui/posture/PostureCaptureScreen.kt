@@ -1,11 +1,13 @@
 package com.runway.android.ui.posture
 
 import android.Manifest
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.camera.video.FileOutputOptions
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
+import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.Quality
 import androidx.camera.video.QualitySelector
 import androidx.camera.video.Recorder
@@ -13,7 +15,14 @@ import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
 import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.Canvas
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,24 +50,24 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.runway.android.R
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private const val MAX_RECORDING_SECONDS = 15
 private const val MIN_RECORDING_SECONDS = 10
@@ -70,12 +79,17 @@ fun PostureCaptureScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
 
     var hasCameraPermission by remember { mutableStateOf(false) }
     var isRecording by remember { mutableStateOf(false) }
     var elapsedSeconds by remember { mutableIntStateOf(0) }
     var showGuide by remember { mutableStateOf(true) }
+    var countdownValue by remember { mutableStateOf<Int?>(null) }
     var activeRecording by remember { mutableStateOf<Recording?>(null) }
+
+    val toneGen = remember { ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90) }
+    DisposableEffect(Unit) { onDispose { toneGen.release() } }
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -85,6 +99,7 @@ fun PostureCaptureScreen(
         cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
+    // Auto-stop timer when recording
     LaunchedEffect(isRecording) {
         if (isRecording) {
             elapsedSeconds = 0
@@ -92,7 +107,10 @@ fun PostureCaptureScreen(
                 delay(1000)
                 elapsedSeconds++
             }
-            if (isRecording) activeRecording?.stop()
+            if (isRecording) {
+                toneGen.startTone(ToneGenerator.TONE_PROP_BEEP2, 500)
+                activeRecording?.stop()
+            }
         }
     }
 
@@ -126,15 +144,52 @@ fun PostureCaptureScreen(
         }
     }
 
+    // Starts countdown then recording
+    fun startCountdownAndRecord() {
+        val vc = videoCapture ?: return
+        scope.launch {
+            showGuide = false
+            for (i in 5 downTo 1) {
+                countdownValue = i
+                delay(1000)
+            }
+            countdownValue = null
+
+            // Start beep
+            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 250)
+
+            val videoFile = java.io.File(
+                context.cacheDir,
+                "posture_${System.currentTimeMillis()}.mp4",
+            )
+            val outputOptions = FileOutputOptions.Builder(videoFile).build()
+            activeRecording = vc.output.prepareRecording(context, outputOptions)
+                .start(ContextCompat.getMainExecutor(context)) { event ->
+                    when (event) {
+                        is VideoRecordEvent.Start -> isRecording = true
+                        is VideoRecordEvent.Finalize -> {
+                            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP2, 500)
+                            isRecording = false
+                            if (!event.hasError()) onVideoReady(Uri.fromFile(videoFile))
+                            else videoFile.delete()
+                        }
+                        else -> Unit
+                    }
+                }
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         if (hasCameraPermission) {
             AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
         }
 
-        if (showGuide && !isRecording) {
+        // Silhouette guide (hide while recording)
+        if (showGuide && countdownValue == null && !isRecording) {
             PostureSilhouetteGuide(modifier = Modifier.fillMaxSize())
         }
 
+        // Back button
         IconButton(
             onClick = onBack,
             modifier = Modifier.align(Alignment.TopStart).padding(16.dp),
@@ -142,13 +197,38 @@ fun PostureCaptureScreen(
             Icon(Icons.Filled.ArrowBack, contentDescription = "뒤로", tint = Color.White)
         }
 
+        // Countdown overlay
+        AnimatedContent(
+            targetState = countdownValue,
+            modifier = Modifier.align(Alignment.Center),
+            transitionSpec = {
+                (scaleIn(initialScale = 2.2f, animationSpec = tween(200)) +
+                        fadeIn(animationSpec = tween(150))) togetherWith
+                        (scaleOut(targetScale = 0.4f, animationSpec = tween(300)) +
+                                fadeOut(animationSpec = tween(200)))
+            },
+            label = "countdown",
+        ) { value ->
+            if (value != null) {
+                Text(
+                    text = value.toString(),
+                    fontSize = 120.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+
+        // Bottom controls
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 48.dp, start = 24.dp, end = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (!isRecording && showGuide) {
+            // Guide phase — show instructions + 분석 시작 button
+            if (showGuide && countdownValue == null && !isRecording) {
                 Text(
                     "카메라를 옆면 허리 높이에 두고\n전신이 화면에 들어오도록 맞추세요",
                     style = MaterialTheme.typography.bodyMedium,
@@ -157,46 +237,19 @@ fun PostureCaptureScreen(
                 )
                 Spacer(Modifier.height(16.dp))
                 TextButton(
-                    onClick = { showGuide = false },
+                    onClick = { startCountdownAndRecord() },
                     modifier = Modifier
-                        .background(Color.White.copy(alpha = 0.15f), MaterialTheme.shapes.extraLarge)
+                        .background(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                            MaterialTheme.shapes.extraLarge,
+                        )
                         .padding(horizontal = 8.dp),
                 ) {
-                    Text("준비됐어요", color = Color.White, fontWeight = FontWeight.SemiBold)
+                    Text("분석 시작", color = Color.Black, fontWeight = FontWeight.Bold)
                 }
             }
 
-            if (!showGuide && !isRecording) {
-                RecordButton(
-                    onClick = {
-                        val vc = videoCapture ?: return@RecordButton
-                        // Save to app-private cache dir — never appears in user gallery
-                        val videoFile = java.io.File(
-                            context.cacheDir,
-                            "posture_${System.currentTimeMillis()}.mp4",
-                        )
-                        val outputOptions = FileOutputOptions.Builder(videoFile).build()
-
-                        activeRecording = vc.output.prepareRecording(context, outputOptions)
-                            .start(ContextCompat.getMainExecutor(context)) { event ->
-                                when (event) {
-                                    is VideoRecordEvent.Start -> isRecording = true
-                                    is VideoRecordEvent.Finalize -> {
-                                        isRecording = false
-                                        if (!event.hasError()) {
-                                            onVideoReady(Uri.fromFile(videoFile))
-                                        } else {
-                                            videoFile.delete()
-                                        }
-                                    }
-                                    else -> Unit
-                                }
-                            }
-                    },
-                    isRecording = false,
-                )
-            }
-
+            // Recording phase
             if (isRecording) {
                 val progress = elapsedSeconds / MAX_RECORDING_SECONDS.toFloat()
                 val isSufficient = elapsedSeconds >= MIN_RECORDING_SECONDS
@@ -222,7 +275,10 @@ fun PostureCaptureScreen(
                 }
                 Spacer(Modifier.height(16.dp))
                 RecordButton(
-                    onClick = { activeRecording?.stop() },
+                    onClick = {
+                        toneGen.startTone(ToneGenerator.TONE_PROP_BEEP2, 500)
+                        activeRecording?.stop()
+                    },
                     isRecording = true,
                 )
             }
@@ -252,88 +308,14 @@ private fun RecordButton(isRecording: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun PostureSilhouetteGuide(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val cx = w * 0.5f
-        val scale = h * 0.63f
-
-        drawRect(Color.Black.copy(alpha = 0.30f))
-
-        val ink = Color.White.copy(alpha = 0.90f)
-        val sw = 3.8f.dp.toPx()
-        val dash = PathEffect.dashPathEffect(floatArrayOf(14f, 10f), 0f)
-        val stroke = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round, pathEffect = dash)
-
-        // ── HEAD ──
-        val headR = scale * 0.053f
-        val headCy = h * 0.175f
-        drawCircle(ink, headR, Offset(cx, headCy), style = stroke)
-
-        // ── SKELETON ANCHORS (slight forward lean ~7°) ──
-        val lean = scale * 0.048f
-        val shX = cx - lean * 0.35f;  val shY = headCy + headR * 1.72f   // shoulder
-        val hipX = cx + lean * 0.35f; val hipY = shY + scale * 0.258f    // hip
-
-        // ── TORSO OUTLINE (closed path with width) ──
-        val tw = scale * 0.030f   // half-width
-        val torso = Path().apply {
-            moveTo(shX - tw, shY)
-            cubicTo(
-                shX - tw * 1.15f, shY + scale * 0.085f,
-                hipX - tw * 0.85f, shY + scale * 0.175f,
-                hipX - tw * 0.55f, hipY,
-            )
-            lineTo(hipX + tw * 0.55f, hipY)
-            cubicTo(
-                hipX + tw * 0.85f, shY + scale * 0.175f,
-                shX + tw * 1.15f, shY + scale * 0.085f,
-                shX + tw, shY,
-            )
-            close()
-        }
-        drawPath(torso, ink, style = stroke)
-
-        // ── LEFT ARM — forward swing ──
-        val eXL = shX - scale * 0.107f; val eYL = shY + scale * 0.130f   // elbow
-        val wXL = shX - scale * 0.080f; val wYL = eYL - scale * 0.108f   // wrist
-        drawPath(Path().apply {
-            moveTo(shX - tw * 0.5f, shY)
-            cubicTo(shX - scale * 0.055f, shY + scale * 0.048f, eXL + scale * 0.01f, eYL - scale * 0.022f, eXL, eYL)
-            cubicTo(eXL - scale * 0.008f, eYL + scale * 0.010f, wXL - scale * 0.010f, wYL + scale * 0.032f, wXL, wYL)
-        }, ink, style = stroke)
-
-        // ── RIGHT ARM — back swing ──
-        val eXR = shX + scale * 0.098f; val eYR = shY + scale * 0.126f
-        val wXR = shX + scale * 0.076f; val wYR = eYR + scale * 0.096f
-        drawPath(Path().apply {
-            moveTo(shX + tw * 0.5f, shY)
-            cubicTo(shX + scale * 0.050f, shY + scale * 0.045f, eXR - scale * 0.010f, eYR - scale * 0.020f, eXR, eYR)
-            cubicTo(eXR + scale * 0.008f, eYR + scale * 0.010f, wXR + scale * 0.010f, wYR - scale * 0.028f, wXR, wYR)
-        }, ink, style = stroke)
-
-        // ── LEFT LEG — swing phase (knee lifted) ──
-        val kXL = hipX - scale * 0.073f; val kYL = hipY + scale * 0.152f  // knee
-        val aXL = kXL + scale * 0.056f; val aYL = kYL + scale * 0.148f   // ankle
-        drawPath(Path().apply {
-            moveTo(hipX - tw * 0.32f, hipY)
-            cubicTo(hipX - scale * 0.040f, hipY + scale * 0.058f, kXL + scale * 0.018f, kYL - scale * 0.038f, kXL, kYL)
-            cubicTo(kXL - scale * 0.010f, kYL + scale * 0.040f, aXL - scale * 0.018f, aYL - scale * 0.040f, aXL, aYL)
-        }, ink, style = stroke)
-
-        // ── RIGHT LEG — stance / push-off ──
-        val kXR = hipX + scale * 0.038f; val kYR = hipY + scale * 0.177f
-        val aXR = kXR - scale * 0.024f; val aYR = kYR + scale * 0.180f
-        drawPath(Path().apply {
-            moveTo(hipX + tw * 0.32f, hipY)
-            cubicTo(hipX + scale * 0.036f, hipY + scale * 0.064f, kXR + scale * 0.010f, kYR - scale * 0.038f, kXR, kYR)
-            cubicTo(kXR - scale * 0.005f, kYR + scale * 0.042f, aXR + scale * 0.010f, aYR - scale * 0.048f, aXR, aYR)
-        }, ink, style = stroke)
-
-        // ── FOOT (stance foot flat on ground) ──
-        drawPath(Path().apply {
-            moveTo(aXR - scale * 0.005f, aYR)
-            cubicTo(aXR + scale * 0.008f, aYR + scale * 0.012f, aXR + scale * 0.052f, aYR + scale * 0.010f, aXR + scale * 0.065f, aYR - scale * 0.002f)
-        }, ink, style = stroke)
+    Box(modifier = modifier.background(Color.Black.copy(alpha = 0.28f))) {
+        Image(
+            painter = painterResource(R.drawable.runner_silhouette_guide),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 32.dp, vertical = 24.dp)
+        )
     }
 }

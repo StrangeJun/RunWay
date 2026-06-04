@@ -1,5 +1,7 @@
 package com.runway.android.ui.posture
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,23 +13,34 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.VideoCameraBack
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -49,34 +62,94 @@ fun PostureHomeScreen(
     viewModel: PostureAnalysisViewModel = hiltViewModel(),
 ) {
     val history by viewModel.analysisHistory.collectAsState()
+    var showHelp by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<PostureAnalysisEntity?>(null) }
+
+    if (showHelp) {
+        PostureHelpDialog(onDismiss = { showHelp = false })
+    }
+    pendingDelete?.let { entity ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("분석 이력 삭제") },
+            text = { Text("이 자세 분석 피드백을 삭제할까요? 삭제한 이력은 복구할 수 없습니다.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteAnalysis(entity.id)
+                        pendingDelete = null
+                    },
+                ) {
+                    Text("삭제", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) { Text("취소") }
+            },
+        )
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("자세 분석") })
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onStartCapture) {
-                Icon(Icons.Filled.Add, contentDescription = "새 분석 시작")
-            }
-        },
-    ) { padding ->
-        if (history.isEmpty()) {
-            PostureEmptyState(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                onStartCapture = onStartCapture,
+            TopAppBar(
+                title = { Text("자세 분석") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
+                actions = {
+                    IconButton(onClick = { showHelp = true }) {
+                        Icon(Icons.Filled.Info, contentDescription = "이용 방법")
+                    }
+                },
             )
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+        },
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(MaterialTheme.colorScheme.background),
+            contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            item {
+                PostureHeroCard(
+                    historyCount = history.size,
+                    onStartCapture = onStartCapture,
+                )
+            }
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "분석 이력",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Text(
+                        text = "${history.size}개",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (history.isEmpty()) {
+                item {
+                    PostureEmptyState(onStartCapture = onStartCapture)
+                }
+            } else {
                 items(history) { entity ->
-                    PostureHistoryCard(entity = entity, onClick = { onOpenResult(entity.id) })
+                    PostureHistoryCard(
+                        entity = entity,
+                        onClick = { onOpenResult(entity.id) },
+                        onDelete = { pendingDelete = entity },
+                    )
                 }
             }
         }
@@ -85,29 +158,101 @@ fun PostureHomeScreen(
 
 @Composable
 private fun PostureEmptyState(
-    modifier: Modifier = Modifier,
     onStartCapture: () -> Unit,
 ) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
             Icon(
-                imageVector = Icons.Filled.DirectionsRun,
+                imageVector = Icons.AutoMirrored.Filled.DirectionsRun,
                 contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.size(52.dp),
+                tint = MaterialTheme.colorScheme.primary,
             )
             Spacer(Modifier.height(16.dp))
             Text(
-                "아직 분석 기록이 없어요",
+                "아직 분석 기록이 없습니다",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "+ 버튼을 눌러 첫 자세 분석을 시작해보세요",
+                "측면 러닝 영상을 촬영하면 착지, 상체, 팔 각도 피드백을 저장해 비교할 수 있습니다.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(18.dp))
+            Button(
+                onClick = onStartCapture,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Filled.VideoCameraBack, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("첫 분석 시작")
+            }
+        }
+    }
+}
+
+@Composable
+private fun PostureHeroCard(
+    historyCount: Int,
+    onStartCapture: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f), MaterialTheme.shapes.large),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.DirectionsRun,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "러닝 자세 피드백",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = "최근 ${historyCount}개의 분석 이력을 관리합니다.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = onStartCapture,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+            ) {
+                Icon(Icons.Filled.VideoCameraBack, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("새 분석 시작")
+            }
         }
     }
 }
@@ -117,39 +262,67 @@ private fun PostureEmptyState(
 private fun PostureHistoryCard(
     entity: PostureAnalysisEntity,
     onClick: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val dateStr = SimpleDateFormat("M월 d일 HH:mm", Locale.KOREAN).format(Date(entity.createdAt))
 
-    Card(
+    Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Column {
-                Text(dateStr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Surface(
+                shape = MaterialTheme.shapes.large,
+                color = gradeColor(entity.grade).copy(alpha = 0.12f),
+                modifier = Modifier.size(54.dp),
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    Text(
+                        entity.grade,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = gradeColor(entity.grade),
+                    )
+                    Text(
+                        "${entity.overallScore}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(dateStr, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
-                Text(entity.overallFeedback, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    entity.grade,
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    color = gradeColor(entity.grade),
-                )
-                Text(
-                    "${entity.overallScore}점",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    entity.overallFeedback,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = "분석 이력 삭제",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }
@@ -161,6 +334,40 @@ internal fun gradeColor(grade: String) = when (grade) {
     "B" -> androidx.compose.ui.graphics.Color(0xFF3B82F6)
     "C" -> androidx.compose.ui.graphics.Color(0xFFF59E0B)
     else -> MaterialTheme.colorScheme.error
+}
+
+@Composable
+private fun PostureHelpDialog(onDismiss: () -> Unit) {
+    val steps = listOf(
+        "카메라를 옆면에 고정하고 허리 높이에 맞추세요.",
+        "전신이 화면 안에 들어오도록 거리를 조정하세요.",
+        "화면의 실루엣 가이드에 몸을 맞춘 뒤 '분석 시작'을 누르세요.",
+        "5초 카운트다운 후 자동으로 녹화가 시작됩니다.",
+        "자연스럽게 10~15초간 달리는 모습을 촬영하세요.",
+        "녹화가 끝나면 AI가 러닝 자세를 분석해 드립니다.",
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("자세 분석 이용 방법", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                steps.forEachIndexed { index, step ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "${index + 1}.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(step, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("확인") }
+        },
+    )
 }
 
 @Preview(showBackground = true)
