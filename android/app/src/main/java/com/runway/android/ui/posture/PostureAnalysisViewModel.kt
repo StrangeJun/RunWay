@@ -58,6 +58,11 @@ class PostureAnalysisViewModel @Inject constructor(
                 _analysisState.value = PostureAnalysisState.Error(
                     "분석 중 오류가 발생했습니다: ${e.message}"
                 )
+            }.also {
+                // Delete temp cache file after analysis (privacy)
+                runCatching {
+                    videoUri.path?.let { path -> java.io.File(path).delete() }
+                }
             }
         }
     }

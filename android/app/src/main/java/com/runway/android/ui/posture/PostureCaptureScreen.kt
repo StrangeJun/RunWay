@@ -1,13 +1,11 @@
 package com.runway.android.ui.posture
 
 import android.Manifest
-import android.content.ContentValues
 import android.net.Uri
-import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.camera.video.FileOutputOptions
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
-import androidx.camera.video.MediaStoreOutputOptions
 import androidx.camera.video.Quality
 import androidx.camera.video.QualitySelector
 import androidx.camera.video.Recorder
@@ -169,14 +167,12 @@ fun PostureCaptureScreen(
                 RecordButton(
                     onClick = {
                         val vc = videoCapture ?: return@RecordButton
-                        val contentValues = ContentValues().apply {
-                            put(MediaStore.Video.Media.DISPLAY_NAME, "posture_${System.currentTimeMillis()}.mp4")
-                            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                        }
-                        val outputOptions = MediaStoreOutputOptions.Builder(
-                            context.contentResolver,
-                            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                        ).setContentValues(contentValues).build()
+                        // Save to app-private cache dir — never appears in user gallery
+                        val videoFile = java.io.File(
+                            context.cacheDir,
+                            "posture_${System.currentTimeMillis()}.mp4",
+                        )
+                        val outputOptions = FileOutputOptions.Builder(videoFile).build()
 
                         activeRecording = vc.output.prepareRecording(context, outputOptions)
                             .start(ContextCompat.getMainExecutor(context)) { event ->
@@ -185,7 +181,9 @@ fun PostureCaptureScreen(
                                     is VideoRecordEvent.Finalize -> {
                                         isRecording = false
                                         if (!event.hasError()) {
-                                            onVideoReady(event.outputResults.outputUri)
+                                            onVideoReady(Uri.fromFile(videoFile))
+                                        } else {
+                                            videoFile.delete()
                                         }
                                     }
                                     else -> Unit
