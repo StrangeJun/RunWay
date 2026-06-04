@@ -50,6 +50,7 @@ fun RouteMapView(
     currentLocation: MapPoint? = null,
     gesturesEnabled: Boolean = false,
     showKilometerMarkers: Boolean = false,
+    onClick: (() -> Unit)? = null,
 ) {
     if (points.size >= 2) {
         RouteGoogleMap(
@@ -58,6 +59,7 @@ fun RouteMapView(
             modifier = modifier,
             gesturesEnabled = gesturesEnabled,
             showKilometerMarkers = showKilometerMarkers,
+            onClick = onClick,
         )
     } else {
         RouteCanvasFallback(modifier = modifier)
@@ -71,6 +73,7 @@ private fun RouteGoogleMap(
     modifier: Modifier,
     gesturesEnabled: Boolean,
     showKilometerMarkers: Boolean,
+    onClick: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val latLngs = remember(points) { points.map { LatLng(it.latitude, it.longitude) } }
@@ -103,6 +106,7 @@ private fun RouteGoogleMap(
             compassEnabled = gesturesEnabled,
             mapToolbarEnabled = false,
         ),
+        onMapClick = { onClick?.invoke() },
         onMapLoaded = {
             cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 48))
         },
@@ -129,13 +133,25 @@ private fun RouteGoogleMap(
                 anchor = Offset(0.5f, 0.5f),
             )
         }
+        val startIcon = remember(context) {
+            BitmapDescriptorFactory.fromBitmap(createStartMarkerBitmap(context))
+        }
+        val endIcon = remember(context) {
+            BitmapDescriptorFactory.fromBitmap(createEndMarkerBitmap(context))
+        }
         Marker(
             state = MarkerState(position = latLngs.first()),
+            icon = startIcon,
             title = "출발",
+            anchor = Offset(0.5f, 0.5f),
+            zIndex = 2f,
         )
         Marker(
             state = MarkerState(position = latLngs.last()),
+            icon = endIcon,
             title = "도착",
+            anchor = Offset(0.5f, 0.5f),
+            zIndex = 2f,
         )
         if (currentLatLng != null) {
             Marker(
@@ -211,6 +227,66 @@ private fun createKmMarkerBitmap(context: Context, km: Int, fillColor: Int): Bit
     paint.textAlign = AndroidPaint.Align.CENTER
     val textY = sizePx / 2f - (paint.descent() + paint.ascent()) / 2f
     canvas.drawText(km.toString(), sizePx / 2f, textY, paint)
+
+    return bitmap
+}
+
+private fun createStartMarkerBitmap(context: Context): Bitmap {
+    val density = context.resources.displayMetrics.density
+    val sizePx = (44 * density).toInt().coerceAtLeast(44)
+    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val canvas = AndroidCanvas(bitmap)
+    val paint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG)
+
+    // Green filled circle
+    paint.color = android.graphics.Color.parseColor("#22C55E")
+    paint.style = AndroidPaint.Style.FILL
+    canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f, paint)
+
+    // White border
+    paint.color = android.graphics.Color.WHITE
+    paint.style = AndroidPaint.Style.STROKE
+    paint.strokeWidth = density * 2.5f
+    canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f - density * 1.5f, paint)
+
+    // "출" label
+    paint.style = AndroidPaint.Style.FILL
+    paint.color = android.graphics.Color.WHITE
+    paint.textSize = sizePx * 0.38f
+    paint.textAlign = AndroidPaint.Align.CENTER
+    paint.isFakeBoldText = true
+    val textY = sizePx / 2f - (paint.descent() + paint.ascent()) / 2f
+    canvas.drawText("출", sizePx / 2f, textY, paint)
+
+    return bitmap
+}
+
+private fun createEndMarkerBitmap(context: Context): Bitmap {
+    val density = context.resources.displayMetrics.density
+    val sizePx = (44 * density).toInt().coerceAtLeast(44)
+    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val canvas = AndroidCanvas(bitmap)
+    val paint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG)
+
+    // Red filled circle
+    paint.color = android.graphics.Color.parseColor("#EF4444")
+    paint.style = AndroidPaint.Style.FILL
+    canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f, paint)
+
+    // White border
+    paint.color = android.graphics.Color.WHITE
+    paint.style = AndroidPaint.Style.STROKE
+    paint.strokeWidth = density * 2.5f
+    canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f - density * 1.5f, paint)
+
+    // "도" label
+    paint.style = AndroidPaint.Style.FILL
+    paint.color = android.graphics.Color.WHITE
+    paint.textSize = sizePx * 0.38f
+    paint.textAlign = AndroidPaint.Align.CENTER
+    paint.isFakeBoldText = true
+    val textY = sizePx / 2f - (paint.descent() + paint.ascent()) / 2f
+    canvas.drawText("도", sizePx / 2f, textY, paint)
 
     return bitmap
 }

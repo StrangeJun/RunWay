@@ -1,7 +1,6 @@
 package com.runway.android.ui.running.history
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -424,14 +423,14 @@ fun RunDetailScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(220.dp)
-                                .clip(MaterialTheme.shapes.extraLarge)
-                                .clickable { showFullScreenMap = true },
+                                .clip(MaterialTheme.shapes.extraLarge),
                         ) {
                             RouteMapView(
                                 points = detail.points.map { MapPoint(it.latitude, it.longitude) },
                                 modifier = Modifier.fillMaxSize(),
                                 gesturesEnabled = false,
                                 showKilometerMarkers = true,
+                                onClick = { showFullScreenMap = true },
                             )
                             Icon(
                                 imageVector = Icons.Filled.Fullscreen,
