@@ -76,6 +76,12 @@ class PostureAnalysisViewModel @Inject constructor(
 
     suspend fun loadById(id: String): PostureAnalysisEntity? = dao.findById(id)
 
+    fun deleteAnalysis(id: String) {
+        viewModelScope.launch {
+            dao.deleteById(id)
+        }
+    }
+
     private fun PostureResult.toEntity(id: String) = PostureAnalysisEntity(
         id = id,
         createdAt = System.currentTimeMillis(),

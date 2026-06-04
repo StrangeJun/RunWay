@@ -16,7 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,7 +30,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -62,6 +67,7 @@ fun PostureResultScreen(
 ) {
     var entity by remember { mutableStateOf<PostureAnalysisEntity?>(null) }
     var loaded by remember { mutableStateOf(result != null) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(analysisId) {
         if (analysisId != null && result == null) {
@@ -72,6 +78,29 @@ fun PostureResultScreen(
     }
 
     val displayResult: PostureResult? = result ?: entity?.toPostureResult()
+    val canDelete = analysisId != null || entity != null
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("분석 이력 삭제") },
+            text = { Text("이 자세 분석 피드백을 삭제할까요? 삭제한 이력은 복구할 수 없습니다.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        (analysisId ?: entity?.id)?.let(viewModel::deleteAnalysis)
+                        showDeleteDialog = false
+                        onBack()
+                    },
+                ) {
+                    Text("삭제", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("취소") }
+            },
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -79,11 +108,26 @@ fun PostureResultScreen(
                 title = { Text("자세 분석 결과") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "뒤로")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
                     }
                 },
+                actions = {
+                    if (canDelete) {
+                        IconButton(onClick = { showDeleteDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.Delete,
+                                contentDescription = "분석 이력 삭제",
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
             )
         },
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         when {
             !loaded -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
@@ -112,38 +156,51 @@ private fun PostureResultContent(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(horizontal = 20.dp, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Score header
-        Box(
+        Surface(
             modifier = Modifier
-                .size(120.dp)
-                .background(gradeColor(result.grade).copy(alpha = 0.12f), MaterialTheme.shapes.extraLarge),
-            contentAlignment = Alignment.Center,
+                .fillMaxWidth(),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(112.dp)
+                        .background(gradeColor(result.grade).copy(alpha = 0.12f), MaterialTheme.shapes.extraLarge),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            result.grade,
+                            style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
+                            color = gradeColor(result.grade),
+                        )
+                        Text(
+                            "${result.overallScore}점",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
                 Text(
-                    result.grade,
-                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
-                    color = gradeColor(result.grade),
-                )
-                Text(
-                    "${result.overallScore}점",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    result.overallFeedback,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
-        Spacer(Modifier.height(16.dp))
-        Text(
-            result.overallFeedback,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(18.dp))
 
         // Category cards
         val categories = listOf(
@@ -155,10 +212,10 @@ private fun PostureResultContent(
         )
         categories.forEach { (label, cat) ->
             PostureCategoryCard(label = label, category = cat)
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(10.dp))
         OutlinedButton(
             onClick = onRetake,
             modifier = Modifier.fillMaxWidth(),
@@ -183,7 +240,9 @@ private fun PostureCategoryCard(label: String, category: PostureCategoryResult) 
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(1.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        elevation = CardDefaults.cardElevation(0.dp),
+        shape = MaterialTheme.shapes.extraLarge,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(

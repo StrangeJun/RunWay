@@ -123,7 +123,7 @@ fun MainScaffold(
                     postureState is PostureAnalysisState.Success -> {
                         val success = postureState as PostureAnalysisState.Success
                         PostureResultScreen(
-                            analysisId = null,
+                            analysisId = success.id,
                             result = success.result,
                             onBack = { postureViewModel.resetState() },
                             onRetake = {

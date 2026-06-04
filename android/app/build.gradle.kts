@@ -130,7 +130,8 @@ dependencies {
     implementation("androidx.camera:camera-view:$cameraVersion")
 
     // ─── MediaPipe Pose ───
-    implementation("com.google.mediapipe:tasks-vision:0.10.14")
+    // 0.10.35+: libmediapipe_tasks_jni.so uses 16KB page alignment (was 4KB in ≤0.10.14)
+    implementation("com.google.mediapipe:tasks-vision:0.10.35")
 
     // ─── Test ───
     testImplementation("junit:junit:4.13.2")
