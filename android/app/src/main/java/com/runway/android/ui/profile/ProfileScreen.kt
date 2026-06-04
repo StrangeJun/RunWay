@@ -22,11 +22,19 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,7 +47,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -262,6 +276,29 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             viewModel.stats?.let { s ->
+                var statsTriggered by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) { statsTriggered = true }
+
+                val animatedRuns by animateIntAsState(
+                    targetValue = if (statsTriggered) s.totalRuns.toInt() else 0,
+                    animationSpec = tween(1200), label = "runs",
+                )
+                val distanceTarget = s.totalDistanceKm.toFloatOrNull() ?: 0f
+                val animatedDistance by animateFloatAsState(
+                    targetValue = if (statsTriggered) distanceTarget else 0f,
+                    animationSpec = tween(1200), label = "dist",
+                )
+                val animatedStreak by animateIntAsState(
+                    targetValue = if (statsTriggered) s.currentStreakDays else 0,
+                    animationSpec = tween(1200), label = "streak",
+                )
+                val flameTransition = rememberInfiniteTransition(label = "flame")
+                val flameScale by flameTransition.animateFloat(
+                    initialValue = 1f, targetValue = 1.15f,
+                    animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
+                    label = "flameScale",
+                )
+
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.extraLarge,
@@ -286,7 +323,7 @@ fun ProfileScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Text(
-                                    text = "${s.totalRuns}회",
+                                    text = "${animatedRuns}회",
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
@@ -298,7 +335,7 @@ fun ProfileScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Text(
-                                    text = "${s.totalDistanceKm} km",
+                                    text = "${"%.2f".format(animatedDistance)} km",
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
@@ -310,11 +347,22 @@ fun ProfileScreen(
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                    Text(
-                                        text = "${s.currentStreakDays}일 연속",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.primary,
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Whatshot,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp).scale(flameScale),
+                                        )
+                                        Text(
+                                            text = "${animatedStreak}일 연속",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
                                 }
                             }
                         }

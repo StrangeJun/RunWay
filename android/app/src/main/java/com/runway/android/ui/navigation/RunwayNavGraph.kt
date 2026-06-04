@@ -1,5 +1,10 @@
 package com.runway.android.ui.navigation
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -223,6 +228,8 @@ fun RunwayNavGraph() {
         composable(
             route = RunwayRoutes.COURSE_DETAIL,
             arguments = listOf(navArgument("courseId") { type = NavType.StringType }),
+            enterTransition = { scaleIn(initialScale = 0.92f, animationSpec = tween(350)) + fadeIn(tween(350)) },
+            popExitTransition = { scaleOut(targetScale = 0.92f, animationSpec = tween(300)) + fadeOut(tween(300)) },
         ) {
             CourseDetailScreen(
                 onBack = { navController.popBackStack() },
