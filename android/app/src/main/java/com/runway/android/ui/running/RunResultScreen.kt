@@ -23,6 +23,11 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,7 +36,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -55,6 +65,20 @@ fun RunResultScreen(
             onNavigateToCourseDetail(courseId)
         }
     }
+
+    var distTriggered by remember { mutableStateOf(false) }
+    var cardsVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        distTriggered = true
+        delay(250)
+        cardsVisible = true
+    }
+    val distTarget = viewModel.distanceText.toFloatOrNull() ?: 0f
+    val animatedDist by animateFloatAsState(
+        targetValue = if (distTriggered) distTarget else 0f,
+        animationSpec = tween(900),
+        label = "heroDistance",
+    )
 
     Box(
         modifier = Modifier
@@ -98,7 +122,7 @@ fun RunResultScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = viewModel.distanceText,
+                        text = "%.2f".format(animatedDist),
                         style = MaterialTheme.typography.displayMedium,
                         color = MaterialTheme.colorScheme.onBackground,
                     )
@@ -120,37 +144,42 @@ fun RunResultScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // ─── Result cards 2x2 ───
-            Column(
-                modifier = Modifier.padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+            AnimatedVisibility(
+                visible = cardsVisible,
+                enter = slideInVertically(tween(350)) { it / 2 } + fadeIn(tween(350)),
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ResultCard(
-                        icon = Icons.Filled.Timer,
-                        label = "TIME",
-                        value = viewModel.timerText,
-                        modifier = Modifier.weight(1f),
-                    )
-                    ResultCard(
-                        icon = Icons.AutoMirrored.Filled.DirectionsRun,
-                        label = "PACE",
-                        value = viewModel.paceText,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ResultCard(
-                        icon = Icons.Filled.LocalFireDepartment,
-                        label = "CALORIES",
-                        value = viewModel.caloriesText,
-                        modifier = Modifier.weight(1f),
-                    )
-                    ResultCard(
-                        icon = Icons.AutoMirrored.Filled.DirectionsWalk,
-                        label = "STEPS",
-                        value = viewModel.stepsText,
-                        modifier = Modifier.weight(1f),
-                    )
+                Column(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ResultCard(
+                            icon = Icons.Filled.Timer,
+                            label = "TIME",
+                            value = viewModel.timerText,
+                            modifier = Modifier.weight(1f),
+                        )
+                        ResultCard(
+                            icon = Icons.AutoMirrored.Filled.DirectionsRun,
+                            label = "PACE",
+                            value = viewModel.paceText,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ResultCard(
+                            icon = Icons.Filled.LocalFireDepartment,
+                            label = "CALORIES",
+                            value = viewModel.caloriesText,
+                            modifier = Modifier.weight(1f),
+                        )
+                        ResultCard(
+                            icon = Icons.AutoMirrored.Filled.DirectionsWalk,
+                            label = "STEPS",
+                            value = viewModel.stepsText,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
             }
 

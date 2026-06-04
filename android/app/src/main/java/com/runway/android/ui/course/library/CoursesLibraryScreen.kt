@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -33,10 +35,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -57,7 +57,8 @@ fun CoursesLibraryScreen(
     viewModel: CoursesLibraryViewModel = hiltViewModel(),
 ) {
     val tabs = listOf("만든 코스", "즐겨찾기", "참여한 코스")
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    val scope = rememberCoroutineScope()
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -86,14 +87,14 @@ fun CoursesLibraryScreen(
         )
 
         TabRow(
-            selectedTabIndex = selectedTabIndex,
+            selectedTabIndex = pagerState.currentPage,
             containerColor = MaterialTheme.colorScheme.background,
             contentColor = MaterialTheme.colorScheme.primary,
         ) {
             tabs.forEachIndexed { index, title ->
                 Tab(
-                    selected = selectedTabIndex == index,
-                    onClick = { selectedTabIndex = index },
+                    selected = pagerState.currentPage == index,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
                     text = {
                         Text(
                             text = title,
@@ -111,29 +112,33 @@ fun CoursesLibraryScreen(
                 .fillMaxWidth()
                 .weight(1f),
         ) {
-            when (selectedTabIndex) {
-                0 -> CreatedCoursesTab(
-                    courses = viewModel.myCourses,
-                    isLoading = viewModel.isLoadingMyCourses,
-                    error = viewModel.myCoursesError,
-                    onRetry = viewModel::loadMyCourses,
-                    onCourseClick = onNavigateToCourseDetail,
-                )
-                1 -> FavoriteCoursesTab(
-                    courses = viewModel.favoriteCourses,
-                    isLoading = viewModel.isLoadingFavorites,
-                    error = viewModel.favoritesError,
-                    onRetry = viewModel::loadFavoriteCourses,
-                    onCourseClick = onNavigateToCourseDetail,
-                )
-                2 -> ParticipatedCoursesTab(
-                    courses = viewModel.participatedCourses,
-                    isLoading = viewModel.isLoadingParticipated,
-                    error = viewModel.participatedError,
-                    onRetry = viewModel::loadParticipatedCourses,
-                    onCourseClick = onNavigateToCourseDetail,
-                )
-                else -> {}
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+                when (page) {
+                    0 -> CreatedCoursesTab(
+                        courses = viewModel.myCourses,
+                        isLoading = viewModel.isLoadingMyCourses,
+                        error = viewModel.myCoursesError,
+                        onRetry = viewModel::loadMyCourses,
+                        onCourseClick = onNavigateToCourseDetail,
+                    )
+                    1 -> FavoriteCoursesTab(
+                        courses = viewModel.favoriteCourses,
+                        isLoading = viewModel.isLoadingFavorites,
+                        error = viewModel.favoritesError,
+                        onRetry = viewModel::loadFavoriteCourses,
+                        onCourseClick = onNavigateToCourseDetail,
+                    )
+                    2 -> ParticipatedCoursesTab(
+                        courses = viewModel.participatedCourses,
+                        isLoading = viewModel.isLoadingParticipated,
+                        error = viewModel.participatedError,
+                        onRetry = viewModel::loadParticipatedCourses,
+                        onCourseClick = onNavigateToCourseDetail,
+                    )
+                }
             }
         }
     }

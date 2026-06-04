@@ -66,6 +66,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.location.GpsStatus
 import com.runway.android.ui.components.BatteryOptimizationCard
+import com.runway.android.ui.components.ConfettiCanvas
 import com.runway.android.ui.running.RunningCountdownOverlay
 import com.runway.android.ui.components.LocationPermissionCard
 import com.runway.android.ui.components.RouteMapView
@@ -428,6 +429,10 @@ fun CourseAttemptTrackingScreen(
         exit = fadeOut(tween(350)),
     ) {
         RunningCountdownOverlay(onFinished = { countdownDone = true })
+    }
+
+    if (viewModel.courseProgressPercent >= 100) {
+        ConfettiCanvas(modifier = Modifier.fillMaxSize())
     }
     } // Box
 }
