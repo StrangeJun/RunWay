@@ -141,7 +141,7 @@ fun PostureHomeScreen(
             }
             if (history.isEmpty()) {
                 item {
-                    PostureEmptyState(onStartCapture = onStartCapture)
+                    PostureEmptyState()
                 }
             } else {
                 items(history) { entity ->
@@ -157,9 +157,7 @@ fun PostureHomeScreen(
 }
 
 @Composable
-private fun PostureEmptyState(
-    onStartCapture: () -> Unit,
-) {
+private fun PostureEmptyState() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
@@ -188,15 +186,6 @@ private fun PostureEmptyState(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(18.dp))
-            Button(
-                onClick = onStartCapture,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Filled.VideoCameraBack, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("첫 분석 시작")
-            }
         }
     }
 }
@@ -374,6 +363,6 @@ private fun PostureHelpDialog(onDismiss: () -> Unit) {
 @Composable
 private fun PostureEmptyStatePreview() {
     RunwayTheme {
-        PostureEmptyState(onStartCapture = {})
+        PostureEmptyState()
     }
 }
