@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'backend/**'
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -43,8 +44,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /opt/runway/app
-            # 기존 파일 백업 후 새 JAR로 교체
-            ls *.jar 2>/dev/null | grep -v runway-api.jar | xargs -I{} mv {} runway-api.jar || true
+            # 업로드된 JAR를 runway-api.jar로 교체
+            find . -maxdepth 1 -name "*.jar" ! -name "runway-api.jar" -exec mv {} runway-api.jar \; || true
             sudo systemctl restart runway-api
             sleep 8
             if sudo systemctl is-active --quiet runway-api; then
