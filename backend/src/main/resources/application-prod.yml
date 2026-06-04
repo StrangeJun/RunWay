@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+  jpa:
+    properties:
+      hibernate:
+        format_sql: false
+  jmx:
+    enabled: false
+
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false
+
+logging:
+  level:
+    com.runway: INFO
+    org.flywaydb: INFO
+    org.hibernate: WARN
