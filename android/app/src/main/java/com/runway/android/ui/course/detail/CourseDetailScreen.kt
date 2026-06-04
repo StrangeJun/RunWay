@@ -90,11 +90,17 @@ fun CourseDetailScreen(
     }
 
     // 화면으로 돌아올 때 데이터 갱신 (완주 후 내 기록 업데이트 등)
+    // 최초 진입 시 ON_RESUME은 init { load() }와 중복되므로 건너뛴다.
     val lifecycleOwner = LocalLifecycleOwner.current
+    var isFirstResume by remember { mutableStateOf(true) }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.refresh()
+                if (isFirstResume) {
+                    isFirstResume = false
+                } else {
+                    viewModel.refresh()
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
