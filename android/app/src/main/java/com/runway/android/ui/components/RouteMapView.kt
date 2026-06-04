@@ -231,65 +231,52 @@ private fun createKmMarkerBitmap(context: Context, km: Int, fillColor: Int): Bit
     return bitmap
 }
 
-private fun createStartMarkerBitmap(context: Context): Bitmap {
+private fun createRoutePillMarker(context: Context, label: String, colorHex: String): Bitmap {
     val density = context.resources.displayMetrics.density
-    val sizePx = (44 * density).toInt().coerceAtLeast(44)
-    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
-    val canvas = AndroidCanvas(bitmap)
-    val paint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG)
+    val textPaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+        textSize = 11f * density
+        isFakeBoldText = true
+        textAlign = AndroidPaint.Align.CENTER
+    }
+    val textW = textPaint.measureText(label)
+    val padH = 10f * density
+    val padV = 6f * density
+    val w = (textW + padH * 2).toInt().coerceAtLeast(1)
+    val h = (textPaint.textSize + padV * 2).toInt().coerceAtLeast(1)
+    val r = h / 2f
 
-    // Green filled circle
-    paint.color = android.graphics.Color.parseColor("#22C55E")
-    paint.style = AndroidPaint.Style.FILL
-    canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f, paint)
+    val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val canvas = AndroidCanvas(bitmap)
+    val bgPaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG)
+
+    // Filled pill
+    bgPaint.color = android.graphics.Color.parseColor(colorHex)
+    bgPaint.style = AndroidPaint.Style.FILL
+    canvas.drawRoundRect(0f, 0f, w.toFloat(), h.toFloat(), r, r, bgPaint)
 
     // White border
-    paint.color = android.graphics.Color.WHITE
-    paint.style = AndroidPaint.Style.STROKE
-    paint.strokeWidth = density * 2.5f
-    canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f - density * 1.5f, paint)
+    bgPaint.color = android.graphics.Color.WHITE
+    bgPaint.style = AndroidPaint.Style.STROKE
+    bgPaint.strokeWidth = 1.5f * density
+    canvas.drawRoundRect(
+        bgPaint.strokeWidth / 2, bgPaint.strokeWidth / 2,
+        w - bgPaint.strokeWidth / 2, h - bgPaint.strokeWidth / 2,
+        r, r, bgPaint,
+    )
 
-    // "출" label
-    paint.style = AndroidPaint.Style.FILL
-    paint.color = android.graphics.Color.WHITE
-    paint.textSize = sizePx * 0.38f
-    paint.textAlign = AndroidPaint.Align.CENTER
-    paint.isFakeBoldText = true
-    val textY = sizePx / 2f - (paint.descent() + paint.ascent()) / 2f
-    canvas.drawText("출", sizePx / 2f, textY, paint)
+    // Label
+    textPaint.color = android.graphics.Color.WHITE
+    val textY = h / 2f - (textPaint.descent() + textPaint.ascent()) / 2f
+    canvas.drawText(label, w / 2f, textY, textPaint)
 
     return bitmap
 }
 
-private fun createEndMarkerBitmap(context: Context): Bitmap {
-    val density = context.resources.displayMetrics.density
-    val sizePx = (44 * density).toInt().coerceAtLeast(44)
-    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
-    val canvas = AndroidCanvas(bitmap)
-    val paint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG)
+private fun createStartMarkerBitmap(context: Context): Bitmap =
+    createRoutePillMarker(context, "Start", "#22C55E")
 
-    // Red filled circle
-    paint.color = android.graphics.Color.parseColor("#EF4444")
-    paint.style = AndroidPaint.Style.FILL
-    canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f, paint)
-
-    // White border
-    paint.color = android.graphics.Color.WHITE
-    paint.style = AndroidPaint.Style.STROKE
-    paint.strokeWidth = density * 2.5f
-    canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f - density * 1.5f, paint)
-
-    // "도" label
-    paint.style = AndroidPaint.Style.FILL
-    paint.color = android.graphics.Color.WHITE
-    paint.textSize = sizePx * 0.38f
-    paint.textAlign = AndroidPaint.Align.CENTER
-    paint.isFakeBoldText = true
-    val textY = sizePx / 2f - (paint.descent() + paint.ascent()) / 2f
-    canvas.drawText("도", sizePx / 2f, textY, paint)
-
-    return bitmap
-}
+private fun createEndMarkerBitmap(context: Context): Bitmap =
+    createRoutePillMarker(context, "Finish", "#EF4444")
 
 private fun distanceMeters(start: MapPoint, end: MapPoint): Double {
     if (start.latitude == end.latitude && start.longitude == end.longitude) return 0.0
