@@ -1,11 +1,16 @@
 package com.runway.android.ui.components
 
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,7 +33,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -123,6 +130,14 @@ fun RunHeroSection(
         )
 
         // ── 시작 button + 목표 설정 ─────────────────────────────────────────
+        val startButtonInteraction = remember { MutableInteractionSource() }
+        val isStartPressed by startButtonInteraction.collectIsPressedAsState()
+        val startButtonScale by animateFloatAsState(
+            targetValue = if (isStartPressed) 0.93f else 1f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+            label = "startButtonScale",
+        )
+
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -131,7 +146,8 @@ fun RunHeroSection(
         ) {
             Surface(
                 onClick = onStartRun,
-                modifier = Modifier.size(96.dp),
+                modifier = Modifier.size(96.dp).scale(startButtonScale),
+                interactionSource = startButtonInteraction,
                 shape = CircleShape,
                 color = LimeGreen,
                 shadowElevation = 14.dp,

@@ -1,5 +1,13 @@
 package com.runway.android.ui.onboarding
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +21,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -25,12 +35,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.launch
 
 private data class OnboardingPage(
     val icon: ImageVector,
@@ -65,13 +78,64 @@ fun OnboardingScreen(
         viewModel.onComplete.collect { onComplete() }
     }
 
-    val page = PAGES[viewModel.currentPage]
+    val pagerState = rememberPagerState { PAGES.size }
+    val coroutineScope = rememberCoroutineScope()
+    val isLastPage = pagerState.currentPage == PAGES.size - 1
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
+        // ── Page content ──────────────────────────────────────────────────
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+        ) { pageIndex ->
+            val page = PAGES[pageIndex]
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 32.dp)
+                    .padding(bottom = 160.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(96.dp)
+                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = page.icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(48.dp),
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Text(
+                    text = page.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    textAlign = TextAlign.Center,
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = page.description,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+
+        // ── Skip button ───────────────────────────────────────────────────
         TextButton(
             onClick = viewModel::complete,
             modifier = Modifier
@@ -86,46 +150,7 @@ fun OnboardingScreen(
             )
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(96.dp)
-                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = page.icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(48.dp),
-                )
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Text(
-                text = page.title,
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onBackground,
-                textAlign = TextAlign.Center,
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = page.description,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-        }
-
+        // ── Bottom controls ───────────────────────────────────────────────
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -139,15 +164,20 @@ fun OnboardingScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 PAGES.indices.forEach { index ->
+                    val dotWidth by animateDpAsState(
+                        targetValue = if (index == pagerState.currentPage) 20.dp else 6.dp,
+                        animationSpec = tween(300),
+                        label = "dot_$index",
+                    )
                     Box(
                         modifier = Modifier
-                            .size(if (index == viewModel.currentPage) 20.dp else 6.dp, 6.dp)
+                            .size(dotWidth, 6.dp)
                             .background(
-                                if (index == viewModel.currentPage)
+                                color = if (index == pagerState.currentPage)
                                     MaterialTheme.colorScheme.primary
                                 else
                                     MaterialTheme.colorScheme.outline,
-                                CircleShape,
+                                shape = CircleShape,
                             ),
                     )
                 }
@@ -159,15 +189,34 @@ fun OnboardingScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.extraLarge,
                 color = MaterialTheme.colorScheme.primary,
-                onClick = { viewModel.nextPage(PAGES.size) },
+                onClick = {
+                    if (isLastPage) {
+                        viewModel.complete()
+                    } else {
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                        }
+                    }
+                },
             ) {
-                Text(
-                    text = if (viewModel.currentPage < PAGES.size - 1) "다음" else "시작하기",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(vertical = 16.dp),
-                )
+                AnimatedContent(
+                    targetState = isLastPage,
+                    transitionSpec = {
+                        (slideInVertically { it } + fadeIn(tween(200))) togetherWith
+                            (slideOutVertically { -it } + fadeOut(tween(200)))
+                    },
+                    label = "ctaLabel",
+                ) { last ->
+                    Text(
+                        text = if (last) "시작하기" else "다음",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                    )
+                }
             }
         }
     }
