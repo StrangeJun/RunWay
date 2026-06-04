@@ -40,9 +40,12 @@ import androidx.compose.ui.unit.sp
 import com.runway.android.data.course.model.GeoPoint
 import com.runway.android.data.course.model.NearbyCourseItem
 import com.runway.android.ui.discover.DiscoverViewModel
+import com.runway.android.ui.theme.LocalIsDarkTheme
 
-private val BgTop = Color(0xFF0E1117)
-private val BgBottom = Color(0xFF161B26)
+private val DarkBgTop = Color(0xFF0E1117)
+private val DarkBgBottom = Color(0xFF161B26)
+private val LightBgTop = Color(0xFFE4EAF2)
+private val LightBgBottom = Color(0xFFEDF2F8)
 private val StartGreen = Color(0xFF4ADE80)
 private val EndOrange = Color(0xFFFB923C)
 
@@ -55,6 +58,7 @@ fun DiscoverCourseCard(
     val isPopular = DiscoverViewModel.isPopular(course)
     val isNew = DiscoverViewModel.isNew(course)
     val completionRate = DiscoverViewModel.completionRate(course)
+    val isDark = LocalIsDarkTheme.current
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -69,6 +73,7 @@ fun DiscoverCourseCard(
                     routePoints = course.routePoints,
                     courseId = course.courseId,
                     accentColor = MaterialTheme.colorScheme.primary,
+                    isDark = isDark,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(108.dp)
@@ -80,7 +85,8 @@ fun DiscoverCourseCard(
                         .align(Alignment.TopStart)
                         .padding(10.dp),
                     shape = RoundedCornerShape(6.dp),
-                    color = Color.White.copy(alpha = 0.10f),
+                    color = if (isDark) Color.White.copy(alpha = 0.10f)
+                            else Color.Black.copy(alpha = 0.07f),
                 ) {
                     Text(
                         text = formatDistance(course.distanceMeters),
@@ -89,7 +95,8 @@ fun DiscoverCourseCard(
                             fontSize = 11.sp,
                             letterSpacing = 0.5.sp,
                         ),
-                        color = Color.White.copy(alpha = 0.90f),
+                        color = if (isDark) Color.White.copy(alpha = 0.90f)
+                                else Color.Black.copy(alpha = 0.65f),
                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
                     )
                 }
@@ -221,11 +228,12 @@ private fun SportyCourseCanvas(
     routePoints: List<GeoPoint>,
     courseId: String,
     accentColor: Color,
+    isDark: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    Box(modifier = modifier.background(
-        Brush.verticalGradient(listOf(BgTop, BgBottom))
-    )) {
+    val bgColors = if (isDark) listOf(DarkBgTop, DarkBgBottom)
+                   else listOf(LightBgTop, LightBgBottom)
+    Box(modifier = modifier.background(Brush.verticalGradient(bgColors))) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
@@ -234,11 +242,13 @@ private fun SportyCourseCanvas(
             // 도트 그리드
             val dotStep = 22.dp.toPx()
             val dotR = 1.dp.toPx()
+            val dotColor = if (isDark) Color.White.copy(alpha = 0.055f)
+                           else Color.Black.copy(alpha = 0.06f)
             var xi = dotStep
             while (xi < w) {
                 var yi = dotStep
                 while (yi < h) {
-                    drawCircle(Color.White.copy(alpha = 0.055f), dotR, Offset(xi, yi))
+                    drawCircle(dotColor, dotR, Offset(xi, yi))
                     yi += dotStep
                 }
                 xi += dotStep
