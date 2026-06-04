@@ -9,6 +9,7 @@ import com.runway.run.domain.enums.RunningRecordStatus;
 import com.runway.run.dto.*;
 import com.runway.run.dto.PersonalRecordItemResponse;
 import com.runway.run.dto.PersonalRecordsResponse;
+import com.runway.run.repository.RunningPointBatchInserter;
 import com.runway.run.repository.RunningPointRepository;
 import com.runway.run.repository.RunningRecordRepository;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class RunningService {
 
     private final RunningRecordRepository runningRecordRepository;
     private final RunningPointRepository runningPointRepository;
+    private final RunningPointBatchInserter runningPointBatchInserter;
 
     @Transactional
     public StartRunResponse startRun(UUID userId, StartRunRequest request) {
@@ -70,12 +72,7 @@ public class RunningService {
         }
 
         int count = request.getPoints().size();
-        for (SavePointsRequest.PointData p : request.getPoints()) {
-            runningPointRepository.insertIgnoreConflict(
-                    runId, p.getSequence(), p.getLatitude(), p.getLongitude(),
-                    p.getAltitudeMeters(), p.getSpeedMps(), p.getRecordedAt()
-            );
-        }
+        runningPointBatchInserter.batchInsert(runId, request.getPoints());
         log.info("Points saved (upsert): runId={} count={}", runId, count);
         return new SavePointsResponse(runId, count);
     }
