@@ -33,7 +33,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -58,12 +62,15 @@ fun CoursesLibraryScreen(
     val scope = rememberCoroutineScope()
 
     val lifecycleOwner = LocalLifecycleOwner.current
+    var isFirstResume by remember { mutableStateOf(true) }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.loadFavoriteCourses()
-                viewModel.loadMyCourses()
-                viewModel.loadParticipatedCourses()
+                if (isFirstResume) {
+                    isFirstResume = false
+                } else {
+                    viewModel.onResume()
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)

@@ -66,6 +66,17 @@ class CoursesLibraryViewModel @Inject constructor(
         }
     }
 
+    fun onResume() {
+        viewModelScope.launch {
+            coroutineScope {
+                val a = async { doLoadMyCourses() }
+                val b = async { doLoadFavorites() }
+                val c = async { doLoadParticipated() }
+                a.await(); b.await(); c.await()
+            }
+        }
+    }
+
     fun loadMyCourses() {
         viewModelScope.launch { doLoadMyCourses() }
     }
