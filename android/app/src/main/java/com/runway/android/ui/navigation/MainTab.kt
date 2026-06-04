@@ -15,6 +15,6 @@ enum class MainTab(
     HOME(Icons.Filled.Home, "홈"),
     DISCOVER(Icons.Filled.Explore, "탐색"),
     COURSES(Icons.Filled.Route, "코스"),
-    PROFILE(Icons.Filled.Person, "내 정보"),
     POSTURE(Icons.Filled.SelfImprovement, "자세"),
+    PROFILE(Icons.Filled.Person, "내 정보"),
 }
