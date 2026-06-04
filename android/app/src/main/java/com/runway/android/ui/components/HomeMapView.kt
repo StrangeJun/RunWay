@@ -8,7 +8,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.runway.android.ui.theme.LocalIsDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -48,10 +48,10 @@ fun HomeMapView(
         position = CameraPosition.fromLatLngZoom(LatLng(37.5665, 126.9780), 13f)
     }
 
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val mapStyleOptions = remember(isDark) {
-        if (isDark) runCatching { MapStyleOptions.loadRawResourceStyle(context, R.raw.map_style_dark) }.getOrNull()
-        else null
+        val styleRes = if (isDark) R.raw.map_style_dark else R.raw.map_style_light
+        runCatching { MapStyleOptions.loadRawResourceStyle(context, styleRes) }.getOrNull()
     }
 
     LaunchedEffect(currentLocation) {

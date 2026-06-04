@@ -5,7 +5,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
+
+/** True when the active theme is dark. Use instead of isSystemInDarkTheme() inside the app. */
+val LocalIsDarkTheme = compositionLocalOf { true }
 
 enum class ThemeMode { DARK, LIGHT, SYSTEM }
 
@@ -83,10 +88,12 @@ fun RunwayTheme(
         ThemeMode.LIGHT -> false
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
-    MaterialTheme(
-        colorScheme = if (isDark) RunwayDarkColorScheme else RunwayLightColorScheme,
-        typography = RunwayTypography,
-        shapes = RunwayShapes,
-        content = content,
-    )
+    CompositionLocalProvider(LocalIsDarkTheme provides isDark) {
+        MaterialTheme(
+            colorScheme = if (isDark) RunwayDarkColorScheme else RunwayLightColorScheme,
+            typography = RunwayTypography,
+            shapes = RunwayShapes,
+            content = content,
+        )
+    }
 }

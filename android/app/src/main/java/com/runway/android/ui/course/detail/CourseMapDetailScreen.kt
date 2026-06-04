@@ -7,7 +7,7 @@ import android.graphics.Typeface
 import android.location.Location
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.runway.android.ui.theme.LocalIsDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -149,10 +149,10 @@ private fun CourseFullMap(
     val cameraPositionState = rememberCameraPositionState()
     val primaryColor = MaterialTheme.colorScheme.primary
     val primaryArgb = primaryColor.toArgb()
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val mapStyleOptions = remember(isDark) {
-        if (isDark) runCatching { MapStyleOptions.loadRawResourceStyle(context, R.raw.map_style_dark) }.getOrNull()
-        else null
+        val styleRes = if (isDark) R.raw.map_style_dark else R.raw.map_style_light
+        runCatching { MapStyleOptions.loadRawResourceStyle(context, styleRes) }.getOrNull()
     }
 
     val kmMarkers = remember(points) { calculateKmMarkers(points) }

@@ -2,7 +2,7 @@ package com.runway.android.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.runway.android.ui.theme.LocalIsDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -65,10 +65,10 @@ private fun RouteGoogleMap(
     val currentLatLng = remember(currentLocation) {
         currentLocation?.let { LatLng(it.latitude, it.longitude) }
     }
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val mapStyleOptions = remember(isDark) {
-        if (isDark) runCatching { MapStyleOptions.loadRawResourceStyle(context, R.raw.map_style_dark) }.getOrNull()
-        else null
+        val styleRes = if (isDark) R.raw.map_style_dark else R.raw.map_style_light
+        runCatching { MapStyleOptions.loadRawResourceStyle(context, styleRes) }.getOrNull()
     }
 
     GoogleMap(
