@@ -45,9 +45,16 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -493,14 +500,31 @@ private fun CourseDetailContent(
             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             Spacer(modifier = Modifier.height(20.dp))
 
-            // ─── 통계 행 ───
+            // ─── 통계 행 (count-up) ───
+            var statsTriggered by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) { statsTriggered = true }
+            val animatedDistance by animateFloatAsState(
+                targetValue = if (statsTriggered) course.distanceMeters.toFloat() else 0f,
+                animationSpec = tween(1200),
+                label = "dist",
+            )
+            val animatedAttempts by animateIntAsState(
+                targetValue = if (statsTriggered) course.attemptCount else 0,
+                animationSpec = tween(1200),
+                label = "attempts",
+            )
+            val animatedCompletions by animateIntAsState(
+                targetValue = if (statsTriggered) course.completionCount else 0,
+                animationSpec = tween(1200),
+                label = "completions",
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                StatItem(label = "거리", value = formatDistance(course.distanceMeters))
-                StatItem(label = "도전", value = "${course.attemptCount}회")
-                StatItem(label = "완주", value = "${course.completionCount}회")
+                StatItem(label = "거리", value = formatDistance(animatedDistance.toDouble()))
+                StatItem(label = "도전", value = "${animatedAttempts}회")
+                StatItem(label = "완주", value = "${animatedCompletions}회")
             }
 
             // ─── 평점 행 ───

@@ -1,5 +1,6 @@
 package com.runway.android.ui.components
 
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -39,6 +41,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -234,6 +237,14 @@ private fun GpsWeatherPill(
     weatherInfo: WeatherInfo?,
     modifier: Modifier = Modifier,
 ) {
+    val shimmerTransition = rememberInfiniteTransition(label = "pill_shimmer")
+    val shimmerOffset by shimmerTransition.animateFloat(
+        initialValue = -1f,
+        targetValue = 2f,
+        animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing)),
+        label = "shimmerX",
+    )
+
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
@@ -259,7 +270,7 @@ private fun GpsWeatherPill(
             )
         }
 
-        // Row 2: Weather — only shown when data is available
+        // Row 2: Weather data or shimmer placeholder while loading
         if (weatherInfo != null) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -283,6 +294,26 @@ private fun GpsWeatherPill(
                     )
                 }
             }
+        } else {
+            Box(
+                modifier = Modifier
+                    .width(130.dp)
+                    .height(11.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(Color.White.copy(alpha = 0.07f))
+                    .drawWithContent {
+                        drawContent()
+                        val center = size.width * shimmerOffset
+                        val half = size.width * 0.5f
+                        drawRect(
+                            brush = Brush.horizontalGradient(
+                                listOf(Color.Transparent, Color.White.copy(0.22f), Color.Transparent),
+                                startX = center - half,
+                                endX = center + half,
+                            ),
+                        )
+                    },
+            )
         }
     }
 }
