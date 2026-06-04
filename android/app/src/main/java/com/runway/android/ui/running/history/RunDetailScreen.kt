@@ -317,6 +317,15 @@ fun RunDetailScreen(
             }
             viewModel.detail != null -> {
                 val detail = viewModel.detail!!
+                val kilometerElapsedSeconds = remember(viewModel.splits) {
+                    viewModel.splits.runningFold(0) { elapsed, split ->
+                        elapsed + split.durationSeconds
+                    }.drop(1).take(viewModel.splits.count { it.distanceKm >= 0.99 })
+                }
+                val bestPaceSecondsPerKm = remember(viewModel.splits, viewModel.chartPoints) {
+                    viewModel.splits.minOfOrNull { it.paceSecondsPerKm }
+                        ?: viewModel.chartPoints.minOfOrNull { it.paceSecondsPerKm }
+                }
 
                 LazyColumn(
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
@@ -368,13 +377,20 @@ fun RunDetailScreen(
                                 .fillMaxWidth()
                                 .height(220.dp)
                                 .clip(MaterialTheme.shapes.extraLarge),
+                            enableGesturesOnMapClick = true,
+                            showKilometerMarkers = true,
                         )
                     }
 
                     // ─── 페이스 차트 ───
                     if (viewModel.chartPoints.isNotEmpty()) {
                         item {
-                            RunPaceChart(points = viewModel.chartPoints)
+                            RunPaceChart(
+                                points = viewModel.chartPoints,
+                                kilometerElapsedSeconds = kilometerElapsedSeconds,
+                                averagePaceSecondsPerKm = detail.avgPaceSecondsPerKm,
+                                bestPaceSecondsPerKm = bestPaceSecondsPerKm,
+                            )
                         }
                     }
 
