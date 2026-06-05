@@ -46,8 +46,16 @@ import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.runway.android.core.posture.PostureSkeletonSmoother
-import com.runway.android.core.posture.SKELETON_EDGES
+import com.runway.android.core.posture.SKELETON_EDGES_BILATERAL
+import com.runway.android.core.posture.SKELETON_EDGES_LEFT
+import com.runway.android.core.posture.SKELETON_EDGES_RIGHT
 import com.runway.android.core.posture.SKELETON_JOINT_INDICES
+import com.runway.android.core.posture.SKEL_L_HIP
+import com.runway.android.core.posture.SKEL_L_KNEE
+import com.runway.android.core.posture.SKEL_L_SHOULDER
+import com.runway.android.core.posture.SKEL_R_HIP
+import com.runway.android.core.posture.SKEL_R_KNEE
+import com.runway.android.core.posture.SKEL_R_SHOULDER
 import com.runway.android.core.posture.PostureVideoFrame
 import com.runway.android.core.posture.SkeletonPoint
 import com.runway.android.core.posture.interpolateFrame
@@ -263,15 +271,24 @@ private fun SkeletonOverlay(
         }
 
         fun pt(p: SkeletonPoint) = Offset(p.x * videoWidth * scale + dx, p.y * videoHeight * scale + dy)
-        fun visible(p: SkeletonPoint) = p.v > 0.45f
+        fun vis(p: SkeletonPoint) = p.v > 0.45f
 
         val pts = frame.pts
         if (pts.isEmpty()) return@Canvas
 
-        for ((a, b) in SKELETON_EDGES) {
+        fun safeVis(idx: Int) = if (idx < pts.size) pts[idx].v else 0f
+
+        // Running video is always a side-profile shot. Draw only the side whose
+        // key joints (shoulder, hip, knee) have higher average visibility — the
+        // far side is estimated by MediaPipe and creates confusing crossed lines.
+        val leftVis  = (safeVis(SKEL_L_SHOULDER) + safeVis(SKEL_L_HIP) + safeVis(SKEL_L_KNEE)) / 3f
+        val rightVis = (safeVis(SKEL_R_SHOULDER) + safeVis(SKEL_R_HIP) + safeVis(SKEL_R_KNEE)) / 3f
+        val sideEdges = if (leftVis >= rightVis) SKELETON_EDGES_LEFT else SKELETON_EDGES_RIGHT
+
+        for ((a, b) in SKELETON_EDGES_BILATERAL + sideEdges) {
             if (a >= pts.size || b >= pts.size) continue
             val pa = pts[a]; val pb = pts[b]
-            if (!visible(pa) || !visible(pb)) continue
+            if (!vis(pa) || !vis(pb)) continue
             drawLine(
                 color = Color(0xCCFFFFFF), start = pt(pa), end = pt(pb),
                 strokeWidth = 3.5f, cap = StrokeCap.Round,
@@ -281,7 +298,7 @@ private fun SkeletonOverlay(
         for (idx in SKELETON_JOINT_INDICES) {
             if (idx >= pts.size) continue
             val p = pts[idx]
-            if (!visible(p)) continue
+            if (!vis(p)) continue
             drawCircle(color = Color(0xFF00E676), radius = 6f, center = pt(p))
             drawCircle(color = Color.White,       radius = 3f, center = pt(p))
         }
