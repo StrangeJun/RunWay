@@ -18,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,11 +30,10 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -66,19 +66,24 @@ fun PostureResultScreen(
     viewModel: PostureAnalysisViewModel = hiltViewModel(),
 ) {
     var entity by remember { mutableStateOf<PostureAnalysisEntity?>(null) }
-    var loaded by remember { mutableStateOf(result != null) }
+    var loaded by remember { mutableStateOf(result != null && analysisId == null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
+    // Always load entity from DB when we have an ID — entity carries the video path + frames
     LaunchedEffect(analysisId) {
-        if (analysisId != null && result == null) {
+        if (analysisId != null) {
             loaded = false
             entity = viewModel.loadById(analysisId)
             loaded = true
         }
     }
 
-    val displayResult: PostureResult? = result ?: entity?.toPostureResult()
+    val displayResult: PostureResult? = entity?.toPostureResult() ?: result
     val canDelete = analysisId != null || entity != null
+
+    val videoFrames = remember(entity?.videoFramesJson) {
+        viewModel.parseVideoFrames(entity?.videoFramesJson)
+    }
 
     if (showDeleteDialog) {
         AlertDialog(
@@ -138,6 +143,10 @@ fun PostureResultScreen(
             }
             else -> PostureResultContent(
                 result = displayResult,
+                videoPath = entity?.videoPath,
+                videoFrames = videoFrames,
+                videoWidth = entity?.videoWidth ?: 0,
+                videoHeight = entity?.videoHeight ?: 0,
                 modifier = Modifier.padding(padding),
                 onRetake = onRetake,
                 onBack = onBack,
@@ -149,6 +158,10 @@ fun PostureResultScreen(
 @Composable
 private fun PostureResultContent(
     result: PostureResult,
+    videoPath: String?,
+    videoFrames: List<com.runway.android.core.posture.PostureVideoFrame>,
+    videoWidth: Int,
+    videoHeight: Int,
     modifier: Modifier = Modifier,
     onRetake: () -> Unit,
     onBack: () -> Unit,
@@ -161,9 +174,20 @@ private fun PostureResultContent(
             .padding(horizontal = 20.dp, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        // Video replay section (only when video file exists)
+        if (videoPath != null && videoFrames.isNotEmpty()) {
+            PostureVideoPlayerCard(
+                videoPath = videoPath,
+                videoFrames = videoFrames,
+                videoWidth = videoWidth,
+                videoHeight = videoHeight,
+            )
+            Spacer(Modifier.height(18.dp))
+        }
+
+        // Overall score card
         Surface(
-            modifier = Modifier
-                .fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surface,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
@@ -299,7 +323,7 @@ private fun PostureAnalysisEntity.toPostureResult(): PostureResult = PostureResu
     overallScore = overallScore,
     grade = grade,
     overallFeedback = overallFeedback,
-    knee = PostureCategoryResult(kneeScore, kneeMeasuredAngle, 155f, 170f, "°", kneeFeedback, kneeTip),
+    knee = PostureCategoryResult(kneeScore, kneeMeasuredAngle, 135f, 165f, "°", kneeFeedback, kneeTip),
     trunk = PostureCategoryResult(trunkScore, trunkMeasuredAngle, 5f, 10f, "°", trunkFeedback, trunkTip),
     elbow = PostureCategoryResult(elbowScore, elbowMeasuredAngle, 85f, 95f, "°", elbowFeedback, elbowTip),
     hip = PostureCategoryResult(hipScore, hipMeasuredAngle, 160f, 180f, "°", hipFeedback, hipTip),
@@ -315,12 +339,16 @@ private fun PostureResultPreview() {
                 overallScore = 74,
                 grade = "B",
                 overallFeedback = "전반적으로 좋은 자세입니다. 상체 기울기 부분을 보완하면 더 좋아집니다.",
-                knee = PostureCategoryResult(82, 162f, 155f, 170f, "°", "착지 시 무릎 각도가 이상적입니다.", ""),
+                knee = PostureCategoryResult(82, 148f, 135f, 165f, "°", "착지 시 무릎 각도가 이상적입니다.", ""),
                 trunk = PostureCategoryResult(55, 2.3f, 5f, 10f, "°", "상체를 약 5도 앞으로 기울여 보세요.", "전방 기울기는 추진력과 효율을 높여줍니다."),
                 elbow = PostureCategoryResult(90, 91f, 85f, 95f, "°", "팔꿈치 각도가 이상적입니다.", ""),
                 hip = PostureCategoryResult(78, 172f, 160f, 180f, "°", "고관절 신전이 적절합니다.", ""),
                 overstride = PostureCategoryResult(70, 0.18f, 0f, 0.10f, "%", "착지 위치가 약간 앞쪽입니다.", "발이 엉덩이 아래에 가깝게 착지하면 제동력을 줄일 수 있습니다."),
             ),
+            videoPath = null,
+            videoFrames = emptyList(),
+            videoWidth = 0,
+            videoHeight = 0,
             onRetake = {},
             onBack = {},
         )

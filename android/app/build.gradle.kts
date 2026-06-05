@@ -133,6 +133,11 @@ dependencies {
     // 0.10.35+: libmediapipe_tasks_jni.so uses 16KB page alignment (was 4KB in ≤0.10.14)
     implementation("com.google.mediapipe:tasks-vision:0.10.35")
 
+    // ─── Media3 ExoPlayer (posture video replay) ───
+    val media3Version = "1.5.1"
+    implementation("androidx.media3:media3-exoplayer:$media3Version")
+    implementation("androidx.media3:media3-ui:$media3Version")
+
     // ─── Test ───
     testImplementation("junit:junit:4.13.2")
 

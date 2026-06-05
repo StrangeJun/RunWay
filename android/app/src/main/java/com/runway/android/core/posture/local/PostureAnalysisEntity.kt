@@ -30,4 +30,9 @@ data class PostureAnalysisEntity(
     val overstrideRatio: Float,
     val overstrideFeedback: String,
     val overstrideTip: String,
+    // Video replay fields (nullable: older analyses may not have a saved video)
+    val videoPath: String? = null,
+    val videoFramesJson: String? = null,
+    val videoWidth: Int = 0,
+    val videoHeight: Int = 0,
 )

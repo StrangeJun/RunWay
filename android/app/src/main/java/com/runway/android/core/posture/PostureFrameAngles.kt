@@ -8,4 +8,6 @@ data class PostureFrameAngles(
     val overstrideRatio: Float,
     val isLandingFrame: Boolean,
     val visibility: Float,
+    val timestampMs: Long = 0L,
+    val landmarks: List<SkeletonPoint> = emptyList(),
 )

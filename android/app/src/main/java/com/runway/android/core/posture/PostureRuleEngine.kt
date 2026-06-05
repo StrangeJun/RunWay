@@ -48,16 +48,19 @@ class PostureRuleEngine @Inject constructor() : PostureEvaluator {
     }
 
     private fun evalKnee(angle: Float): PostureCategoryResult {
-        val idealMin = 155f; val idealMax = 170f
+        // Biomechanically sound landing range for running: 135–165° (hip-knee-ankle).
+        // Elite runners commonly land at 130–155°; the old 155–170° was too strict and
+        // penalised athletes who use healthy knee flexion for shock absorption.
+        val idealMin = 135f; val idealMax = 165f
         val score = angleScore(angle, idealMin, idealMax)
         val feedback = when {
-            angle < idealMin - 15f -> "착지 시 무릎이 너무 많이 구부러져 있습니다."
-            angle < idealMin -> "착지 시 무릎을 조금 더 펴보세요."
+            angle < idealMin - 15f -> "착지 시 무릎이 너무 많이 구부러져 있습니다. 보폭을 조금 줄여보세요."
+            angle < idealMin -> "착지 시 무릎이 약간 많이 구부러져 있습니다. 조금 더 펴보세요."
             angle > idealMax + 15f -> "착지 시 무릎이 너무 펴져 있어 충격 흡수가 부족합니다."
             angle > idealMax -> "착지 시 무릎을 살짝 더 구부려 충격을 흡수해보세요."
             else -> "착지 시 무릎 각도가 이상적입니다."
         }
-        val tip = if (score < 80) "무릎을 살짝 구부린 상태로 착지하면 관절 충격을 줄일 수 있습니다." else ""
+        val tip = if (score < 80) "무릎을 살짝 구부린 상태(135~165°)로 착지하면 관절 충격을 효과적으로 분산시킬 수 있습니다." else ""
         return PostureCategoryResult(score, angle, idealMin, idealMax, "°", feedback, tip)
     }
 
@@ -162,7 +165,7 @@ class PostureRuleEngine @Inject constructor() : PostureEvaluator {
         overallScore = 0,
         grade = "D",
         overallFeedback = "분석 가능한 프레임이 없습니다. 다시 촬영해주세요.",
-        knee = PostureCategoryResult(0, 0f, 155f, 170f, "°", "분석 불가", ""),
+        knee = PostureCategoryResult(0, 0f, 135f, 165f, "°", "분석 불가", ""),
         trunk = PostureCategoryResult(0, 0f, 5f, 10f, "°", "분석 불가", ""),
         elbow = PostureCategoryResult(0, 0f, 85f, 95f, "°", "분석 불가", ""),
         hip = PostureCategoryResult(0, 0f, 160f, 180f, "°", "분석 불가", ""),

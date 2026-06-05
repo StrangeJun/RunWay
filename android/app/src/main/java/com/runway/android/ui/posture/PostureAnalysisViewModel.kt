@@ -1,20 +1,26 @@
 package com.runway.android.ui.posture
 
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.runway.android.core.posture.PostureEvaluator
 import com.runway.android.core.posture.PosturePoseAnalyzer
 import com.runway.android.core.posture.PostureResult
+import com.runway.android.core.posture.PostureVideoFrame
 import com.runway.android.core.posture.local.PostureAnalysisDao
 import com.runway.android.core.posture.local.PostureAnalysisEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 
@@ -27,10 +33,14 @@ sealed interface PostureAnalysisState {
 
 @HiltViewModel
 class PostureAnalysisViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val poseAnalyzer: PosturePoseAnalyzer,
     private val evaluator: PostureEvaluator,
     private val dao: PostureAnalysisDao,
 ) : ViewModel() {
+
+    private val gson = Gson()
+    private val videoFramesType = object : TypeToken<List<PostureVideoFrame>>() {}.type
 
     private val _analysisState = MutableStateFlow<PostureAnalysisState>(PostureAnalysisState.Idle)
     val analysisState: StateFlow<PostureAnalysisState> = _analysisState.asStateFlow()
@@ -42,28 +52,36 @@ class PostureAnalysisViewModel @Inject constructor(
         if (_analysisState.value is PostureAnalysisState.Analyzing) return
         viewModelScope.launch {
             _analysisState.value = PostureAnalysisState.Analyzing
+            val id = UUID.randomUUID().toString()
+            var savedVideoPath: String? = null
+
             runCatching {
-                val frames = poseAnalyzer.extractAngles(videoUri)
-                if (frames.isEmpty()) {
+                val output = poseAnalyzer.extractAnalysis(videoUri, id)
+                if (output.frames.isEmpty()) {
                     _analysisState.value = PostureAnalysisState.Error(
                         "영상에서 자세를 감지하지 못했습니다. 전신이 잘 보이도록 다시 촬영해주세요."
                     )
                     return@launch
                 }
-                val result = evaluator.evaluate(frames)
-                val id = UUID.randomUUID().toString()
-                dao.insert(result.toEntity(id))
+
+                savedVideoPath = output.videoPath
+                val result = evaluator.evaluate(output.frames)
+                val framesJson = gson.toJson(output.videoFrames)
+
+                dao.insert(result.toEntity(id, output.videoPath, framesJson, output.videoWidth, output.videoHeight))
                 _analysisState.value = PostureAnalysisState.Success(result, id)
             }.onFailure { e ->
+                // Clean up the saved video if analysis failed after copying
+                savedVideoPath?.let { File(it).delete() }
                 _analysisState.value = PostureAnalysisState.Error(
                     "분석 중 오류가 발생했습니다: ${e.message}"
                 )
             }.also {
-                // Delete temp cache file after analysis (privacy).
-                // Only delete file:// URIs — content:// URIs are managed by the OS.
+                // Always delete the original cache file (privacy).
+                // The video was already copied to internal storage by the analyzer.
                 runCatching {
                     if (videoUri.scheme == "file") {
-                        videoUri.path?.let { path -> java.io.File(path).delete() }
+                        videoUri.path?.let { path -> File(path).delete() }
                     }
                 }
             }
@@ -76,13 +94,27 @@ class PostureAnalysisViewModel @Inject constructor(
 
     suspend fun loadById(id: String): PostureAnalysisEntity? = dao.findById(id)
 
+    fun parseVideoFrames(json: String?): List<PostureVideoFrame> {
+        if (json.isNullOrEmpty()) return emptyList()
+        return runCatching { gson.fromJson<List<PostureVideoFrame>>(json, videoFramesType) }
+            .getOrDefault(emptyList())
+    }
+
     fun deleteAnalysis(id: String) {
         viewModelScope.launch {
+            val entity = dao.findById(id)
+            entity?.videoPath?.let { path -> File(path).delete() }
             dao.deleteById(id)
         }
     }
 
-    private fun PostureResult.toEntity(id: String) = PostureAnalysisEntity(
+    private fun PostureResult.toEntity(
+        id: String,
+        videoPath: String?,
+        videoFramesJson: String?,
+        videoWidth: Int,
+        videoHeight: Int,
+    ) = PostureAnalysisEntity(
         id = id,
         createdAt = System.currentTimeMillis(),
         overallScore = overallScore,
@@ -108,5 +140,9 @@ class PostureAnalysisViewModel @Inject constructor(
         overstrideRatio = overstride.measuredValue,
         overstrideFeedback = overstride.feedback,
         overstrideTip = overstride.tip,
+        videoPath = videoPath,
+        videoFramesJson = videoFramesJson,
+        videoWidth = videoWidth,
+        videoHeight = videoHeight,
     )
 }
