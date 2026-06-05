@@ -73,22 +73,30 @@ class PostureRuleEngineTest {
     // ─── category score boundary tests ───
 
     @Test
-    fun `knee score 100 when angle is within 155-170`() {
-        val result = engine.evaluate(listOf(perfectFrame().copy(kneeFlexAngle = 162f)))
+    fun `knee score 100 when angle is within 135-165`() {
+        val result = engine.evaluate(listOf(perfectFrame().copy(kneeFlexAngle = 150f)))
         assertEquals(100, result.knee.score)
     }
 
     @Test
-    fun `knee score drops when angle deviates 5 degrees`() {
-        // 5° below ideal min (155-5=150)
-        val result = engine.evaluate(listOf(perfectFrame().copy(kneeFlexAngle = 150f)))
-        assertTrue("score should be between 70 and 90", result.knee.score in 70..90)
+    fun `knee score drops when angle deviates 5 degrees below idealMin`() {
+        // 5° below ideal min (135-5=130)
+        val result = engine.evaluate(listOf(perfectFrame().copy(kneeFlexAngle = 130f)))
+        assertTrue("score should be between 70 and 90 for 130°", result.knee.score in 70..90)
     }
 
     @Test
-    fun `knee score drops further when angle deviates 15 degrees`() {
+    fun `knee score drops further when angle deviates 15 degrees below idealMin`() {
+        // 15° below ideal min (135-15=120)
+        val result = engine.evaluate(listOf(perfectFrame().copy(kneeFlexAngle = 120f)))
+        assertTrue("score should be between 40 and 70 for 120°", result.knee.score in 40..70)
+    }
+
+    @Test
+    fun `professional runner knee 140 degrees scores 60 or above`() {
+        // Elite runners land at 130-150°; 140° is within the ideal range (135-165)
         val result = engine.evaluate(listOf(perfectFrame().copy(kneeFlexAngle = 140f)))
-        assertTrue("score should be between 40 and 70", result.knee.score in 40..70)
+        assertTrue("elite landing angle should score >= 60", result.knee.score >= 60)
     }
 
     @Test

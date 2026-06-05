@@ -50,6 +50,7 @@ import com.runway.android.core.posture.SKELETON_EDGES
 import com.runway.android.core.posture.SKELETON_JOINT_INDICES
 import com.runway.android.core.posture.PostureVideoFrame
 import com.runway.android.core.posture.SkeletonPoint
+import com.runway.android.core.posture.interpolateFrame
 import kotlinx.coroutines.delay
 import java.io.File
 
@@ -286,46 +287,6 @@ private fun SkeletonOverlay(
         }
     }
 }
-
-/**
- * Binary search for the frame immediately before [posMs], then linearly
- * interpolate toward the next frame. O(log n) per call.
- * Returns null only when [sortedFrames] is empty.
- */
-private fun interpolateFrame(sortedFrames: List<PostureVideoFrame>, posMs: Long): PostureVideoFrame? {
-    if (sortedFrames.isEmpty()) return null
-    if (sortedFrames.size == 1) return sortedFrames[0]
-
-    // bisectRight returns index of first frame with t > posMs
-    val idx       = bisectRight(sortedFrames, posMs)
-    val beforeIdx = (idx - 1).coerceAtLeast(0)
-    val before    = sortedFrames[beforeIdx]
-    val after     = sortedFrames.getOrNull(idx) ?: return before
-
-    val range = (after.t - before.t).toFloat()
-    if (range <= 0f) return before
-
-    // Guard against mismatched point counts — skip interpolation, return the earlier frame.
-    if (before.pts.size != after.pts.size) return before
-
-    val t   = ((posMs - before.t) / range).coerceIn(0f, 1f)
-    val pts = before.pts.zip(after.pts).map { (a, b) ->
-        SkeletonPoint(lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.v, b.v, t))
-    }
-    return PostureVideoFrame(posMs, pts)
-}
-
-/** Returns the index of the first element whose timestamp > [posMs]. */
-private fun bisectRight(frames: List<PostureVideoFrame>, posMs: Long): Int {
-    var lo = 0; var hi = frames.size
-    while (lo < hi) {
-        val mid = (lo + hi) ushr 1
-        if (frames[mid].t <= posMs) lo = mid + 1 else hi = mid
-    }
-    return lo
-}
-
-private fun lerp(a: Float, b: Float, t: Float) = a + (b - a) * t
 
 private fun formatMs(ms: Long): String {
     val s = (ms / 1000).coerceAtLeast(0)
