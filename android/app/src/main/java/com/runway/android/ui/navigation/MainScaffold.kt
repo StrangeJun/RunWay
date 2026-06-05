@@ -66,7 +66,12 @@ fun MainScaffold(
     }
 
     BackHandler(enabled = currentTab != MainTab.HOME) {
-        currentTabOrdinal = MainTab.HOME.ordinal
+        when {
+            currentTab == MainTab.POSTURE && showPostureCapture -> showPostureCapture = false
+            currentTab == MainTab.POSTURE && postureResultId != null -> postureResultId = null
+            currentTab == MainTab.POSTURE && postureState is PostureAnalysisState.Success -> postureViewModel.resetState()
+            else -> currentTabOrdinal = MainTab.HOME.ordinal
+        }
     }
 
     Scaffold(
