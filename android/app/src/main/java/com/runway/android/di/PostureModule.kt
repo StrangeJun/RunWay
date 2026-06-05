@@ -7,6 +7,7 @@ import com.runway.android.core.posture.PosturePoseAnalyzer
 import com.runway.android.core.posture.PostureRuleEngine
 import com.runway.android.core.posture.local.PostureAnalysisDao
 import com.runway.android.core.posture.local.PostureDatabase
+import com.runway.android.core.posture.local.PostureDatabase.Companion.MIGRATION_2_3
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -22,6 +23,7 @@ object PostureModule {
     @Singleton
     fun providePostureDatabase(@ApplicationContext context: Context): PostureDatabase =
         Room.databaseBuilder(context, PostureDatabase::class.java, "posture_database")
+            .addMigrations(MIGRATION_2_3)
             .fallbackToDestructiveMigration()
             .build()
 

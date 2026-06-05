@@ -1,7 +1,9 @@
 package com.runway.android.core.posture
 
 import javax.inject.Inject
+import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 class PostureRuleEngine @Inject constructor() : PostureEvaluator {
 
@@ -44,7 +46,11 @@ class PostureRuleEngine @Inject constructor() : PostureEvaluator {
         val grade = PostureResult.gradeFrom(overall)
         val feedback = buildOverallFeedback(overall, knee, trunk, overstride)
 
-        return PostureResult(overall, grade, feedback, knee, trunk, elbow, hip, overstride)
+        val cadence = evalCadence(frames)
+        val verticalOscillation = evalVerticalOscillation(frames)
+
+        return PostureResult(overall, grade, feedback, knee, trunk, elbow, hip, overstride,
+            cadence, verticalOscillation)
     }
 
     private fun evalKnee(angle: Float): PostureCategoryResult {
@@ -122,6 +128,86 @@ class PostureRuleEngine @Inject constructor() : PostureEvaluator {
         return PostureCategoryResult(score, ratio, 0f, 0.10f, "%", feedback, tip)
     }
 
+    // ── Reference metrics (not included in overall score) ────────────────────
+
+    // Detect ground contacts from near-side ankle Y peaks (Y increases downward →
+    // a peak means the ankle is near the ground). Multiply by 2 to get total steps/min
+    // since we only see one leg's contacts in a side-profile video.
+    private fun evalCadence(frames: List<PostureFrameAngles>): PostureCategoryResult {
+        val idealMin = 170f; val idealMax = 180f
+        val noData = PostureCategoryResult(0, 0f, idealMin, idealMax, "spm",
+            "케이던스 측정을 위해 더 긴 구간이 필요합니다.", "")
+
+        val durationMs = (frames.lastOrNull()?.timestampMs ?: 0L) -
+                         (frames.firstOrNull()?.timestampMs ?: 0L)
+        if (frames.size < 8 || durationMs < 2000L) return noData
+
+        val ankleY = frames.map { it.nearAnkleY }
+
+        // Local-maximum detection with a 5-frame minimum interval to suppress
+        // sub-peaks within a single ground-contact plateau (5 frames = 500ms at 10fps,
+        // allowing detection up to ~240 spm while preventing double-counting).
+        val minPeakY = 0.55f
+        val minGapFrames = 5
+        var stepCount = 0
+        var lastPeakIdx = -minGapFrames
+
+        for (i in 1 until ankleY.size - 1) {
+            if (i - lastPeakIdx < minGapFrames) continue
+            if (ankleY[i] > ankleY[i - 1] && ankleY[i] >= ankleY[i + 1] && ankleY[i] > minPeakY) {
+                stepCount++
+                lastPeakIdx = i
+            }
+        }
+        if (stepCount < 3) return noData
+
+        val spm = stepCount * 2f * 60_000f / durationMs
+        val score = angleScore(spm, idealMin, idealMax)
+        val feedback = when {
+            spm < 150f -> "케이던스가 매우 낮습니다. 보폭을 줄이고 발놀림을 빠르게 해보세요."
+            spm < idealMin -> "케이던스 ${spm.roundToInt()}spm은 낮습니다. 170spm 이상을 목표로 해보세요."
+            spm > idealMax + 10f -> "케이던스 ${spm.roundToInt()}spm으로 리듬이 좋습니다."
+            else -> "케이던스 ${spm.roundToInt()}spm으로 이상적입니다."
+        }
+        val tip = if (score < 80) "케이던스를 높이면 오버스트라이드가 줄고 부상 위험이 낮아집니다." else ""
+        return PostureCategoryResult(score, spm, idealMin, idealMax, "spm", feedback, tip)
+    }
+
+    // Vertical oscillation: IQR of hip mid-Y (robust to outlier frames), normalized
+    // by estimated body height. Hip-to-ankle distance ≈ 52 % of full body height.
+    private fun evalVerticalOscillation(frames: List<PostureFrameAngles>): PostureCategoryResult {
+        val idealMin = 4f; val idealMax = 8f
+        val noData = PostureCategoryResult(0, 0f, idealMin, idealMax, "%",
+            "수직진폭 측정을 위해 더 긴 구간이 필요합니다.", "")
+        if (frames.size < 8) return noData
+
+        val hipY = frames.map { it.hipMidY }.sorted()
+
+        val q25 = hipY[(hipY.size * 0.25f).toInt()]
+        val q75 = hipY[(hipY.size * 0.75f).toInt()]
+        val amplitudeNorm = q75 - q25
+
+        // Leg length estimate from landing frames; fall back to mean difference
+        val legLength = frames.filter { it.isLandingFrame }
+            .mapNotNull { f -> (f.nearAnkleY - f.hipMidY).takeIf { it > 0f } }
+            .takeIf { it.isNotEmpty() }?.average()?.toFloat()
+            ?: (frames.map { it.nearAnkleY }.average() -
+                frames.map { it.hipMidY }.average()).toFloat().coerceAtLeast(0.15f)
+
+        val bodyHeightNorm = legLength / 0.52f
+        val oscPct = (amplitudeNorm / bodyHeightNorm * 100f).coerceAtLeast(0f)
+
+        val score = angleScore(oscPct, idealMin, idealMax)
+        val feedback = when {
+            oscPct < 2f -> "수직진폭이 매우 작습니다."
+            oscPct <= idealMax -> "수직진폭이 이상적입니다. 에너지 효율이 좋습니다."
+            oscPct <= 12f -> "수직진폭이 약간 큽니다. 상체를 안정화해보세요."
+            else -> "상하 진폭이 큽니다. 앞으로 나아가는 에너지가 낭비되고 있습니다."
+        }
+        val tip = if (oscPct > idealMax) "코어 강화와 자세 안정화로 불필요한 바운싱을 줄일 수 있습니다." else ""
+        return PostureCategoryResult(score, oscPct, idealMin, idealMax, "%", feedback, tip)
+    }
+
     private fun buildOverallFeedback(
         score: Int,
         knee: PostureCategoryResult,
@@ -170,5 +256,7 @@ class PostureRuleEngine @Inject constructor() : PostureEvaluator {
         elbow = PostureCategoryResult(0, 0f, 85f, 95f, "°", "분석 불가", ""),
         hip = PostureCategoryResult(0, 0f, 160f, 180f, "°", "분석 불가", ""),
         overstride = PostureCategoryResult(0, 0f, 0f, 0.10f, "%", "분석 불가", ""),
+        cadence = PostureCategoryResult(0, 0f, 170f, 180f, "spm", "분석 불가", ""),
+        verticalOscillation = PostureCategoryResult(0, 0f, 4f, 8f, "%", "분석 불가", ""),
     )
 }

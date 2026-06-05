@@ -10,4 +10,7 @@ data class PostureFrameAngles(
     val visibility: Float,
     val timestampMs: Long = 0L,
     val landmarks: List<SkeletonPoint> = emptyList(),
+    // Bilateral signals for cadence and vertical-oscillation reference metrics
+    val hipMidY: Float = 0f,     // avg of left+right hip Y; tracks vertical bounce
+    val nearAnkleY: Float = 0f,  // camera-side ankle Y; peaks mark ground contacts
 )

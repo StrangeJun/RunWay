@@ -9,6 +9,9 @@ data class PostureResult(
     val elbow: PostureCategoryResult,
     val hip: PostureCategoryResult,
     val overstride: PostureCategoryResult,
+    // Reference metrics: computed from bilateral signals, not included in overall score
+    val cadence: PostureCategoryResult,
+    val verticalOscillation: PostureCategoryResult,
 ) {
     companion object {
         fun gradeFrom(score: Int): String = when {

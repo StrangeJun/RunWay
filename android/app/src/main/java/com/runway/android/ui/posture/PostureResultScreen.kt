@@ -226,20 +226,48 @@ private fun PostureResultContent(
         }
         Spacer(Modifier.height(18.dp))
 
-        // Category cards
-        val categories = listOf(
+        // Scored category cards
+        val scoredCategories = listOf(
             "무릎 굴곡" to result.knee,
             "상체 기울기" to result.trunk,
             "오버스트라이드" to result.overstride,
             "팔꿈치 각도" to result.elbow,
             "고관절 신전" to result.hip,
         )
-        categories.forEach { (label, cat) ->
+        scoredCategories.forEach { (label, cat) ->
             PostureCategoryCard(label = label, category = cat)
             Spacer(Modifier.height(10.dp))
         }
 
-        Spacer(Modifier.height(10.dp))
+        // Reference metrics (bilateral signals — not included in overall score)
+        val hasReferenceData = result.cadence.measuredValue > 0f ||
+                result.verticalOscillation.measuredValue > 0f
+        if (hasReferenceData) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "참고 지표",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "양쪽 다리 움직임으로 측정 — 점수에 포함되지 않습니다",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            if (result.cadence.measuredValue > 0f) {
+                PostureCategoryCard(label = "케이던스", category = result.cadence, isReference = true)
+                Spacer(Modifier.height(10.dp))
+            }
+            if (result.verticalOscillation.measuredValue > 0f) {
+                PostureCategoryCard(label = "수직진폭", category = result.verticalOscillation, isReference = true)
+                Spacer(Modifier.height(10.dp))
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
         OutlinedButton(
             onClick = onRetake,
             modifier = Modifier.fillMaxWidth(),
@@ -260,11 +288,20 @@ private fun PostureResultContent(
 }
 
 @Composable
-private fun PostureCategoryCard(label: String, category: PostureCategoryResult) {
+private fun PostureCategoryCard(
+    label: String,
+    category: PostureCategoryResult,
+    isReference: Boolean = false,
+) {
+    val borderColor = if (isReference)
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+    else
+        MaterialTheme.colorScheme.outline
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        border = BorderStroke(1.dp, borderColor),
         elevation = CardDefaults.cardElevation(0.dp),
         shape = MaterialTheme.shapes.extraLarge,
     ) {
@@ -274,7 +311,13 @@ private fun PostureCategoryCard(label: String, category: PostureCategoryResult) 
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    label,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isReference) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                            else MaterialTheme.colorScheme.onSurface,
+                )
                 Text(
                     "${category.score}점",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
@@ -290,11 +333,15 @@ private fun PostureCategoryCard(label: String, category: PostureCategoryResult) 
             )
             Spacer(Modifier.height(10.dp))
 
-            val displayValue = if (category.unit == "%") {
-                "착지 위치: 엉덩이 기준 ${(category.measuredValue * 100).roundToInt()}% 앞"
-            } else {
-                "측정값: ${String.format(Locale.US, "%.1f", category.measuredValue)}${category.unit}  " +
-                        "이상범위: ${String.format(Locale.US, "%.0f", category.idealMin)}~${String.format(Locale.US, "%.0f", category.idealMax)}${category.unit}"
+            val displayValue = when {
+                category.unit == "%" && category.idealMax <= 0.5f ->
+                    "착지 위치: 엉덩이 기준 ${(category.measuredValue * 100).roundToInt()}% 앞"
+                category.unit == "spm" ->
+                    "측정값: ${category.measuredValue.roundToInt()} spm  " +
+                            "이상범위: ${category.idealMin.roundToInt()}~${category.idealMax.roundToInt()} spm"
+                else ->
+                    "측정값: ${String.format(Locale.US, "%.1f", category.measuredValue)}${category.unit}  " +
+                            "이상범위: ${String.format(Locale.US, "%.0f", category.idealMin)}~${String.format(Locale.US, "%.0f", category.idealMax)}${category.unit}"
             }
             Text(displayValue, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(6.dp))
@@ -328,6 +375,8 @@ private fun PostureAnalysisEntity.toPostureResult(): PostureResult = PostureResu
     elbow = PostureCategoryResult(elbowScore, elbowMeasuredAngle, 85f, 95f, "°", elbowFeedback, elbowTip),
     hip = PostureCategoryResult(hipScore, hipMeasuredAngle, 160f, 180f, "°", hipFeedback, hipTip),
     overstride = PostureCategoryResult(overstrideScore, overstrideRatio, 0f, 0.10f, "%", overstrideFeedback, overstrideTip),
+    cadence = PostureCategoryResult(cadenceScore, cadenceSpm, 170f, 180f, "spm", cadenceFeedback, cadenceTip),
+    verticalOscillation = PostureCategoryResult(verticalOscScore, verticalOscPercent, 4f, 8f, "%", verticalOscFeedback, verticalOscTip),
 )
 
 @Preview(showBackground = true)
@@ -344,6 +393,8 @@ private fun PostureResultPreview() {
                 elbow = PostureCategoryResult(90, 91f, 85f, 95f, "°", "팔꿈치 각도가 이상적입니다.", ""),
                 hip = PostureCategoryResult(78, 172f, 160f, 180f, "°", "고관절 신전이 적절합니다.", ""),
                 overstride = PostureCategoryResult(70, 0.18f, 0f, 0.10f, "%", "착지 위치가 약간 앞쪽입니다.", "발이 엉덩이 아래에 가깝게 착지하면 제동력을 줄일 수 있습니다."),
+                cadence = PostureCategoryResult(85, 174f, 170f, 180f, "spm", "케이던스 174spm으로 이상적입니다.", ""),
+                verticalOscillation = PostureCategoryResult(72, 6.8f, 4f, 8f, "%", "수직진폭이 이상적입니다.", ""),
             ),
             videoPath = null,
             videoFrames = emptyList(),

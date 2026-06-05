@@ -30,6 +30,15 @@ data class PostureAnalysisEntity(
     val overstrideRatio: Float,
     val overstrideFeedback: String,
     val overstrideTip: String,
+    // Reference metrics (v3+; default 0 for older rows)
+    val cadenceScore: Int = 0,
+    val cadenceSpm: Float = 0f,
+    val cadenceFeedback: String = "",
+    val cadenceTip: String = "",
+    val verticalOscScore: Int = 0,
+    val verticalOscPercent: Float = 0f,
+    val verticalOscFeedback: String = "",
+    val verticalOscTip: String = "",
     // Video replay fields (nullable: older analyses may not have a saved video)
     val videoPath: String? = null,
     val videoFramesJson: String? = null,

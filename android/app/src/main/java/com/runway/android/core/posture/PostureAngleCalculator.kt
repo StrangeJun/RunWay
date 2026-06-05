@@ -61,6 +61,8 @@ object PostureAngleCalculator {
         val overstrideRatio = (abs(leadingAnkleX - hipMidX) / bodyHeight).coerceAtLeast(0f)
         val isLanding = leadingAnkleY > 0.65f && leadingAnkleY > hipMidY
 
+        val nearAnkleY = landmarks[A].y()
+
         return PostureFrameAngles(
             kneeFlexAngle = kneeAngle,
             trunkLeanAngle = trunkAngle,
@@ -69,6 +71,8 @@ object PostureAngleCalculator {
             overstrideRatio = overstrideRatio,
             isLandingFrame = isLanding,
             visibility = bestVis,
+            hipMidY = hipMidY,
+            nearAnkleY = nearAnkleY,
         )
     }
 
