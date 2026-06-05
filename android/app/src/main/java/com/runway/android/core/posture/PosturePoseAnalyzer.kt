@@ -1,6 +1,8 @@
 package com.runway.android.core.posture
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import com.google.mediapipe.framework.image.BitmapImageBuilder
@@ -21,7 +23,7 @@ data class PostureAnalysisOutput(
 
 class PosturePoseAnalyzer(private val context: Context) {
 
-    suspend fun extractAnalysis(videoUri: Uri, analysisId: String, targetFps: Int = 7): PostureAnalysisOutput =
+    suspend fun extractAnalysis(videoUri: Uri, analysisId: String, targetFps: Int = 10): PostureAnalysisOutput =
         withContext(Dispatchers.Default) {
             val retriever = MediaMetadataRetriever()
             try {
@@ -30,42 +32,61 @@ class PosturePoseAnalyzer(private val context: Context) {
                 val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                     ?.toLongOrNull() ?: return@withContext emptyOutput()
 
-                val rawWidth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
+                val rawWidth  = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
                 val rawHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
-                val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
-                val (videoWidth, videoHeight) = if (rotation == 90 || rotation == 270) rawHeight to rawWidth else rawWidth to rawHeight
+                val rotation  = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
 
-                // Move video to permanent internal storage before analysis
+                // Swap dimensions when the video is rotated 90°/270° so the overlay
+                // coordinate space matches what ExoPlayer shows on screen.
+                val (videoWidth, videoHeight) =
+                    if (rotation == 90 || rotation == 270) rawHeight to rawWidth else rawWidth to rawHeight
+
                 val videoPath = saveVideo(videoUri, analysisId)
 
-                val intervalMs = (1000L / targetFps).coerceAtLeast(100L)
-                val landmarker = buildLandmarker()
-                val frames = mutableListOf<PostureFrameAngles>()
+                val safeFps    = targetFps.coerceAtLeast(1)
+                val intervalMs = 1000L / safeFps
+                val rotationMatrix = if (rotation != 0) Matrix().apply { postRotate(rotation.toFloat()) } else null
+
+                // RunningMode.VIDEO enables inter-frame Kalman tracking so landmark
+                // positions are stabilised across the frame sequence.
+                val landmarker  = buildLandmarker()
+                val frames      = mutableListOf<PostureFrameAngles>()
                 val videoFrames = mutableListOf<PostureVideoFrame>()
-                // Pre-build rotation matrix once if needed
-                val rotationMatrix = if (rotation != 0) {
-                    android.graphics.Matrix().apply { postRotate(rotation.toFloat()) }
-                } else null
+                var lastContentHash = Int.MIN_VALUE   // sentinel that no real frame will match
 
                 try {
                     var timeMs = 0L
                     while (timeMs < durationMs) {
-                        var bitmap = retriever.getFrameAtTime(
+                        val rawBitmap: Bitmap? = retriever.getFrameAtTime(
                             timeMs * 1000L,
                             MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
                         )
-                        if (bitmap != null) {
-                            // Apply rotation so MediaPipe sees an upright frame
-                            if (rotationMatrix != null) {
-                                val rotated = android.graphics.Bitmap.createBitmap(
-                                    bitmap, 0, 0, bitmap.width, bitmap.height, rotationMatrix, true,
-                                )
-                                bitmap.recycle()
-                                bitmap = rotated
+
+                        if (rawBitmap != null) {
+                            // Check for duplicate keyframes by sampling 5 pixels spread
+                            // across the frame. OPTION_CLOSEST_SYNC returns the same
+                            // keyframe for all sample times in the same keyframe interval;
+                            // object-identity checks are unreliable because the retriever
+                            // may return new Bitmap objects with identical pixel content.
+                            val contentHash = rawBitmap.contentHash()
+                            if (contentHash == lastContentHash) {
+                                rawBitmap.recycle()
+                                timeMs += intervalMs
+                                continue
                             }
+                            lastContentHash = contentHash
+
+                            // Apply rotation AFTER the duplicate check so we don't waste
+                            // allocation work on frames we're going to skip.
+                            val bitmap = if (rotationMatrix != null) {
+                                Bitmap.createBitmap(
+                                    rawBitmap, 0, 0, rawBitmap.width, rawBitmap.height, rotationMatrix, true,
+                                ).also { rawBitmap.recycle() }
+                            } else rawBitmap
 
                             val mpImage = BitmapImageBuilder(bitmap).build()
-                            val result = landmarker.detect(mpImage)
+                            // detectForVideo() requires strictly increasing timestamps.
+                            val result = landmarker.detectForVideo(mpImage, timeMs)
                             result.landmarks().firstOrNull()?.let { landmarkList ->
                                 val skeletonPts = KEY_LANDMARK_INDICES.map { idx ->
                                     val lm = landmarkList[idx]
@@ -91,15 +112,28 @@ class PosturePoseAnalyzer(private val context: Context) {
             }
         }
 
+    // Sample 5 pixels spread across the frame as a cheap content fingerprint.
+    // Collisions are possible but extremely rare for adjacent video frames.
+    private fun Bitmap.contentHash(): Int {
+        val w = width; val h = height
+        return getPixel(w / 4,     h / 4)     xor
+               getPixel(3 * w / 4, h / 4)     xor
+               getPixel(w / 2,     h / 2)     xor
+               getPixel(w / 4,     3 * h / 4) xor
+               getPixel(3 * w / 4, 3 * h / 4)
+    }
+
     private fun saveVideo(videoUri: Uri, id: String): String? = runCatching {
-        val dir = File(context.filesDir, "posture").also { it.mkdirs() }
+        val dir  = File(context.filesDir, "posture").also { it.mkdirs() }
         val dest = File(dir, "$id.mp4")
         if (videoUri.scheme == "file") {
             File(videoUri.path!!).copyTo(dest, overwrite = true)
         } else {
+            // error() throws inside runCatching, causing getOrNull() to return null
+            // if the content resolver cannot open the stream.
             context.contentResolver.openInputStream(videoUri)?.use { input ->
                 dest.outputStream().use { output -> input.copyTo(output) }
-            }
+            } ?: error("Could not open input stream for $videoUri")
         }
         dest.absolutePath
     }.getOrNull()
@@ -110,7 +144,7 @@ class PosturePoseAnalyzer(private val context: Context) {
             .build()
         val options = PoseLandmarker.PoseLandmarkerOptions.builder()
             .setBaseOptions(baseOptions)
-            .setRunningMode(RunningMode.IMAGE)
+            .setRunningMode(RunningMode.VIDEO)   // enables inter-frame Kalman tracking
             .setNumPoses(1)
             .setMinPoseDetectionConfidence(0.5f)
             .setMinTrackingConfidence(0.5f)

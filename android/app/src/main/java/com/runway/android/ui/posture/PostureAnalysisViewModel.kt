@@ -57,24 +57,23 @@ class PostureAnalysisViewModel @Inject constructor(
 
             runCatching {
                 val output = poseAnalyzer.extractAnalysis(videoUri, id)
-                if (output.frames.isEmpty()) {
-                    _analysisState.value = PostureAnalysisState.Error(
-                        "영상에서 자세를 감지하지 못했습니다. 전신이 잘 보이도록 다시 촬영해주세요."
-                    )
-                    return@launch
+                // Capture early so onFailure can always clean up the copied video,
+                // even if analysis finds no poses. Using return@launch here would
+                // bypass onFailure/also and leak the file.
+                savedVideoPath = output.videoPath
+
+                check(output.frames.isNotEmpty()) {
+                    "영상에서 자세를 감지하지 못했습니다. 전신이 잘 보이도록 다시 촬영해주세요."
                 }
 
-                savedVideoPath = output.videoPath
                 val result = evaluator.evaluate(output.frames)
                 val framesJson = gson.toJson(output.videoFrames)
-
                 dao.insert(result.toEntity(id, output.videoPath, framesJson, output.videoWidth, output.videoHeight))
                 _analysisState.value = PostureAnalysisState.Success(result, id)
             }.onFailure { e ->
-                // Clean up the saved video if analysis failed after copying
                 savedVideoPath?.let { File(it).delete() }
                 _analysisState.value = PostureAnalysisState.Error(
-                    "분석 중 오류가 발생했습니다: ${e.message}"
+                    e.message ?: "분석 중 오류가 발생했습니다."
                 )
             }.also {
                 // Always delete the original cache file (privacy).

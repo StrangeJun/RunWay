@@ -7,12 +7,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
@@ -47,13 +45,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.runway.android.core.posture.PostureSkeletonSmoother
 import com.runway.android.core.posture.SKELETON_EDGES
 import com.runway.android.core.posture.SKELETON_JOINT_INDICES
 import com.runway.android.core.posture.PostureVideoFrame
 import com.runway.android.core.posture.SkeletonPoint
 import kotlinx.coroutines.delay
 import java.io.File
-import kotlin.math.abs
 
 @Composable
 fun PostureVideoPlayerCard(
@@ -78,32 +76,44 @@ fun PostureVideoPlayerCard(
         onDispose { exoPlayer.release() }
     }
 
-    var currentPosition by remember { mutableLongStateOf(0L) }
-    var duration by remember { mutableLongStateOf(1L) }
-    var isPlaying by remember { mutableStateOf(false) }
-    var isEnded by remember { mutableStateOf(false) }
-    var playbackSpeed by remember { mutableFloatStateOf(1f) }
+    // Pre-sort frames once. Both sortedBy and the smoother are keyed to videoFrames
+    // so they reset automatically if the data source changes.
+    val sortedFrames = remember(videoFrames) { videoFrames.sortedBy { it.t } }
+    // Smoother keyed to videoFrames: if a different recording is loaded, prev state is cleared.
+    val smoother = remember(videoFrames) { PostureSkeletonSmoother() }
 
-    // Poll playback state every 80ms
+    var currentPosition by remember { mutableLongStateOf(0L) }
+    var duration        by remember { mutableStateOf(1L) }
+    var isPlaying       by remember { mutableStateOf(false) }
+    var isEnded         by remember { mutableStateOf(false) }
+    var playbackSpeed   by remember { mutableFloatStateOf(1f) }
+
+    // currentFrame is updated as a side-effect (LaunchedEffect), NOT during composition,
+    // so smoother.smooth() mutation and the interpolation are both Compose-safe.
+    var currentFrame by remember { mutableStateOf<PostureVideoFrame?>(null) }
+
+    // 80ms polling loop for playback position
     LaunchedEffect(exoPlayer) {
         while (true) {
-            currentPosition = exoPlayer.currentPosition.coerceAtLeast(0L)
+            val pos = exoPlayer.currentPosition.coerceAtLeast(0L)
             val dur = exoPlayer.duration
             if (dur > 0) duration = dur
-            isPlaying = exoPlayer.isPlaying
-            isEnded = !exoPlayer.isPlaying && currentPosition >= duration - 100
+            isPlaying       = exoPlayer.isPlaying
+            isEnded         = !exoPlayer.isPlaying && pos >= duration - 100
+            currentPosition = pos
             delay(80)
         }
     }
 
-    LaunchedEffect(playbackSpeed) {
-        exoPlayer.setPlaybackSpeed(playbackSpeed)
+    // Update skeleton frame whenever playback position changes.
+    // Binary search interpolation + EMA smoothing happen here, outside composition.
+    LaunchedEffect(currentPosition) {
+        val interpolated = interpolateFrame(sortedFrames, currentPosition)
+        currentFrame = interpolated?.copy(pts = smoother.smooth(interpolated.pts))
     }
 
-    // Interpolate between the two nearest stored frames so the skeleton
-    // moves smoothly instead of jumping at the 7fps sample boundaries.
-    val currentFrame = remember(currentPosition) {
-        interpolateFrame(videoFrames, currentPosition)
+    LaunchedEffect(playbackSpeed) {
+        exoPlayer.setPlaybackSpeed(playbackSpeed)
     }
 
     Surface(
@@ -112,7 +122,6 @@ fun PostureVideoPlayerCard(
         color = Color.Black,
     ) {
         Column {
-            // Video + skeleton overlay
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -128,9 +137,10 @@ fun PostureVideoPlayerCard(
                     modifier = Modifier.matchParentSize(),
                 )
 
-                if (currentFrame != null && videoWidth > 0 && videoHeight > 0) {
+                val frame = currentFrame
+                if (frame != null && videoWidth > 0 && videoHeight > 0) {
                     SkeletonOverlay(
-                        frame = currentFrame,
+                        frame = frame,
                         videoWidth = videoWidth,
                         videoHeight = videoHeight,
                         modifier = Modifier.matchParentSize(),
@@ -138,17 +148,16 @@ fun PostureVideoPlayerCard(
                 }
             }
 
-            // Controls
             Column(
                 modifier = Modifier
                     .background(Color(0xFF111111))
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
-                // Seek bar
                 Slider(
                     value = if (duration > 0) currentPosition.toFloat() / duration else 0f,
                     onValueChange = { frac ->
                         exoPlayer.seekTo((frac * duration).toLong())
+                        smoother.reset()   // clear EMA state so no bleed across seek
                         isEnded = false
                     },
                     modifier = Modifier.fillMaxWidth().height(24.dp),
@@ -164,12 +173,12 @@ fun PostureVideoPlayerCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    // Play / Pause / Replay
                     IconButton(
                         onClick = {
                             when {
                                 isEnded -> {
                                     exoPlayer.seekTo(0)
+                                    smoother.reset()
                                     exoPlayer.play()
                                     isEnded = false
                                 }
@@ -192,14 +201,12 @@ fun PostureVideoPlayerCard(
                         )
                     }
 
-                    // Timestamp
                     Text(
                         text = "${formatMs(currentPosition)} / ${formatMs(duration)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.White.copy(alpha = 0.7f),
                     )
 
-                    // Speed buttons
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf(0.25f to "0.25x", 0.5f to "0.5x", 1f to "1x").forEach { (speed, label) ->
                             SpeedChip(
@@ -225,7 +232,9 @@ private fun SpeedChip(label: String, selected: Boolean, onClick: () -> Unit) {
         Text(
             text = label,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            ),
             color = if (selected) Color.Black else Color.White,
             fontSize = 11.sp,
         )
@@ -243,73 +252,82 @@ private fun SkeletonOverlay(
         val vAspect = videoWidth.toFloat() / videoHeight
         val cAspect = size.width / size.height
 
-        val scale: Float
-        val dx: Float
-        val dy: Float
+        val scale: Float; val dx: Float; val dy: Float
         if (vAspect > cAspect) {
-            scale = size.width / videoWidth
-            dx = 0f
+            scale = size.width / videoWidth;  dx = 0f
             dy = (size.height - videoHeight * scale) / 2f
         } else {
-            scale = size.height / videoHeight
-            dy = 0f
+            scale = size.height / videoHeight; dy = 0f
             dx = (size.width - videoWidth * scale) / 2f
         }
 
         fun pt(p: SkeletonPoint) = Offset(p.x * videoWidth * scale + dx, p.y * videoHeight * scale + dy)
-        fun visible(p: SkeletonPoint) = p.v > 0.5f
+        fun visible(p: SkeletonPoint) = p.v > 0.45f
 
         val pts = frame.pts
         if (pts.isEmpty()) return@Canvas
 
-        // Draw edges
         for ((a, b) in SKELETON_EDGES) {
             if (a >= pts.size || b >= pts.size) continue
             val pa = pts[a]; val pb = pts[b]
             if (!visible(pa) || !visible(pb)) continue
             drawLine(
-                color = Color(0xCCFFFFFF),
-                start = pt(pa),
-                end = pt(pb),
-                strokeWidth = 3.5f,
-                cap = StrokeCap.Round,
+                color = Color(0xCCFFFFFF), start = pt(pa), end = pt(pb),
+                strokeWidth = 3.5f, cap = StrokeCap.Round,
             )
         }
 
-        // Draw joints
         for (idx in SKELETON_JOINT_INDICES) {
             if (idx >= pts.size) continue
             val p = pts[idx]
             if (!visible(p)) continue
             drawCircle(color = Color(0xFF00E676), radius = 6f, center = pt(p))
-            drawCircle(color = Color.White, radius = 3f, center = pt(p))
+            drawCircle(color = Color.White,       radius = 3f, center = pt(p))
         }
     }
 }
 
-private fun interpolateFrame(frames: List<PostureVideoFrame>, posMs: Long): PostureVideoFrame? {
-    if (frames.isEmpty()) return null
-    if (frames.size == 1) return frames[0]
+/**
+ * Binary search for the frame immediately before [posMs], then linearly
+ * interpolate toward the next frame. O(log n) per call.
+ * Returns null only when [sortedFrames] is empty.
+ */
+private fun interpolateFrame(sortedFrames: List<PostureVideoFrame>, posMs: Long): PostureVideoFrame? {
+    if (sortedFrames.isEmpty()) return null
+    if (sortedFrames.size == 1) return sortedFrames[0]
 
-    val before = frames.lastOrNull { it.t <= posMs } ?: return frames.first()
-    val after = frames.firstOrNull { it.t > posMs } ?: return frames.last()
-    if (before === after) return before
+    // bisectRight returns index of first frame with t > posMs
+    val idx       = bisectRight(sortedFrames, posMs)
+    val beforeIdx = (idx - 1).coerceAtLeast(0)
+    val before    = sortedFrames[beforeIdx]
+    val after     = sortedFrames.getOrNull(idx) ?: return before
 
     val range = (after.t - before.t).toFloat()
     if (range <= 0f) return before
-    val t = ((posMs - before.t) / range).coerceIn(0f, 1f)
 
+    // Guard against mismatched point counts — skip interpolation, return the earlier frame.
+    if (before.pts.size != after.pts.size) return before
+
+    val t   = ((posMs - before.t) / range).coerceIn(0f, 1f)
     val pts = before.pts.zip(after.pts).map { (a, b) ->
         SkeletonPoint(lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.v, b.v, t))
     }
     return PostureVideoFrame(posMs, pts)
 }
 
+/** Returns the index of the first element whose timestamp > [posMs]. */
+private fun bisectRight(frames: List<PostureVideoFrame>, posMs: Long): Int {
+    var lo = 0; var hi = frames.size
+    while (lo < hi) {
+        val mid = (lo + hi) ushr 1
+        if (frames[mid].t <= posMs) lo = mid + 1 else hi = mid
+    }
+    return lo
+}
+
 private fun lerp(a: Float, b: Float, t: Float) = a + (b - a) * t
 
 private fun formatMs(ms: Long): String {
-    val totalSec = (ms / 1000).coerceAtLeast(0)
-    val min = totalSec / 60
-    val sec = totalSec % 60
-    return "%d:%02d".format(min, sec)
+    val s = (ms / 1000).coerceAtLeast(0)
+    return "%d:%02d".format(s / 60, s % 60)
 }
