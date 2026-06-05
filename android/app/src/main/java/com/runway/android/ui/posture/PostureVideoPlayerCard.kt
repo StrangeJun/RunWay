@@ -100,9 +100,10 @@ fun PostureVideoPlayerCard(
         exoPlayer.setPlaybackSpeed(playbackSpeed)
     }
 
+    // Interpolate between the two nearest stored frames so the skeleton
+    // moves smoothly instead of jumping at the 7fps sample boundaries.
     val currentFrame = remember(currentPosition) {
-        if (videoFrames.isEmpty()) null
-        else videoFrames.minByOrNull { abs(it.t - currentPosition) }
+        interpolateFrame(videoFrames, currentPosition)
     }
 
     Surface(
@@ -285,6 +286,26 @@ private fun SkeletonOverlay(
         }
     }
 }
+
+private fun interpolateFrame(frames: List<PostureVideoFrame>, posMs: Long): PostureVideoFrame? {
+    if (frames.isEmpty()) return null
+    if (frames.size == 1) return frames[0]
+
+    val before = frames.lastOrNull { it.t <= posMs } ?: return frames.first()
+    val after = frames.firstOrNull { it.t > posMs } ?: return frames.last()
+    if (before === after) return before
+
+    val range = (after.t - before.t).toFloat()
+    if (range <= 0f) return before
+    val t = ((posMs - before.t) / range).coerceIn(0f, 1f)
+
+    val pts = before.pts.zip(after.pts).map { (a, b) ->
+        SkeletonPoint(lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.v, b.v, t))
+    }
+    return PostureVideoFrame(posMs, pts)
+}
+
+private fun lerp(a: Float, b: Float, t: Float) = a + (b - a) * t
 
 private fun formatMs(ms: Long): String {
     val totalSec = (ms / 1000).coerceAtLeast(0)

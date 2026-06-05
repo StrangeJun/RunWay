@@ -42,18 +42,31 @@ class PosturePoseAnalyzer(private val context: Context) {
                 val landmarker = buildLandmarker()
                 val frames = mutableListOf<PostureFrameAngles>()
                 val videoFrames = mutableListOf<PostureVideoFrame>()
+                // Pre-build rotation matrix once if needed
+                val rotationMatrix = if (rotation != 0) {
+                    android.graphics.Matrix().apply { postRotate(rotation.toFloat()) }
+                } else null
+
                 try {
                     var timeMs = 0L
                     while (timeMs < durationMs) {
-                        val bitmap = retriever.getFrameAtTime(
+                        var bitmap = retriever.getFrameAtTime(
                             timeMs * 1000L,
                             MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
                         )
                         if (bitmap != null) {
+                            // Apply rotation so MediaPipe sees an upright frame
+                            if (rotationMatrix != null) {
+                                val rotated = android.graphics.Bitmap.createBitmap(
+                                    bitmap, 0, 0, bitmap.width, bitmap.height, rotationMatrix, true,
+                                )
+                                bitmap.recycle()
+                                bitmap = rotated
+                            }
+
                             val mpImage = BitmapImageBuilder(bitmap).build()
                             val result = landmarker.detect(mpImage)
                             result.landmarks().firstOrNull()?.let { landmarkList ->
-                                // Build skeleton points for overlay (only key landmarks)
                                 val skeletonPts = KEY_LANDMARK_INDICES.map { idx ->
                                     val lm = landmarkList[idx]
                                     SkeletonPoint(lm.x(), lm.y(), lm.visibility().orElse(0f))
