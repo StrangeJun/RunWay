@@ -357,13 +357,13 @@ private fun IntervalSegmentEditor(
 
 @Composable
 private fun TrackingScreen(state: WatchRunState, viewModel: WatchViewModel) {
-    val pagerState = rememberPagerState(pageCount = { 2 })
+    val pagerState = rememberPagerState(initialPage = 1, pageCount = { 2 })
     Box(modifier = Modifier.fillMaxSize()) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
             if (page == 0) {
-                TrackingMetrics(state)
-            } else {
                 TrackingControls(state, viewModel)
+            } else {
+                TrackingMetrics(state)
             }
         }
         Row(
@@ -410,7 +410,7 @@ private fun TrackingMetrics(state: WatchRunState) {
             Metric("심박", state.heartRateBpm?.toString() ?: "--")
             Metric("케이던스", state.cadenceSpm?.toString() ?: "--")
         }
-        Text("왼쪽으로 밀어 제어", color = Muted, fontSize = 9.sp)
+        Text("오른쪽으로 밀어 제어", color = Muted, fontSize = 9.sp)
     }
 }
 
@@ -423,9 +423,25 @@ private fun TrackingControls(state: WatchRunState, viewModel: WatchViewModel) {
             color = Muted,
             fontSize = 12.sp,
         )
-        PrimaryAction("일시정지", Icons.Filled.Pause, onClick = viewModel::pause)
-        SecondaryAction("런 완료", Icons.Filled.Check, viewModel::finish)
-        SecondaryAction("기록 취소", Icons.Filled.Close, viewModel::abandon, Danger)
+        PrimaryAction(
+            "일시정지",
+            Icons.Filled.Pause,
+            compact = compact,
+            onClick = viewModel::pause,
+        )
+        SecondaryAction(
+            "런 완료",
+            Icons.Filled.Check,
+            viewModel::finish,
+            compact = compact,
+        )
+        SecondaryAction(
+            "기록 취소",
+            Icons.Filled.Close,
+            viewModel::abandon,
+            Danger,
+            compact = compact,
+        )
     }
 }
 
