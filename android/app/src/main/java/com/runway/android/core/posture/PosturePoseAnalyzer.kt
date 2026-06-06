@@ -80,18 +80,15 @@ class PosturePoseAnalyzer(private val context: Context) {
                     .coerceAtLeast(1L)
                 val intervalMs = maxOf(requestedIntervalMs, boundedIntervalMs)
 
-                // RunningMode.VIDEO enables inter-frame Kalman tracking so landmark
-                // positions are stabilised across the frame sequence.
+                // running-form-analyzer 방식 파이프라인:
+                //   raw MediaPipe (RunningMode.VIDEO 내부 Kalman 포함)
+                //   → One Euro Filter (경량 평활화, 재생 시 jitter 제거)
+                //   → PostureAngleCalculator (pixel 좌표 기반, confidence >= 0.30)
+                // LegSwapCorrector / PostureLandmarkCorrector 는 더 이상 사용하지 않는다.
                 val landmarker  = buildLandmarker()
                 val frames      = mutableListOf<PostureFrameAngles>()
                 val videoFrames = mutableListOf<PostureVideoFrame>()
-                // 파이프라인:
-                //   raw → LegSwapCorrector(좌/우 식별 보정) → PostureLandmarkCorrector(평활+무릎 X 보정)
-                //   → PostureAngleCalculator(각도 계산)
-                // LegSwapCorrector 는 평활화 이전에 호출되어야 한다 — 평활기는 잘못된 식별을
-                // "안정된 잘못된 위치"로 굳혀 후처리로 되돌릴 수 없게 만들기 때문이다.
-                val legSwapCorrector = LegSwapCorrector()
-                val landmarkCorrector = PostureLandmarkCorrector()
+                val smoother    = PostureSkeletonSmoother()
 
                 try {
                     var timeMs = 0L
@@ -117,12 +114,12 @@ class PosturePoseAnalyzer(private val context: Context) {
                             // detectForVideo() requires strictly increasing timestamps.
                             val result = landmarker.detectForVideo(mpImage, timeMs)
                             result.landmarks().firstOrNull()?.let { landmarkList ->
-                                val rawSkeletonPts = KEY_LANDMARK_INDICES.map { idx ->
+                                val rawPts = KEY_LANDMARK_INDICES.map { idx ->
                                     val lm = landmarkList[idx]
                                     SkeletonPoint(lm.x(), lm.y(), lm.visibility().orElse(0f))
                                 }
-                                val swapCorrected = legSwapCorrector.correct(rawSkeletonPts, timeMs)
-                                val skeletonPts   = landmarkCorrector.correct(swapCorrected, timeMs)
+                                // 가벼운 평활화 (재생 오버레이 jitter 제거)
+                                val skeletonPts = smoother.smooth(rawPts, timeMs)
                                 videoFrames.add(PostureVideoFrame(timeMs, skeletonPts))
 
                                 PostureAngleCalculator.compute(skeletonPts, aspectRatio)?.let { angles ->
