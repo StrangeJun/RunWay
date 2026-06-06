@@ -316,13 +316,12 @@ private fun PostureHistoryCard(
     onDelete: () -> Unit,
 ) {
     val dateStr = SimpleDateFormat("M월 d일 HH:mm", Locale.KOREAN).format(Date(entity.createdAt))
-    val topMetrics = listOf(
+    val metricSummary = listOf(
         "무릎" to entity.kneeScore,
         "상체" to entity.trunkScore,
         "팔" to entity.elbowScore,
         "고관절" to entity.hipScore,
-    ).sortedByDescending { it.second }.take(2)
-    val metricSummary = topMetrics.joinToString(" · ") { (label, score) -> "$label $score" }
+    ).joinToString(" · ") { (label, score) -> "$label $score" }
 
     Surface(
         onClick = onClick,
@@ -358,10 +357,10 @@ private fun PostureHistoryCard(
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "상위 지표 · $metricSummary",
+                    "측정 항목 · $metricSummary",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.height(4.dp))

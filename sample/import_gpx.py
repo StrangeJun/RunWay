@@ -17,7 +17,7 @@ try:
 except ImportError:
     print("Python 3 표준 라이브러리를 사용합니다.")
 
-BASE_URL = "http://localhost:8080"
+BASE_URL = "http://40.233.98.156:8080"
 NS = {
     "gpx": "http://www.topografix.com/GPX/1/1",
     "gpxtpx": "http://www.garmin.com/xmlschemas/TrackPointExtension/v1",
