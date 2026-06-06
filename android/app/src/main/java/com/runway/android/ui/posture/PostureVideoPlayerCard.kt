@@ -53,6 +53,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.runway.android.core.posture.LegSwapCorrector
 import com.runway.android.core.posture.PostureSkeletonSmoother
 import com.runway.android.core.posture.RunningFormStrikeDetector
 import com.runway.android.core.posture.SKEL_L_ANKLE
@@ -71,11 +72,14 @@ import com.runway.android.core.posture.SKEL_R_WRIST
 import com.runway.android.core.posture.PostureVideoFrame
 import com.runway.android.core.posture.SkeletonPoint
 import com.runway.android.core.posture.interpolateFrame
+import android.util.Log
 import kotlinx.coroutines.delay
 import java.io.File
 import kotlin.math.abs
 import kotlin.math.acos
 import kotlin.math.sqrt
+
+private const val TAG_OVERLAY = "PostureOverlay"
 
 // ── GaitKeeper colors ──────────────────────────────────────────────────────────
 private val C_TORSO     = Color(0xFF3B82F6)  // blue
@@ -107,7 +111,8 @@ fun PostureVideoPlayerCard(
     DisposableEffect(exoPlayer) { onDispose { exoPlayer.release() } }
 
     val sortedFrames = remember(videoFrames) { videoFrames.sortedBy { it.t } }
-    val smoother = remember(videoFrames) { PostureSkeletonSmoother() }
+    val smoother          = remember(videoFrames) { PostureSkeletonSmoother() }
+    val legSwapCorrector  = remember(videoFrames) { LegSwapCorrector() }
 
     // running-form-analyzer FootStrikeDetector — one per ankle
     val strikeDetectorL = remember(videoFrames) { RunningFormStrikeDetector() }
@@ -139,19 +144,20 @@ fun PostureVideoPlayerCard(
     LaunchedEffect(currentPosition) {
         val interpolated = interpolateFrame(sortedFrames, currentPosition)
         currentFrame = interpolated?.let {
-            val smoothed = smoother.smooth(it.pts, it.t)
+            val smoothed  = smoother.smooth(it.pts, it.t)
+            val corrected = legSwapCorrector.correct(smoothed, it.t)
 
             // running-form-analyzer FootStrikeDetector on both ankles
-            val lAnkle = smoothed.getOrNull(SKEL_L_ANKLE)
-            val rAnkle = smoothed.getOrNull(SKEL_R_ANKLE)
+            val lAnkle = corrected.getOrNull(SKEL_L_ANKLE)
+            val rAnkle = corrected.getOrNull(SKEL_R_ANKLE)
             if (lAnkle != null && strikeDetectorL.update(lAnkle, it.t)) strikeAgeL = 0
             if (rAnkle != null && strikeDetectorR.update(rAnkle, it.t)) strikeAgeR = 0
             strikeAgeL++; strikeAgeR++
 
-            // Compute running-form-analyzer angles from current smoothed skeleton
-            overlayAngles = computeOverlayAngles(smoothed)
+            // Compute running-form-analyzer angles from corrected skeleton
+            overlayAngles = computeOverlayAngles(corrected)
 
-            it.copy(pts = smoothed)
+            it.copy(pts = corrected)
         }
     }
 
@@ -205,6 +211,7 @@ fun PostureVideoPlayerCard(
                     onValueChange = { frac ->
                         exoPlayer.seekTo((frac * duration).toLong())
                         smoother.reset()
+                        legSwapCorrector.reset()
                         strikeDetectorL.reset(); strikeDetectorR.reset()
                         strikeAgeL = Int.MAX_VALUE; strikeAgeR = Int.MAX_VALUE
                         isEnded = false
@@ -228,6 +235,7 @@ fun PostureVideoPlayerCard(
                                 isEnded -> {
                                     exoPlayer.seekTo(0)
                                     smoother.reset()
+                                    legSwapCorrector.reset()
                                     strikeDetectorL.reset(); strikeDetectorR.reset()
                                     strikeAgeL = Int.MAX_VALUE; strikeAgeR = Int.MAX_VALUE
                                     exoPlayer.play()
@@ -359,9 +367,15 @@ private fun SkeletonOverlay(
         if (vAspect > cAspect) {
             scale = size.width / videoWidth; dx = 0f
             dy = (size.height - videoHeight * scale) / 2f
+            Log.d(TAG_OVERLAY, "overlay(letterbox-h): canvas=${size.width.toInt()}×${size.height.toInt()} " +
+                "video=${videoWidth}×${videoHeight} scale=${"%.4f".format(scale)} " +
+                "displayedRect=[0,${dy.toInt()},${size.width.toInt()},${(size.height-dy).toInt()}]")
         } else {
             scale = size.height / videoHeight; dy = 0f
             dx = (size.width - videoWidth * scale) / 2f
+            Log.d(TAG_OVERLAY, "overlay(letterbox-v): canvas=${size.width.toInt()}×${size.height.toInt()} " +
+                "video=${videoWidth}×${videoHeight} scale=${"%.4f".format(scale)} " +
+                "displayedRect=[${dx.toInt()},0,${(size.width-dx).toInt()},${size.height.toInt()}]")
         }
 
         val pts = frame.pts

@@ -7,6 +7,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
+import android.util.Log
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
@@ -14,6 +15,8 @@ import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+
+private const val TAG = "PostureAnalyzer"
 
 data class PostureAnalysisOutput(
     val frames: List<PostureFrameAngles>,
@@ -39,10 +42,33 @@ class PosturePoseAnalyzer(private val context: Context) {
                 val rawHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
                 val rotation  = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
 
-                // Swap dimensions when the video is rotated 90°/270° so the overlay
-                // coordinate space matches what ExoPlayer shows on screen.
+                // Display dimensions: swap when the stored pixel data is 90°/270° rotated
+                // relative to the display orientation. ExoPlayer applies the same swap
+                // automatically, so videoWidth×videoHeight matches what the user sees.
                 val (videoWidth, videoHeight) =
                     if (rotation == 90 || rotation == 270) rawHeight to rawWidth else rawWidth to rawHeight
+
+                // BUG FIX: compute analysis dimensions from DISPLAY dimensions, not raw.
+                //
+                // On API 27+, MediaMetadataRetriever.getScaledFrameAtTime() automatically
+                // applies METADATA_KEY_VIDEO_ROTATION before scaling (documented behavior).
+                // If we passed raw dimensions (e.g. 512×288 landscape for a portrait video),
+                // the function would rotate-then-scale the frame to fit within that landscape
+                // box, returning a tiny 162×288 portrait bitmap instead of the expected 288×512.
+                // Then applying rotationMatrix again caused a second rotation (double-rotation),
+                // producing a 288×162 landscape blob that MediaPipe could not locate correctly.
+                //
+                // Fix: pass display-oriented dimensions (videoWidth, videoHeight) so the
+                // auto-rotated result fills the analysis frame correctly.  Manual rotation is
+                // still applied for the API 26 fallback path (getFrameAtTime does not rotate).
+                val (analysisWidth, analysisHeight) = scaledAnalysisSize(videoWidth, videoHeight)
+
+                val sourceLabel = if (videoUri.scheme == "file") "app-recorded" else "gallery"
+                Log.d(TAG, "=== Pose Analysis Start ===")
+                Log.d(TAG, "source=$sourceLabel  uri.scheme=${videoUri.scheme}")
+                Log.d(TAG, "rawWidth=$rawWidth  rawHeight=$rawHeight  rotationDegrees=$rotation")
+                Log.d(TAG, "videoWidth=$videoWidth  videoHeight=$videoHeight  (display dims)")
+                Log.d(TAG, "analysisWidth=$analysisWidth  analysisHeight=$analysisHeight  api=${Build.VERSION.SDK_INT}")
 
                 val videoPath = saveVideo(videoUri, analysisId)
 
@@ -51,8 +77,6 @@ class PosturePoseAnalyzer(private val context: Context) {
                 val boundedIntervalMs = (durationMs / MAX_ANALYSIS_FRAMES)
                     .coerceAtLeast(1L)
                 val intervalMs = maxOf(requestedIntervalMs, boundedIntervalMs)
-                val rotationMatrix = if (rotation != 0) Matrix().apply { postRotate(rotation.toFloat()) } else null
-                val (analysisWidth, analysisHeight) = scaledAnalysisSize(rawWidth, rawHeight)
 
                 // RunningMode.VIDEO enables inter-frame Kalman tracking so landmark
                 // positions are stabilised across the frame sequence.
@@ -67,19 +91,20 @@ class PosturePoseAnalyzer(private val context: Context) {
                         timeMs < durationMs &&
                         SystemClock.elapsedRealtime() - analysisStartedAt < ANALYSIS_TIME_BUDGET_MS
                     ) {
-                        val rawBitmap = retriever.analysisFrameAt(
+                        // analysisFrameAt handles rotation internally:
+                        //   API 27+: getScaledFrameAtTime auto-applies rotation; result is
+                        //            already in display orientation.
+                        //   API 26:  getFrameAtTime + manual rotate + scale.
+                        // Either way the returned bitmap is in display orientation — no
+                        // additional rotation step is needed here.
+                        val bitmap = retriever.analysisFrameAt(
                             timeUs = timeMs * 1000L,
-                            width = analysisWidth,
-                            height = analysisHeight,
+                            displayWidth = analysisWidth,
+                            displayHeight = analysisHeight,
+                            rotation = rotation,
                         )
 
-                        if (rawBitmap != null) {
-                            val bitmap = if (rotationMatrix != null) {
-                                Bitmap.createBitmap(
-                                    rawBitmap, 0, 0, rawBitmap.width, rawBitmap.height, rotationMatrix, true,
-                                ).also { rawBitmap.recycle() }
-                            } else rawBitmap
-
+                        if (bitmap != null) {
                             val mpImage = BitmapImageBuilder(bitmap).build()
                             // detectForVideo() requires strictly increasing timestamps.
                             val result = landmarker.detectForVideo(mpImage, timeMs)
@@ -103,32 +128,64 @@ class PosturePoseAnalyzer(private val context: Context) {
                     landmarker.close()
                 }
 
+                Log.d(TAG, "=== Analysis Complete: ${frames.size} angle frames, ${videoFrames.size} video frames ===")
                 PostureAnalysisOutput(frames, videoFrames, videoPath, videoWidth, videoHeight)
             } finally {
                 retriever.release()
             }
         }
 
+    /**
+     * Extracts and returns a single analysis frame in **display orientation**
+     * (i.e. after applying any rotation from the container metadata).
+     *
+     * [displayWidth] × [displayHeight]: target size in display (post-rotation) coordinates.
+     * [rotation]: degrees from [MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION].
+     *
+     * On API 27+ ([Build.VERSION_CODES.O_MR1] and above) [getScaledFrameAtTime] applies the
+     * container rotation automatically before scaling, so the caller must NOT rotate again.
+     *
+     * On API 26 [getFrameAtTime] returns the raw stored frame; rotation is applied here
+     * manually before scaling.
+     */
     private fun MediaMetadataRetriever.analysisFrameAt(
         timeUs: Long,
-        width: Int,
-        height: Int,
+        displayWidth: Int,
+        displayHeight: Int,
+        rotation: Int,
     ): Bitmap? {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 && width > 0 && height > 0) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 && displayWidth > 0 && displayHeight > 0) {
+            // API 27+: getScaledFrameAtTime automatically applies METADATA_KEY_VIDEO_ROTATION
+            // before scaling.  Passing display-oriented dimensions means the returned bitmap
+            // is sized and oriented correctly for MediaPipe — no further rotation needed.
             return getScaledFrameAtTime(
                 timeUs,
                 MediaMetadataRetriever.OPTION_CLOSEST,
-                width,
-                height,
+                displayWidth,
+                displayHeight,
             )
         }
 
+        // API 26 fallback: getFrameAtTime returns raw stored orientation (no rotation applied).
         val source = getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST) ?: return null
-        if (width <= 0 || height <= 0 || source.width <= width && source.height <= height) {
-            return source
+
+        // Rotate to display orientation.
+        val rotated = if (rotation != 0) {
+            val m = Matrix().apply { postRotate(rotation.toFloat()) }
+            Bitmap.createBitmap(source, 0, 0, source.width, source.height, m, true)
+                .also { if (it !== source) source.recycle() }
+        } else {
+            source
         }
-        return Bitmap.createScaledBitmap(source, width, height, true).also {
-            if (it !== source) source.recycle()
+
+        // Scale to target analysis dimensions.
+        if (displayWidth <= 0 || displayHeight <= 0 ||
+            (rotated.width <= displayWidth && rotated.height <= displayHeight)
+        ) {
+            return rotated
+        }
+        return Bitmap.createScaledBitmap(rotated, displayWidth, displayHeight, true).also {
+            if (it !== rotated) rotated.recycle()
         }
     }
 
