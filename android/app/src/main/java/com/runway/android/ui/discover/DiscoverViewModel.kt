@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Priority
+import com.runway.android.core.map.MapPoint
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.course.model.NearbyCourseItem
 import com.runway.android.domain.course.CourseRepository
@@ -64,6 +65,8 @@ class DiscoverViewModel @Inject constructor(
     var isMapLoading by mutableStateOf(false)
         private set
     var mapErrorMessage by mutableStateOf<String?>(null)
+        private set
+    var currentLocation by mutableStateOf<MapPoint?>(null)
         private set
 
     private var rawCourses = listOf<NearbyCourseItem>()
@@ -173,6 +176,7 @@ class DiscoverViewModel @Inject constructor(
                 if (location != null) {
                     currentLatitude = location.latitude
                     currentLongitude = location.longitude
+                    currentLocation = MapPoint(location.latitude, location.longitude)
                     hasLocation = true
                     loadCourses()
                 } else {

@@ -191,7 +191,7 @@ class HomeViewModel @Inject constructor(
         try {
             val weatherResp = withContext(Dispatchers.IO) {
                 val req = Request.Builder()
-                    .url("https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&units=metric&appid=$apiKey")
+                    .url("https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&units=metric&lang=kr&appid=$apiKey")
                     .build()
                 okHttpClient.newCall(req).execute().use { resp ->
                     if (resp.isSuccessful) Gson().fromJson(resp.body?.string(), OWMWeatherResponse::class.java)
@@ -210,11 +210,15 @@ class HomeViewModel @Inject constructor(
             }
 
             if (weatherResp != null) {
+                val condition = weatherResp.weather.firstOrNull()
                 weatherInfo = WeatherInfo(
                     tempCelsius = weatherResp.main.temp.toInt(),
                     humidity = weatherResp.main.humidity,
                     pm10 = airResp?.list?.firstOrNull()?.components?.pm10?.toInt() ?: 0,
                     pm25 = airResp?.list?.firstOrNull()?.components?.pm25?.toInt() ?: 0,
+                    conditionId = condition?.id ?: 800,
+                    condition = condition?.main.orEmpty(),
+                    description = condition?.description.orEmpty(),
                 )
             }
         } catch (_: Exception) {
@@ -350,8 +354,16 @@ class HomeViewModel @Inject constructor(
 
     // ── OpenWeatherMap response models ────────────────────────────────────
 
-    private data class OWMWeatherResponse(val main: OWMMain)
+    private data class OWMWeatherResponse(
+        val main: OWMMain,
+        val weather: List<OWMWeatherCondition> = emptyList(),
+    )
     private data class OWMMain(val temp: Double, val humidity: Int)
+    private data class OWMWeatherCondition(
+        val id: Int,
+        val main: String,
+        val description: String,
+    )
 
     private data class OWMAirPollutionResponse(val list: List<OWMAirEntry>)
     private data class OWMAirEntry(val components: OWMComponents)

@@ -7,6 +7,9 @@ data class WeatherInfo(
     val humidity: Int,
     val pm10: Int,
     val pm25: Int,
+    val conditionId: Int,
+    val condition: String,
+    val description: String,
 )
 
 fun pm10Quality(pm10: Int): String = when {

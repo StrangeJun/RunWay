@@ -291,7 +291,7 @@ private fun GpsWeatherPill(
 
                 if (weatherInfo.pm10 > 0) {
                     DustChip(
-                        label = "PM10",
+                        label = "미세먼지",
                         quality = pm10Quality(weatherInfo.pm10),
                         color = pm10Color(weatherInfo.pm10),
                         onPill = onPill,
@@ -299,7 +299,7 @@ private fun GpsWeatherPill(
                 }
                 if (weatherInfo.pm25 > 0) {
                     DustChip(
-                        label = "PM2.5",
+                        label = "초미세먼지",
                         quality = pm25Quality(weatherInfo.pm25),
                         color = pm25Color(weatherInfo.pm25),
                         onPill = onPill,

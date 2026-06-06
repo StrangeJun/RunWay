@@ -299,10 +299,11 @@ fun DiscoverScreen(
                         courses = viewModel.mapCourses,
                         isLoading = viewModel.isMapLoading,
                         errorMessage = viewModel.mapErrorMessage,
+                        currentLocation = viewModel.currentLocation,
                         onCourseClick = onNavigateToCourseDetail,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height((configuration.screenHeightDp - 384).coerceAtLeast(340).dp),
+                            .height((configuration.screenHeightDp - 340).coerceAtLeast(360).dp),
                     )
                 }
 

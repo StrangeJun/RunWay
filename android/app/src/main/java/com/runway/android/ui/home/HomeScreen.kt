@@ -40,6 +40,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.ui.components.DiscoverCourseCard
+import com.runway.android.ui.components.HomeWeatherCard
 import com.runway.android.ui.components.RecentRunCard
 import com.runway.android.ui.components.RunHeroSection
 import com.runway.android.ui.components.SectionHeader
@@ -118,6 +119,17 @@ fun HomeScreen(
                     .fillParentMaxHeight(1.08f)
                     .graphicsLayer { alpha = 1f - eased },
             )
+        }
+
+        if (viewModel.weatherInfo != null) {
+            item {
+                HomeWeatherCard(
+                    weather = viewModel.weatherInfo!!,
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 20.dp),
+                )
+            }
         }
 
         // ─── Weekly stats: fades in + slides up ───
