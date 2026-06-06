@@ -23,19 +23,19 @@ class PostureRuleEngineTest {
     @Test
     fun `original front knee threshold marks angle above 135 good`() {
         val result = engine.evaluate(listOf(frame(knee = 140f)))
-        assertEquals(100, result.knee.score)
+        assertTrue(result.knee.score in 90..100)
     }
 
     @Test
     fun `original front knee threshold marks 126 to 135 needs improvement`() {
         val result = engine.evaluate(listOf(frame(knee = 130f)))
-        assertEquals(60, result.knee.score)
+        assertTrue(result.knee.score in 65..89)
     }
 
     @Test
     fun `original front knee threshold marks below 126 bad`() {
         val result = engine.evaluate(listOf(frame(knee = 120f)))
-        assertEquals(20, result.knee.score)
+        assertTrue(result.knee.score in 30..64)
     }
 
     @Test
@@ -47,21 +47,21 @@ class PostureRuleEngineTest {
             ),
         )
         assertEquals(145f, result.knee.measuredValue, 0.001f)
-        assertEquals(100, result.knee.score)
+        assertTrue(result.knee.score in 90..100)
     }
 
     @Test
     fun `original torso threshold marks 5 to 15 good`() {
-        assertEquals(100, engine.evaluate(listOf(frame(trunk = 12f))).trunk.score)
-        assertEquals(60, engine.evaluate(listOf(frame(trunk = 3f))).trunk.score)
-        assertEquals(20, engine.evaluate(listOf(frame(trunk = 20f))).trunk.score)
+        assertTrue(engine.evaluate(listOf(frame(trunk = 12f))).trunk.score in 90..100)
+        assertTrue(engine.evaluate(listOf(frame(trunk = 3f))).trunk.score in 65..89)
+        assertTrue(engine.evaluate(listOf(frame(trunk = 20f))).trunk.score in 30..64)
     }
 
     @Test
     fun `original elbow threshold marks 60 to 90 good`() {
-        assertEquals(100, engine.evaluate(listOf(frame(elbow = 75f))).elbow.score)
-        assertEquals(60, engine.evaluate(listOf(frame(elbow = 55f))).elbow.score)
-        assertEquals(20, engine.evaluate(listOf(frame(elbow = 110f))).elbow.score)
+        assertTrue(engine.evaluate(listOf(frame(elbow = 75f))).elbow.score in 90..100)
+        assertTrue(engine.evaluate(listOf(frame(elbow = 55f))).elbow.score in 65..89)
+        assertTrue(engine.evaluate(listOf(frame(elbow = 110f))).elbow.score in 30..64)
     }
 
     @Test
@@ -73,8 +73,8 @@ class PostureRuleEngineTest {
             listOf(frame(hipAnkle = 24f, shank = 18f, leftStrike = true)),
         )
 
-        assertEquals(100, good.overstride.score)
-        assertEquals(20, bad.overstride.score)
+        assertTrue(good.overstride.score in 90..100)
+        assertTrue(bad.overstride.score in 30..64)
     }
 
     @Test
@@ -92,7 +92,7 @@ class PostureRuleEngineTest {
         val hip = engine.evaluate(frames).hip
 
         assertEquals(35f, hip.measuredValue, 0.001f)
-        assertEquals(100, hip.score)
+        assertTrue(hip.score in 90..100)
     }
 
     @Test
@@ -141,11 +141,11 @@ class PostureRuleEngineTest {
         )
 
         val result = engine.evaluate(listOf(legacy))
-        assertEquals(100, result.knee.score)
-        assertEquals(100, result.trunk.score)
-        assertEquals(100, result.elbow.score)
-        assertEquals(100, result.hip.score)
-        assertEquals(100, result.overstride.score)
+        assertTrue(result.knee.score in 90..100)
+        assertTrue(result.trunk.score in 90..100)
+        assertTrue(result.elbow.score in 90..100)
+        assertTrue(result.hip.score in 90..100)
+        assertTrue(result.overstride.score in 90..100)
     }
 
     private fun frame(

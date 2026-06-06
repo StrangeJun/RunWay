@@ -230,7 +230,6 @@ private fun PostureResultContent(
         val scoredCategories = listOf(
             "무릎 굴곡" to result.knee,
             "상체 기울기" to result.trunk,
-            "착지 위치" to result.overstride,
             "팔꿈치 각도" to result.elbow,
             "고관절 스윙" to result.hip,
         )

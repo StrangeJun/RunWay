@@ -8,8 +8,8 @@ import kotlin.math.roundToInt
  * Aggregates the metrics produced by the running-form-analyzer port.
  *
  * The upstream project returns Good / Need Improvement / Bad rather than a
- * numeric overall score. Pathfinder maps those three states to 100 / 60 / 20
- * only to preserve the existing result and history UI contract.
+ * numeric overall score. Pathfinder converts those states into a continuous
+ * score so values within the ideal range receive 90-100 points.
  */
 class PostureRuleEngine @Inject constructor() : PostureEvaluator {
 
@@ -61,7 +61,7 @@ class PostureRuleEngine @Inject constructor() : PostureEvaluator {
         val cadence = assessCadence(frames)
         val verticalOscillation = assessVerticalOscillation(frames)
 
-        val scored = listOf(knee, trunk, elbow, hip, footStrike)
+        val scored = listOf(knee, trunk, elbow, hip)
         val overall = scored.map { it.score }.average().roundToInt()
         val grade = PostureResult.gradeFrom(overall)
         val weakest = listOf(
@@ -69,7 +69,6 @@ class PostureRuleEngine @Inject constructor() : PostureEvaluator {
             "상체 기울기" to trunk,
             "팔꿈치 각도" to elbow,
             "고관절 가동범위" to hip,
-            "착지 위치" to footStrike,
         ).minBy { it.second.score }
 
         return PostureResult(
@@ -350,7 +349,7 @@ class PostureRuleEngine @Inject constructor() : PostureEvaluator {
         needsImprovement: String,
         bad: String,
     ) = PostureCategoryResult(
-        score = assessment.score,
+        score = categoryScore(value, idealMin, idealMax, assessment),
         measuredValue = value,
         idealMin = idealMin,
         idealMax = idealMax,
@@ -362,6 +361,35 @@ class PostureRuleEngine @Inject constructor() : PostureEvaluator {
         },
         tip = "",
     )
+
+    private fun categoryScore(
+        value: Float,
+        idealMin: Float,
+        idealMax: Float,
+        assessment: Assessment,
+    ): Int {
+        val range = (idealMax - idealMin).coerceAtLeast(1f)
+        return when (assessment) {
+            Assessment.GOOD -> {
+                val center = (idealMin + idealMax) / 2f
+                val halfRange = range / 2f
+                val closeness = (1f - abs(value - center) / halfRange).coerceIn(0f, 1f)
+                (90f + closeness * 10f).roundToInt()
+            }
+            Assessment.NEEDS_IMPROVEMENT -> {
+                val distance = when {
+                    value < idealMin -> idealMin - value
+                    value > idealMax -> value - idealMax
+                    else -> 0f
+                }
+                (89f - distance / range * 24f).roundToInt().coerceIn(65, 89)
+            }
+            Assessment.BAD -> {
+                val distance = minOf(abs(value - idealMin), abs(value - idealMax))
+                (64f - distance / range * 34f).roundToInt().coerceIn(30, 64)
+            }
+        }
+    }
 
     private fun List<Float>.median(): Float {
         if (isEmpty()) return 0f
@@ -397,10 +425,10 @@ class PostureRuleEngine @Inject constructor() : PostureEvaluator {
         verticalOscillation = PostureCategoryResult(0, 0f, 0f, 6.5f, "%", "분석 불가", ""),
     )
 
-    private enum class Assessment(val score: Int) {
-        BAD(20),
-        NEEDS_IMPROVEMENT(60),
-        GOOD(100),
+    private enum class Assessment {
+        BAD,
+        NEEDS_IMPROVEMENT,
+        GOOD,
     }
 
     private companion object {

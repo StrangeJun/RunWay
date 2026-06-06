@@ -32,8 +32,13 @@ class PosturePoseAnalyzer(private val context: Context) {
         withContext(Dispatchers.Default) {
             val analysisStartedAt = SystemClock.elapsedRealtime()
             val retriever = MediaMetadataRetriever()
+            val videoPath = saveVideo(videoUri, analysisId)
             try {
-                retriever.setDataSource(context, videoUri)
+                if (videoPath != null) {
+                    retriever.setDataSource(videoPath)
+                } else {
+                    retriever.setDataSource(context, videoUri)
+                }
 
                 val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                     ?.toLongOrNull() ?: return@withContext emptyOutput()
@@ -72,8 +77,6 @@ class PosturePoseAnalyzer(private val context: Context) {
                 Log.d(TAG, "videoWidth=$videoWidth  videoHeight=$videoHeight  (display dims)")
                 Log.d(TAG, "analysisWidth=$analysisWidth  analysisHeight=$analysisHeight  api=${Build.VERSION.SDK_INT}")
 
-                val videoPath = saveVideo(videoUri, analysisId)
-
                 val safeFps = targetFps.coerceIn(1, MAX_ANALYSIS_FPS)
                 val requestedIntervalMs = 1000L / safeFps
                 val boundedIntervalMs = (durationMs / MAX_ANALYSIS_FRAMES)
@@ -87,6 +90,7 @@ class PosturePoseAnalyzer(private val context: Context) {
                 val frames      = mutableListOf<PostureFrameAngles>()
                 val videoFrames = mutableListOf<PostureVideoFrame>()
                 val metricsPipeline = RunningFormMetricsPipeline()
+                val landmarkValidator = PostureLandmarkValidator()
 
                 try {
                     var timeMs = 0L
@@ -116,9 +120,10 @@ class PosturePoseAnalyzer(private val context: Context) {
                                     val lm = landmarkList[idx]
                                     SkeletonPoint(lm.x(), lm.y(), lm.visibility().orElse(0f))
                                 }
-                                videoFrames.add(PostureVideoFrame(timeMs, rawPts))
+                                val validatedPts = landmarkValidator.validate(rawPts)
+                                videoFrames.add(PostureVideoFrame(timeMs, validatedPts))
 
-                                metricsPipeline.process(rawPts, timeMs, aspectRatio)
+                                metricsPipeline.process(validatedPts, timeMs, aspectRatio)
                                     ?.let(frames::add)
                             }
                             bitmap.recycle()
@@ -131,6 +136,9 @@ class PosturePoseAnalyzer(private val context: Context) {
 
                 Log.d(TAG, "=== Analysis Complete: ${frames.size} angle frames, ${videoFrames.size} video frames ===")
                 PostureAnalysisOutput(frames, videoFrames, videoPath, videoWidth, videoHeight)
+            } catch (error: Throwable) {
+                videoPath?.let { File(it).delete() }
+                throw error
             } finally {
                 retriever.release()
             }

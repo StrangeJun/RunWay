@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -324,7 +325,13 @@ private fun PostureVideoPlayerSurface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF111111))
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .then(if (isFullscreen) Modifier.navigationBarsPadding() else Modifier)
+                    .padding(
+                        start = 16.dp,
+                        top = 8.dp,
+                        end = 16.dp,
+                        bottom = if (isFullscreen) 20.dp else 8.dp,
+                    ),
             ) {
                 Slider(
                     value = if (duration > 0) currentPosition.toFloat() / duration else 0f,

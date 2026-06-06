@@ -198,7 +198,7 @@ private fun PostureEmptyState() {
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "측면 러닝 영상을 촬영하거나 갤러리에서 선택해 착지, 상체, 팔 각도를 분석할 수 있습니다.",
+                "측면 러닝 영상을 촬영하거나 갤러리에서 선택해 무릎, 상체, 팔 움직임을 분석할 수 있습니다.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
