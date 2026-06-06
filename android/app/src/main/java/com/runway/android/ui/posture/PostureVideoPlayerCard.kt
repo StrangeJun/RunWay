@@ -150,7 +150,7 @@ fun PostureVideoPlayerCard(
             if (rAnkle != null && strikeDetectorR.update(rAnkle, it.t)) strikeAgeR = 0
             strikeAgeL++; strikeAgeR++
 
-            overlayAngles = computeOverlayAngles(pts)
+            overlayAngles = computeOverlayAngles(pts, videoWidth, videoHeight)
 
             it
         }
@@ -283,57 +283,61 @@ private data class OverlayAngles(
     val elbowAngle: Float?,
 )
 
-private fun computeOverlayAngles(pts: List<SkeletonPoint>): OverlayAngles {
+/**
+ * 오버레이 각도 계산. [videoWidth]/[videoHeight] 로 aspect ratio 를 보정해
+ * normalized x·y 좌표의 물리 비율 불일치를 제거한다.
+ */
+private fun computeOverlayAngles(
+    pts: List<SkeletonPoint>,
+    videoWidth: Int = 1,
+    videoHeight: Int = 1,
+): OverlayAngles {
+    val ar = if (videoHeight > 0) videoWidth.toFloat() / videoHeight else 1f
     fun ok(idx: Int) = idx < pts.size && pts[idx].v >= SCORE_THRESH
 
     fun angle3(aIdx: Int, bIdx: Int, cIdx: Int): Float? {
         if (!ok(aIdx) || !ok(bIdx) || !ok(cIdx)) return null
         val a = pts[aIdx]; val b = pts[bIdx]; val c = pts[cIdx]
-        val ax = a.x - b.x; val ay = a.y - b.y
-        val cx = c.x - b.x; val cy = c.y - b.y
+        val ax = (a.x - b.x) * ar; val ay = a.y - b.y
+        val cx = (c.x - b.x) * ar; val cy = c.y - b.y
         val dot = ax * cx + ay * cy
         val mag = sqrt((ax*ax+ay*ay) * (cx*cx+cy*cy))
         if (mag < 1e-6f) return null
         return Math.toDegrees(acos((dot/mag).coerceIn(-1f, 1f)).toDouble()).toFloat()
     }
 
-    // Shank angle from vertical: shin vector = ankle - knee, dot with [0,1]
     fun shank(kneeIdx: Int, ankleIdx: Int): Float? {
         if (!ok(kneeIdx) || !ok(ankleIdx)) return null
         val k = pts[kneeIdx]; val a = pts[ankleIdx]
-        val shinY = a.y - k.y
-        val mag = sqrt((a.x-k.x).let{it*it} + shinY*shinY)
+        val shinX = (a.x - k.x) * ar; val shinY = a.y - k.y
+        val mag = sqrt(shinX*shinX + shinY*shinY)
         if (mag < 1e-6f) return null
         return Math.toDegrees(acos((shinY/mag).coerceIn(-1f, 1f)).toDouble()).toFloat()
     }
 
-    // Trunk angle: shoulder-mid to hip-mid vs vertical
     val trunkAngle = run {
         if (!ok(SKEL_L_SHOULDER)||!ok(SKEL_R_SHOULDER)||!ok(SKEL_L_HIP)||!ok(SKEL_R_HIP)) null
         else {
-            val sx = (pts[SKEL_L_SHOULDER].x + pts[SKEL_R_SHOULDER].x)/2f
-            val sy = (pts[SKEL_L_SHOULDER].y + pts[SKEL_R_SHOULDER].y)/2f
-            val hx = (pts[SKEL_L_HIP].x + pts[SKEL_R_HIP].x)/2f
-            val hy = (pts[SKEL_L_HIP].y + pts[SKEL_R_HIP].y)/2f
-            val dx = sx - hx; val dy = hy - sy  // up = positive dy
-            val mag = sqrt(dx*dx + dy*dy)
-            if (mag < 1e-6f) null
+            val dx = ((pts[SKEL_L_SHOULDER].x + pts[SKEL_R_SHOULDER].x)/2f -
+                      (pts[SKEL_L_HIP].x      + pts[SKEL_R_HIP].x)     /2f) * ar
+            val dy =  (pts[SKEL_L_HIP].y      + pts[SKEL_R_HIP].y)     /2f -
+                      (pts[SKEL_L_SHOULDER].y  + pts[SKEL_R_SHOULDER].y)/2f
+            if (sqrt(dx*dx+dy*dy) < 1e-6f) null
             else Math.toDegrees(Math.atan2(dx.toDouble(), dy.toDouble())).toFloat()
         }
     }
 
     return OverlayAngles(
-        trunkAngle = trunkAngle,
-        kneeAngleL = angle3(SKEL_L_HIP, SKEL_L_KNEE, SKEL_L_ANKLE),
-        kneeAngleR = angle3(SKEL_R_HIP, SKEL_R_KNEE, SKEL_R_ANKLE),
+        trunkAngle  = trunkAngle,
+        kneeAngleL  = angle3(SKEL_L_HIP, SKEL_L_KNEE, SKEL_L_ANKLE),
+        kneeAngleR  = angle3(SKEL_R_HIP, SKEL_R_KNEE, SKEL_R_ANKLE),
         shankAngleL = shank(SKEL_L_KNEE, SKEL_L_ANKLE),
         shankAngleR = shank(SKEL_R_KNEE, SKEL_R_ANKLE),
-        elbowAngle = run {
-            // prefer the side with better visibility
+        elbowAngle  = run {
             val lv = if (pts.size > SKEL_L_ELBOW) pts[SKEL_L_ELBOW].v else 0f
             val rv = if (pts.size > SKEL_R_ELBOW) pts[SKEL_R_ELBOW].v else 0f
             if (lv >= rv) angle3(SKEL_L_SHOULDER, SKEL_L_ELBOW, SKEL_L_WRIST)
-            else angle3(SKEL_R_SHOULDER, SKEL_R_ELBOW, SKEL_R_WRIST)
+            else          angle3(SKEL_R_SHOULDER, SKEL_R_ELBOW, SKEL_R_WRIST)
         },
     )
 }

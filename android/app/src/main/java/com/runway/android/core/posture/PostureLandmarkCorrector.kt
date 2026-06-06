@@ -122,21 +122,29 @@ class PostureLandmarkCorrector {
         prev: SkeletonPoint?,
         label: String,
     ): SkeletonPoint {
-        // 첫 프레임은 기준값 없으므로 그대로 수락
-        if (prev == null) return joint
-
         val xDist = abs(joint.x - hip.x)
-        val maxX = if (isKnee) MAX_KNEE_X_FROM_HIP else MAX_ANKLE_X_FROM_HIP
+        val maxX  = if (isKnee) MAX_KNEE_X_FROM_HIP else MAX_ANKLE_X_FROM_HIP
 
-        // 무릎은 추가로 Y 검사: 골반보다 심하게 위에 있으면 오감지
-        val yOk = if (isKnee) joint.y > hip.y - KNEE_MAX_ABOVE_HIP else true
+        // 무릎 Y 검사:
+        //   - 골반보다 MIN_KNEE_BELOW_HIP 이상 아래에 있어야 유효 (너무 높은 감지 제거)
+        //   - 달리기 고강도 무릎 드라이브에서도 무릎은 항상 골반보다 아래에 위치한다
+        val yOk = if (isKnee) joint.y >= hip.y + MIN_KNEE_BELOW_HIP else true
 
         val valid = xDist <= maxX && yOk
+
         if (!valid) {
-            Log.d(TAG, "[$label] rejected: x=${joint.x} hip.x=${hip.x} xDist=${"%.3f".format(xDist)} " +
-                "maxX=$maxX yOk=$yOk → using prev ${prev.x},${prev.y}")
+            val fallback = prev ?: run {
+                // 첫 프레임에 오감지된 경우: 골반 아래 추정 위치로 초기화
+                val estimatedY = if (isKnee) hip.y + KNEE_INIT_BELOW_HIP
+                                 else        hip.y + ANKLE_INIT_BELOW_HIP
+                hip.copy(y = estimatedY.coerceIn(0f, 1f), v = 0.3f)
+            }
+            Log.d(TAG, "[$label] rejected: xDist=${"%.3f".format(xDist)} maxX=$maxX " +
+                "joint.y=${joint.y} hip.y=${hip.y} yOk=$yOk → " +
+                if (prev != null) "prev(${prev.x},${prev.y})" else "estimated(${fallback.x},${fallback.y})")
+            return fallback
         }
-        return if (valid) joint else prev
+        return joint
     }
 
     /** 측면 프로파일 기준 관절 X 좌표를 달리기 방향 반대로 이동 (전방 바이어스 제거). */
@@ -169,11 +177,13 @@ class PostureLandmarkCorrector {
         const val SIDE_PROFILE_FULL_RATIO = 0.28f
 
         // 해부학적 유효성 임계값 (normalized 0-1 좌표 기준)
-        // 무릎: 골반 X ± 20% 범위, 골반 Y 보다 15% 이상 위면 오감지로 판단
+        // 무릎: 골반 X ± 20% 이내, 골반 Y 보다 최소 3% 아래이어야 유효
         const val MAX_KNEE_X_FROM_HIP   = 0.20f
-        const val KNEE_MAX_ABOVE_HIP    = 0.15f  // knee.y > hip.y - 0.15 이어야 유효
+        const val MIN_KNEE_BELOW_HIP    = 0.03f  // knee.y >= hip.y + 0.03 이어야 유효
+        const val KNEE_INIT_BELOW_HIP   = 0.15f  // 첫 프레임 오감지 시 초기 추정값
         // 발목: 달리기 보폭만큼 더 큰 X 범위 허용
         const val MAX_ANKLE_X_FROM_HIP  = 0.30f
+        const val ANKLE_INIT_BELOW_HIP  = 0.30f  // 첫 프레임 오감지 시 초기 추정값
 
         // 전방 바이어스 오프셋 보정값
         const val KNEE_OFFSET_RATIO   = 0.06f

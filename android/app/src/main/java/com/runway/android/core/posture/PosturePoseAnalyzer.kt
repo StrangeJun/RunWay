@@ -62,6 +62,8 @@ class PosturePoseAnalyzer(private val context: Context) {
                 // auto-rotated result fills the analysis frame correctly.  Manual rotation is
                 // still applied for the API 26 fallback path (getFrameAtTime does not rotate).
                 val (analysisWidth, analysisHeight) = scaledAnalysisSize(videoWidth, videoHeight)
+                // 각도 계산 시 x 성분을 물리 비율로 환산하기 위한 aspect ratio
+                val aspectRatio = if (videoHeight > 0) videoWidth.toFloat() / videoHeight else 1f
 
                 val sourceLabel = if (videoUri.scheme == "file") "app-recorded" else "gallery"
                 Log.d(TAG, "=== Pose Analysis Start ===")
@@ -123,7 +125,7 @@ class PosturePoseAnalyzer(private val context: Context) {
                                 val skeletonPts   = landmarkCorrector.correct(swapCorrected, timeMs)
                                 videoFrames.add(PostureVideoFrame(timeMs, skeletonPts))
 
-                                PostureAngleCalculator.compute(skeletonPts)?.let { angles ->
+                                PostureAngleCalculator.compute(skeletonPts, aspectRatio)?.let { angles ->
                                     frames.add(angles.copy(timestampMs = timeMs, landmarks = skeletonPts))
                                 }
                             }
