@@ -7,12 +7,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
@@ -50,6 +53,8 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -119,6 +124,7 @@ fun PostureVideoPlayerCard(
     var isPlaying       by remember { mutableStateOf(false) }
     var isEnded         by remember { mutableStateOf(false) }
     var playbackSpeed   by remember { mutableFloatStateOf(1f) }
+    var isFullscreen    by remember { mutableStateOf(false) }
 
     var currentFrame    by remember { mutableStateOf<PostureVideoFrame?>(null) }
     var overlayAngles   by remember { mutableStateOf<OverlayAngles?>(null) }
@@ -140,7 +146,7 @@ fun PostureVideoPlayerCard(
     LaunchedEffect(currentPosition) {
         val interpolated = interpolateFrame(sortedFrames, currentPosition)
         currentFrame = interpolated?.let {
-            // 분석 파이프라인에서 이미 LegSwapCorrector + One Euro Filter 가 완료되었으므로
+            // 분석 시 저장한 Pose Landmarker VIDEO 모드의 추적 좌표를 그대로 사용한다.
             // 재생 시점에는 추가 post-processing 을 하지 않는다(이중 처리 시 0.25x 에서 큰 지연).
             val pts = it.pts
 
@@ -160,16 +166,120 @@ fun PostureVideoPlayerCard(
 
     val textMeasurer = rememberTextMeasurer()
 
+    val resetAfterSeek = {
+        strikeDetectorL.reset()
+        strikeDetectorR.reset()
+        strikeAgeL = Int.MAX_VALUE
+        strikeAgeR = Int.MAX_VALUE
+        isEnded = false
+    }
+    val togglePlayback = {
+        when {
+            isEnded -> {
+                exoPlayer.seekTo(0)
+                resetAfterSeek()
+                exoPlayer.play()
+            }
+            isPlaying -> exoPlayer.pause()
+            else -> exoPlayer.play()
+        }
+    }
+
+    if (!isFullscreen) {
+        PostureVideoPlayerSurface(
+            exoPlayer = exoPlayer,
+            currentFrame = currentFrame,
+            videoWidth = videoWidth,
+            videoHeight = videoHeight,
+            overlayAngles = overlayAngles,
+            strikeAgeL = strikeAgeL,
+            strikeAgeR = strikeAgeR,
+            currentPosition = currentPosition,
+            duration = duration,
+            isPlaying = isPlaying,
+            isEnded = isEnded,
+            playbackSpeed = playbackSpeed,
+            isFullscreen = false,
+            onSeek = { fraction ->
+                exoPlayer.seekTo((fraction * duration).toLong())
+                resetAfterSeek()
+            },
+            onTogglePlayback = togglePlayback,
+            onSpeedChange = { playbackSpeed = it },
+            onFullscreenChange = { isFullscreen = it },
+            textMeasurer = textMeasurer,
+            modifier = modifier.fillMaxWidth(),
+        )
+    } else {
+        Dialog(
+            onDismissRequest = { isFullscreen = false },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false,
+            ),
+        ) {
+            PostureVideoPlayerSurface(
+                exoPlayer = exoPlayer,
+                currentFrame = currentFrame,
+                videoWidth = videoWidth,
+                videoHeight = videoHeight,
+                overlayAngles = overlayAngles,
+                strikeAgeL = strikeAgeL,
+                strikeAgeR = strikeAgeR,
+                currentPosition = currentPosition,
+                duration = duration,
+                isPlaying = isPlaying,
+                isEnded = isEnded,
+                playbackSpeed = playbackSpeed,
+                isFullscreen = true,
+                onSeek = { fraction ->
+                    exoPlayer.seekTo((fraction * duration).toLong())
+                    resetAfterSeek()
+                },
+                onTogglePlayback = togglePlayback,
+                onSpeedChange = { playbackSpeed = it },
+                onFullscreenChange = { isFullscreen = it },
+                textMeasurer = textMeasurer,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PostureVideoPlayerSurface(
+    exoPlayer: ExoPlayer,
+    currentFrame: PostureVideoFrame?,
+    videoWidth: Int,
+    videoHeight: Int,
+    overlayAngles: OverlayAngles?,
+    strikeAgeL: Int,
+    strikeAgeR: Int,
+    currentPosition: Long,
+    duration: Long,
+    isPlaying: Boolean,
+    isEnded: Boolean,
+    playbackSpeed: Float,
+    isFullscreen: Boolean,
+    onSeek: (Float) -> Unit,
+    onTogglePlayback: () -> Unit,
+    onSpeedChange: (Float) -> Unit,
+    onFullscreenChange: (Boolean) -> Unit,
+    textMeasurer: androidx.compose.ui.text.TextMeasurer,
+    modifier: Modifier = Modifier,
+) {
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
+        modifier = modifier,
+        shape = if (isFullscreen) MaterialTheme.shapes.extraSmall else MaterialTheme.shapes.extraLarge,
         color = Color.Black,
     ) {
-        Column {
+        Column(modifier = if (isFullscreen) Modifier.fillMaxSize() else Modifier) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(260.dp),
+                modifier = if (isFullscreen) {
+                    Modifier.fillMaxWidth().weight(1f)
+                } else {
+                    Modifier.fillMaxWidth().height(260.dp)
+                },
             ) {
                 AndroidView(
                     factory = { ctx ->
@@ -181,10 +291,9 @@ fun PostureVideoPlayerCard(
                     modifier = Modifier.matchParentSize(),
                 )
 
-                val frame = currentFrame
-                if (frame != null && videoWidth > 0 && videoHeight > 0) {
+                if (currentFrame != null && videoWidth > 0 && videoHeight > 0) {
                     SkeletonOverlay(
-                        frame = frame,
+                        frame = currentFrame,
                         videoWidth = videoWidth,
                         videoHeight = videoHeight,
                         overlayAngles = overlayAngles,
@@ -194,21 +303,32 @@ fun PostureVideoPlayerCard(
                         modifier = Modifier.matchParentSize(),
                     )
                 }
+
+                IconButton(
+                    onClick = { onFullscreenChange(!isFullscreen) },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .size(44.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), CircleShape),
+                ) {
+                    Icon(
+                        imageVector = if (isFullscreen) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
+                        contentDescription = if (isFullscreen) "전체화면 종료" else "전체화면",
+                        tint = Color.White,
+                    )
+                }
             }
 
             Column(
                 modifier = Modifier
+                    .fillMaxWidth()
                     .background(Color(0xFF111111))
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 Slider(
                     value = if (duration > 0) currentPosition.toFloat() / duration else 0f,
-                    onValueChange = { frac ->
-                        exoPlayer.seekTo((frac * duration).toLong())
-                        strikeDetectorL.reset(); strikeDetectorR.reset()
-                        strikeAgeL = Int.MAX_VALUE; strikeAgeR = Int.MAX_VALUE
-                        isEnded = false
-                    },
+                    onValueChange = onSeek,
                     modifier = Modifier.fillMaxWidth().height(24.dp),
                     colors = SliderDefaults.colors(
                         thumbColor = MaterialTheme.colorScheme.primary,
@@ -223,19 +343,7 @@ fun PostureVideoPlayerCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     IconButton(
-                        onClick = {
-                            when {
-                                isEnded -> {
-                                    exoPlayer.seekTo(0)
-                                    strikeDetectorL.reset(); strikeDetectorR.reset()
-                                    strikeAgeL = Int.MAX_VALUE; strikeAgeR = Int.MAX_VALUE
-                                    exoPlayer.play()
-                                    isEnded = false
-                                }
-                                isPlaying -> exoPlayer.pause()
-                                else -> exoPlayer.play()
-                            }
-                        },
+                        onClick = onTogglePlayback,
                         modifier = Modifier
                             .size(44.dp)
                             .background(Color.White.copy(alpha = 0.12f), CircleShape),
@@ -246,7 +354,7 @@ fun PostureVideoPlayerCard(
                                 isPlaying -> Icons.Filled.Pause
                                 else -> Icons.Filled.PlayArrow
                             },
-                            contentDescription = null,
+                            contentDescription = if (isPlaying) "일시정지" else "재생",
                             tint = Color.White,
                         )
                     }
@@ -262,7 +370,7 @@ fun PostureVideoPlayerCard(
                             SpeedChip(
                                 label = label,
                                 selected = playbackSpeed == speed,
-                                onClick = { playbackSpeed = speed },
+                                onClick = { onSpeedChange(speed) },
                             )
                         }
                     }

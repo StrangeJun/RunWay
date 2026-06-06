@@ -28,7 +28,7 @@ data class PostureAnalysisOutput(
 
 class PosturePoseAnalyzer(private val context: Context) {
 
-    suspend fun extractAnalysis(videoUri: Uri, analysisId: String, targetFps: Int = 10): PostureAnalysisOutput =
+    suspend fun extractAnalysis(videoUri: Uri, analysisId: String, targetFps: Int = 15): PostureAnalysisOutput =
         withContext(Dispatchers.Default) {
             val analysisStartedAt = SystemClock.elapsedRealtime()
             val retriever = MediaMetadataRetriever()
@@ -80,15 +80,13 @@ class PosturePoseAnalyzer(private val context: Context) {
                     .coerceAtLeast(1L)
                 val intervalMs = maxOf(requestedIntervalMs, boundedIntervalMs)
 
-                // running-form-analyzer 방식 파이프라인:
-                //   raw MediaPipe (RunningMode.VIDEO 내부 Kalman 포함)
-                //   → One Euro Filter (경량 평활화, 재생 시 jitter 제거)
-                //   → PostureAngleCalculator (pixel 좌표 기반, confidence >= 0.30)
-                // LegSwapCorrector / PostureLandmarkCorrector 는 더 이상 사용하지 않는다.
+                // running-form-analyzer 기본 BlazePose 경로와 동일하게 모델의 추적
+                // 좌표를 그대로 사용한다. VIDEO 모드가 시간축 추적을 수행하므로
+                // 외부 평활화를 중복 적용하면 빠른 무릎과 발목이 뒤처질 수 있다.
                 val landmarker  = buildLandmarker()
                 val frames      = mutableListOf<PostureFrameAngles>()
                 val videoFrames = mutableListOf<PostureVideoFrame>()
-                val smoother    = PostureSkeletonSmoother()
+                val metricsPipeline = RunningFormMetricsPipeline()
 
                 try {
                     var timeMs = 0L
@@ -118,13 +116,10 @@ class PosturePoseAnalyzer(private val context: Context) {
                                     val lm = landmarkList[idx]
                                     SkeletonPoint(lm.x(), lm.y(), lm.visibility().orElse(0f))
                                 }
-                                // 가벼운 평활화 (재생 오버레이 jitter 제거)
-                                val skeletonPts = smoother.smooth(rawPts, timeMs)
-                                videoFrames.add(PostureVideoFrame(timeMs, skeletonPts))
+                                videoFrames.add(PostureVideoFrame(timeMs, rawPts))
 
-                                PostureAngleCalculator.compute(skeletonPts, aspectRatio)?.let { angles ->
-                                    frames.add(angles.copy(timestampMs = timeMs, landmarks = skeletonPts))
-                                }
+                                metricsPipeline.process(rawPts, timeMs, aspectRatio)
+                                    ?.let(frames::add)
                             }
                             bitmap.recycle()
                         }
@@ -222,13 +217,14 @@ class PosturePoseAnalyzer(private val context: Context) {
 
     private fun buildLandmarker(): PoseLandmarker {
         val baseOptions = BaseOptions.builder()
-            .setModelAssetPath("pose_landmarker_lite.task")
+            .setModelAssetPath("pose_landmarker_full.task")
             .build()
         val options = PoseLandmarker.PoseLandmarkerOptions.builder()
             .setBaseOptions(baseOptions)
             .setRunningMode(RunningMode.VIDEO)   // enables inter-frame Kalman tracking
             .setNumPoses(1)
             .setMinPoseDetectionConfidence(0.5f)
+            .setMinPosePresenceConfidence(0.5f)
             .setMinTrackingConfidence(0.5f)
             .build()
         return PoseLandmarker.createFromOptions(context, options)
@@ -237,9 +233,9 @@ class PosturePoseAnalyzer(private val context: Context) {
     private fun emptyOutput() = PostureAnalysisOutput(emptyList(), emptyList(), null, 0, 0)
 
     private companion object {
-        const val MAX_ANALYSIS_FPS = 10
-        const val MAX_ANALYSIS_FRAMES = 120
-        const val MAX_ANALYSIS_DIMENSION = 512
+        const val MAX_ANALYSIS_FPS = 15
+        const val MAX_ANALYSIS_FRAMES = 300
+        const val MAX_ANALYSIS_DIMENSION = 640
         const val ANALYSIS_TIME_BUDGET_MS = 50_000L
     }
 }

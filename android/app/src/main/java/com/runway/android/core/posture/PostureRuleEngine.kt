@@ -3,260 +3,408 @@ package com.runway.android.core.posture
 import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
+/**
+ * Aggregates the metrics produced by the running-form-analyzer port.
+ *
+ * The upstream project returns Good / Need Improvement / Bad rather than a
+ * numeric overall score. Pathfinder maps those three states to 100 / 60 / 20
+ * only to preserve the existing result and history UI contract.
+ */
 class PostureRuleEngine @Inject constructor() : PostureEvaluator {
 
     override fun evaluate(frames: List<PostureFrameAngles>): PostureResult {
         if (frames.isEmpty()) return emptyResult()
 
-        val landing = frames.filter { it.isLandingFrame }
-        val hasLanding = landing.isNotEmpty()
-        val landingOrAll = if (hasLanding) landing else frames
-
-        val kneeMedian = landingOrAll.map { it.kneeFlexAngle }.median()
-        val trunkMedian = frames.map { it.trunkLeanAngle }.median()
-        val elbowMedian = frames.map { it.elbowAngle }.median()
-        val hipMedian = frames.map { it.hipExtensionAngle }.median()
-
-        val knee = evalKnee(kneeMedian)
-        val trunk = evalTrunk(trunkMedian)
-        val elbow = evalElbow(elbowMedian)
-        val hip = evalHip(hipMedian)
-
-        // Overstride is only reliable from landing frames; without them skip it from the score
-        // and redistribute its 20% weight proportionally to the remaining categories.
-        val overstride: PostureCategoryResult
-        val overall: Int
-        if (hasLanding) {
-            overstride = evalOverstride(landing.map { it.overstrideRatio }.median())
-            overall = (knee.score * 0.30 + trunk.score * 0.25 + overstride.score * 0.20 +
-                    elbow.score * 0.15 + hip.score * 0.10).roundToInt()
-        } else {
-            overstride = PostureCategoryResult(
-                score = 50, measuredValue = 0f, idealMin = 0f, idealMax = 0.10f, unit = "%",
-                feedback = "착지 프레임이 감지되지 않았습니다. 측면에서 촬영되었는지 확인해주세요.",
-                tip = "",
-            )
-            // Renormalized weights (30/25/15/10 → 37.5/31.25/18.75/12.5)
-            overall = (knee.score * 0.375 + trunk.score * 0.3125 +
-                    elbow.score * 0.1875 + hip.score * 0.125).roundToInt()
-        }
-
-        val grade = PostureResult.gradeFrom(overall)
-        val feedback = buildOverallFeedback(overall, knee, trunk, overstride)
-
-        val cadence = evalCadence(frames)
-        val verticalOscillation = evalVerticalOscillation(frames)
-
-        return PostureResult(overall, grade, feedback, knee, trunk, elbow, hip, overstride,
-            cadence, verticalOscillation)
-    }
-
-    private fun evalKnee(angle: Float): PostureCategoryResult {
-        // Biomechanically sound landing range for running: 135–165° (hip-knee-ankle).
-        // Elite runners commonly land at 130–155°; the old 155–170° was too strict and
-        // penalised athletes who use healthy knee flexion for shock absorption.
-        val idealMin = 135f; val idealMax = 165f
-        val score = angleScore(angle, idealMin, idealMax)
-        val feedback = when {
-            angle < idealMin - 15f -> "착지 시 무릎이 너무 많이 구부러져 있습니다. 보폭을 조금 줄여보세요."
-            angle < idealMin -> "착지 시 무릎이 약간 많이 구부러져 있습니다. 조금 더 펴보세요."
-            angle > idealMax + 15f -> "착지 시 무릎이 너무 펴져 있어 충격 흡수가 부족합니다."
-            angle > idealMax -> "착지 시 무릎을 살짝 더 구부려 충격을 흡수해보세요."
-            else -> "착지 시 무릎 각도가 이상적입니다."
-        }
-        val tip = if (score < 80) "무릎을 살짝 구부린 상태(135~165°)로 착지하면 관절 충격을 효과적으로 분산시킬 수 있습니다." else ""
-        return PostureCategoryResult(score, angle, idealMin, idealMax, "°", feedback, tip)
-    }
-
-    private fun evalTrunk(angle: Float): PostureCategoryResult {
-        val idealMin = 5f; val idealMax = 10f
-        val score = angleScore(angle, idealMin, idealMax)
-        val feedback = when {
-            angle < 0f -> "상체가 뒤로 기울어져 있습니다. 전방으로 기울여 보세요."
-            angle < idealMin -> "상체 기울기가 부족합니다. 약 5~10도 앞으로 기울여 보세요."
-            angle > idealMax + 10f -> "상체가 너무 앞으로 기울어져 있어 허리에 부담이 됩니다."
-            angle > idealMax -> "상체 기울기가 조금 과합니다."
-            else -> "상체 기울기가 이상적입니다."
-        }
-        val tip = if (score < 80) "전방 기울기는 추진력과 효율을 높여줍니다." else ""
-        return PostureCategoryResult(score, angle, idealMin, idealMax, "°", feedback, tip)
-    }
-
-    private fun evalElbow(angle: Float): PostureCategoryResult {
-        val idealMin = 85f; val idealMax = 95f
-        val score = angleScore(angle, idealMin, idealMax)
-        val feedback = when {
-            angle < idealMin - 15f -> "팔꿈치가 너무 많이 구부러져 있어 경직됩니다."
-            angle < idealMin -> "팔꿈치를 약 90도로 유지해보세요."
-            angle > idealMax + 25f -> "팔꿈치가 너무 펴져 있어 에너지 손실이 발생합니다."
-            angle > idealMax -> "팔꿈치를 약 90도로 줄여보세요."
-            else -> "팔꿈치 각도가 이상적입니다."
-        }
-        val tip = if (score < 80) "팔꿈치를 90도 유지하면 리듬감 있는 팔 스윙이 가능합니다." else ""
-        return PostureCategoryResult(score, angle, idealMin, idealMax, "°", feedback, tip)
-    }
-
-    private fun evalHip(angle: Float): PostureCategoryResult {
-        val idealMin = 160f; val idealMax = 180f
-        val score = angleScore(angle, idealMin, idealMax)
-        val feedback = when {
-            angle < idealMin - 15f -> "고관절 신전이 크게 부족합니다. 뒤 발 차기를 강화해보세요."
-            angle < idealMin -> "push-off 시 고관절을 조금 더 신전시켜 보세요."
-            else -> "고관절 신전이 적절합니다."
-        }
-        val tip = if (score < 80) "완전한 고관절 신전은 추진력을 높여줍니다." else ""
-        return PostureCategoryResult(score, angle, idealMin, idealMax, "°", feedback, tip)
-    }
-
-    private fun evalOverstride(ratio: Float): PostureCategoryResult {
-        val score = when {
-            ratio <= 0.10f -> 100
-            ratio <= 0.20f -> (100 - ((ratio - 0.10f) / 0.10f) * 40).toInt().coerceIn(0, 100)
-            ratio <= 0.30f -> (60 - ((ratio - 0.20f) / 0.10f) * 30).toInt().coerceIn(0, 100)
-            else -> (30 - ((ratio - 0.30f) / 0.10f) * 30).toInt().coerceAtLeast(0)
-        }
-        val pct = (ratio * 100).toInt()
-        val feedback = when {
-            ratio <= 0.10f -> "착지 위치가 이상적입니다."
-            ratio <= 0.20f -> "착지 위치가 약간 앞쪽입니다. 보폭을 조금 줄여보세요."
-            ratio <= 0.30f -> "오버스트라이드가 감지됩니다. 보폭을 줄이고 케이던스를 높여보세요."
-            else -> "착지 위치가 몸 앞쪽으로 많이 나와 있습니다. 충격과 부상 위험이 높습니다."
-        }
-        val tip = if (score < 80) "발이 엉덩이 아래에 가깝게 착지하면 제동력을 줄일 수 있습니다." else ""
-        return PostureCategoryResult(score, ratio, 0f, 0.10f, "%", feedback, tip)
-    }
-
-    // ── Reference metrics (not included in overall score) ────────────────────
-
-    // Detect ground contacts from near-side ankle Y peaks (Y increases downward →
-    // a peak means the ankle is near the ground). Multiply by 2 to get total steps/min
-    // since we only see one leg's contacts in a side-profile video.
-    private fun evalCadence(frames: List<PostureFrameAngles>): PostureCategoryResult {
-        val idealMin = 170f; val idealMax = 180f
-        val noData = PostureCategoryResult(0, 0f, idealMin, idealMax, "spm",
-            "케이던스 측정을 위해 더 긴 구간이 필요합니다.", "")
-
-        val durationMs = (frames.lastOrNull()?.timestampMs ?: 0L) -
-                         (frames.firstOrNull()?.timestampMs ?: 0L)
-        if (frames.size < 8 || durationMs < 2000L) return noData
-
-        val ankleY = frames.map { it.nearAnkleY }
-
-        // Local-maximum detection with a 5-frame minimum interval to suppress
-        // sub-peaks within a single ground-contact plateau (5 frames = 500ms at 10fps,
-        // allowing detection up to ~240 spm while preventing double-counting).
-        val minPeakY = 0.55f
-        val minGapFrames = 5
-        var stepCount = 0
-        var lastPeakIdx = -minGapFrames
-
-        for (i in 1 until ankleY.size - 1) {
-            if (i - lastPeakIdx < minGapFrames) continue
-            if (ankleY[i] > ankleY[i - 1] && ankleY[i] >= ankleY[i + 1] && ankleY[i] > minPeakY) {
-                stepCount++
-                lastPeakIdx = i
+        val strikeKnees = buildList {
+            frames.forEach { frame ->
+                if (frame.leftFootStrike) frame.leftKneeAngle?.let(::add)
+                if (frame.rightFootStrike) frame.rightKneeAngle?.let(::add)
+                if (frame.isLandingFrame && !frame.leftFootStrike && !frame.rightFootStrike) {
+                    add(frame.kneeFlexAngle)
+                }
             }
         }
-        if (stepCount < 3) return noData
-
-        val spm = stepCount * 2f * 60_000f / durationMs
-        val score = angleScore(spm, idealMin, idealMax)
-        val feedback = when {
-            spm < 150f -> "케이던스가 매우 낮습니다. 보폭을 줄이고 발놀림을 빠르게 해보세요."
-            spm < idealMin -> "케이던스 ${spm.roundToInt()}spm은 낮습니다. 170spm 이상을 목표로 해보세요."
-            spm > idealMax + 10f -> "케이던스 ${spm.roundToInt()}spm으로 리듬이 좋습니다."
-            else -> "케이던스 ${spm.roundToInt()}spm으로 이상적입니다."
+        val strikeHipAnkle = buildList {
+            frames.forEach { frame ->
+                if (frame.leftFootStrike) frame.leftHipAnkleAngle?.let(::add)
+                if (frame.rightFootStrike) frame.rightHipAnkleAngle?.let(::add)
+                if (frame.isLandingFrame && !frame.leftFootStrike && !frame.rightFootStrike) {
+                    add(frame.overstrideRatio)
+                }
+            }
         }
-        val tip = if (score < 80) "케이던스를 높이면 오버스트라이드가 줄고 부상 위험이 낮아집니다." else ""
-        return PostureCategoryResult(score, spm, idealMin, idealMax, "spm", feedback, tip)
-    }
-
-    // Vertical oscillation: IQR of hip mid-Y (robust to outlier frames), normalized
-    // by estimated body height. Hip-to-ankle distance ≈ 52 % of full body height.
-    private fun evalVerticalOscillation(frames: List<PostureFrameAngles>): PostureCategoryResult {
-        val idealMin = 4f; val idealMax = 8f
-        val noData = PostureCategoryResult(0, 0f, idealMin, idealMax, "%",
-            "수직진폭 측정을 위해 더 긴 구간이 필요합니다.", "")
-        if (frames.size < 8) return noData
-
-        val hipY = frames.map { it.hipMidY }.sorted()
-
-        val q25 = hipY[(hipY.size * 0.25f).toInt()]
-        val q75 = hipY[(hipY.size * 0.75f).toInt()]
-        val amplitudeNorm = q75 - q25
-
-        // Leg length estimate from landing frames; fall back to mean difference
-        val legLength = frames.filter { it.isLandingFrame }
-            .mapNotNull { f -> (f.nearAnkleY - f.hipMidY).takeIf { it > 0f } }
-            .takeIf { it.isNotEmpty() }?.average()?.toFloat()
-            ?: (frames.map { it.nearAnkleY }.average() -
-                frames.map { it.hipMidY }.average()).toFloat().coerceAtLeast(0.15f)
-
-        val bodyHeightNorm = legLength / 0.52f
-        val oscPct = (amplitudeNorm / bodyHeightNorm * 100f).coerceAtLeast(0f)
-
-        val score = angleScore(oscPct, idealMin, idealMax)
-        val feedback = when {
-            oscPct < 2f -> "수직진폭이 매우 작습니다."
-            oscPct <= idealMax -> "수직진폭이 이상적입니다. 에너지 효율이 좋습니다."
-            oscPct <= 12f -> "수직진폭이 약간 큽니다. 상체를 안정화해보세요."
-            else -> "상하 진폭이 큽니다. 앞으로 나아가는 에너지가 낭비되고 있습니다."
+        val strikeShanks = buildList {
+            frames.forEach { frame ->
+                if (frame.leftFootStrike) frame.leftShankAngle?.let(::add)
+                if (frame.rightFootStrike) frame.rightShankAngle?.let(::add)
+                if (frame.isLandingFrame && !frame.leftFootStrike && !frame.rightFootStrike) {
+                    add(frame.shankAngle)
+                }
+            }
         }
-        val tip = if (oscPct > idealMax) "코어 강화와 자세 안정화로 불필요한 바운싱을 줄일 수 있습니다." else ""
-        return PostureCategoryResult(score, oscPct, idealMin, idealMax, "%", feedback, tip)
-    }
 
-    private fun buildOverallFeedback(
-        score: Int,
-        knee: PostureCategoryResult,
-        trunk: PostureCategoryResult,
-        overstride: PostureCategoryResult,
-    ): String {
+        val kneeValue = strikeKnees.lastOrNull()
+            ?: frames.map { it.kneeFlexAngle }.median()
+        val trunkValue = frames.map { abs(it.trunkLeanAngle) }.median()
+        val elbowValue = frames.map { it.elbowAngle }.median()
+        val hipSwingValue = maxCompletedSwing(frames)
+        val hipAnkleValue = strikeHipAnkle.lastOrNull()
+            ?: frames.map { it.overstrideRatio }.median()
+        val shankValue = strikeShanks.lastOrNull() ?: 0f
+
+        val knee = assessKnee(kneeValue)
+        val trunk = assessTrunk(trunkValue)
+        val elbow = assessElbow(elbowValue)
+        val hip = assessHipSwing(hipSwingValue)
+        val footStrike = assessHipAnkle(hipAnkleValue, shankValue, strikeHipAnkle.isNotEmpty())
+        val cadence = assessCadence(frames)
+        val verticalOscillation = assessVerticalOscillation(frames)
+
+        val scored = listOf(knee, trunk, elbow, hip, footStrike)
+        val overall = scored.map { it.score }.average().roundToInt()
+        val grade = PostureResult.gradeFrom(overall)
         val weakest = listOf(
-            "무릎 굴곡" to knee.score,
-            "상체 기울기" to trunk.score,
-            "오버스트라이드" to overstride.score,
-        ).minByOrNull { it.second }
+            "무릎 각도" to knee,
+            "상체 기울기" to trunk,
+            "팔꿈치 각도" to elbow,
+            "고관절 가동범위" to hip,
+            "착지 위치" to footStrike,
+        ).minBy { it.second.score }
 
-        return when {
-            score >= 90 -> "런닝 자세가 매우 훌륭합니다. 현재 자세를 유지하세요!"
-            score >= 75 -> "전반적으로 좋은 자세입니다. ${weakest?.first} 부분을 보완하면 더 좋아집니다."
-            score >= 60 -> "${weakest?.first} 개선이 필요합니다. 꾸준히 연습해 보세요."
-            else -> "자세 개선이 필요합니다. 각 항목의 피드백을 참고해 연습해 보세요."
-        }
+        return PostureResult(
+            overallScore = overall,
+            grade = grade,
+            overallFeedback = when {
+                overall >= 90 -> "원본 분석 기준에서 전반적으로 좋은 자세입니다."
+                overall >= 60 -> "${weakest.first} 항목을 우선 개선해보세요."
+                else -> "${weakest.first} 항목에 지속적인 교정이 필요합니다."
+            },
+            knee = knee,
+            trunk = trunk,
+            elbow = elbow,
+            hip = hip,
+            overstride = footStrike,
+            cadence = cadence,
+            verticalOscillation = verticalOscillation,
+        )
     }
 
-    private fun angleScore(value: Float, idealMin: Float, idealMax: Float): Int {
-        if (value in idealMin..idealMax) return 100
-        val deviation = if (value < idealMin) idealMin - value else value - idealMax
-        return when {
-            deviation <= 5f -> (90 - (deviation / 5f) * 20).toInt()
-            deviation <= 15f -> (70 - ((deviation - 5f) / 10f) * 30).toInt()
-            else -> (40 - ((deviation - 15f) / 15f) * 40).toInt().coerceAtLeast(0)
+    private fun assessKnee(value: Float): PostureCategoryResult = category(
+        value = value,
+        idealMin = 135f,
+        idealMax = 180f,
+        unit = "°",
+        assessment = when {
+            value > 135f -> Assessment.GOOD
+            value >= 126f -> Assessment.NEEDS_IMPROVEMENT
+            else -> Assessment.BAD
+        },
+        good = "착지 순간 무릎 각도가 좋습니다.",
+        needsImprovement = "착지 순간 무릎 각도가 조금 작습니다.",
+        bad = "착지 순간 무릎이 과도하게 굽혀집니다.",
+    )
+
+    private fun assessTrunk(value: Float): PostureCategoryResult = category(
+        value = value,
+        idealMin = 5f,
+        idealMax = 15f,
+        unit = "°",
+        assessment = when {
+            value in 5f..15f -> Assessment.GOOD
+            value in 1f..<5f || value in 15f..17f -> Assessment.NEEDS_IMPROVEMENT
+            else -> Assessment.BAD
+        },
+        good = "상체 기울기가 좋습니다.",
+        needsImprovement = "상체 기울기를 5~15도로 조정해보세요.",
+        bad = "상체 기울기가 권장 범위를 크게 벗어났습니다.",
+    )
+
+    private fun assessElbow(value: Float): PostureCategoryResult = category(
+        value = value,
+        idealMin = 60f,
+        idealMax = 90f,
+        unit = "°",
+        assessment = when {
+            value in 60f..90f -> Assessment.GOOD
+            value in 53f..<60f || value in 90f..95f -> Assessment.NEEDS_IMPROVEMENT
+            else -> Assessment.BAD
+        },
+        good = "팔꿈치 각도가 좋습니다.",
+        needsImprovement = "팔꿈치 각도를 60~90도로 조정해보세요.",
+        bad = "팔꿈치 각도가 권장 범위를 크게 벗어났습니다.",
+    )
+
+    private fun assessHipSwing(value: Float): PostureCategoryResult = category(
+        value = value,
+        idealMin = 29f,
+        idealMax = 41f,
+        unit = "°",
+        assessment = when {
+            value in 29f..<41f -> Assessment.GOOD
+            value >= 41f -> Assessment.NEEDS_IMPROVEMENT
+            else -> Assessment.BAD
+        },
+        good = "고관절 스윙 범위가 좋습니다.",
+        needsImprovement = "고관절 스윙 범위가 다소 큽니다.",
+        bad = "고관절 스윙 범위가 부족합니다.",
+    )
+
+    private fun assessHipAnkle(
+        value: Float,
+        shankValue: Float,
+        hasStrike: Boolean,
+    ): PostureCategoryResult {
+        if (!hasStrike) {
+            return PostureCategoryResult(
+                score = 20,
+                measuredValue = value,
+                idealMin = 0f,
+                idealMax = 15f,
+                unit = "°",
+                feedback = "원본 방식의 착지 이벤트를 감지하지 못했습니다.",
+                tip = "전신이 보이는 측면 영상을 10초 이상 촬영하세요.",
+            )
         }
+        val hipAnkleAssessment = when {
+            value in 0f..15f -> Assessment.GOOD
+            value <= 20f -> Assessment.NEEDS_IMPROVEMENT
+            else -> Assessment.BAD
+        }
+        val shankAssessment = when {
+            shankValue in 0f..10f -> Assessment.GOOD
+            shankValue <= 15f -> Assessment.NEEDS_IMPROVEMENT
+            else -> Assessment.BAD
+        }
+        val assessment = minOf(hipAnkleAssessment, shankAssessment)
+        return category(
+            value = value,
+            idealMin = 0f,
+            idealMax = 15f,
+            unit = "°",
+            assessment = assessment,
+            good = "착지 순간 발이 골반 아래에 가깝고 정강이 각도가 좋습니다.",
+            needsImprovement = "착지 위치나 정강이 각도를 조금 조정해보세요.",
+            bad = "착지 위치가 골반에서 멀거나 정강이가 과도하게 기울어져 있습니다.",
+        )
     }
+
+    private fun assessCadence(frames: List<PostureFrameAngles>): PostureCategoryResult {
+        val spm = cadenceFromAlternatingAnkles(frames) ?: cadenceFromStrikeEvents(frames)
+        if (spm == null) {
+            return PostureCategoryResult(
+                0, 0f, 170f, 180f, "spm",
+                "케이던스 측정을 위한 좌우 다리 주기가 부족합니다.", "",
+            )
+        }
+        val assessment = when {
+            spm in 170f..180f -> Assessment.GOOD
+            spm in 160f..<170f || spm in 180f..190f -> Assessment.NEEDS_IMPROVEMENT
+            else -> Assessment.BAD
+        }
+        return category(
+            spm, 170f, 180f, "spm", assessment,
+            "케이던스가 좋습니다.",
+            "케이던스를 170~180spm에 가깝게 조정해보세요.",
+            "케이던스가 권장 범위에서 크게 벗어났습니다.",
+        )
+    }
+
+    /**
+     * Each sign change of leftAnkleY - rightAnkleY represents the next leg
+     * taking over in the gait cycle. Median transition spacing is robust to a
+     * missed frame and does not depend on how much of the video was analyzed.
+     */
+    private fun cadenceFromAlternatingAnkles(frames: List<PostureFrameAngles>): Float? {
+        val signals = frames.mapNotNull { frame ->
+            val left = frame.landmarks.getOrNull(SKEL_L_ANKLE)
+            val right = frame.landmarks.getOrNull(SKEL_R_ANKLE)
+            if (left == null || right == null || left.v < 0.3f || right.v < 0.3f) {
+                null
+            } else {
+                frame.timestampMs to (left.y - right.y)
+            }
+        }
+        if (signals.size < 6) return null
+
+        val smoothed = signals.indices.map { index ->
+            val from = (index - 1).coerceAtLeast(0)
+            val to = (index + 1).coerceAtMost(signals.lastIndex)
+            val value = (from..to).map { signals[it].second }.average().toFloat()
+            signals[index].first to value
+        }
+
+        val range = (smoothed.maxOf { it.second } - smoothed.minOf { it.second })
+        if (range < 0.03f) return null
+        val hysteresis = (range * 0.12f).coerceIn(0.008f, 0.04f)
+        val transitions = mutableListOf<Long>()
+        var phase = 0
+
+        smoothed.forEach { (timestamp, value) ->
+            when {
+                value >= hysteresis && phase <= 0 -> {
+                    if (phase < 0) transitions += timestamp
+                    phase = 1
+                }
+                value <= -hysteresis && phase >= 0 -> {
+                    if (phase > 0) transitions += timestamp
+                    phase = -1
+                }
+            }
+        }
+
+        val stepIntervals = transitions.zipWithNext { first, second -> second - first }
+            .filter { it in MIN_STEP_INTERVAL_MS..MAX_STEP_INTERVAL_MS }
+        if (stepIntervals.size < 2) return null
+        return 60_000f / stepIntervals.medianLong()
+    }
+
+    private fun cadenceFromStrikeEvents(frames: List<PostureFrameAngles>): Float? {
+        val timestamps = buildList {
+            frames.forEach { frame ->
+                if (frame.leftFootStrike) add(frame.timestampMs)
+                if (frame.rightFootStrike) add(frame.timestampMs)
+            }
+        }.sorted()
+        val intervals = timestamps.zipWithNext { first, second -> second - first }
+            .filter { it in MIN_STEP_INTERVAL_MS..MAX_STEP_INTERVAL_MS }
+        if (intervals.size < 2) return null
+        return 60_000f / intervals.medianLong()
+    }
+
+    private fun assessVerticalOscillation(frames: List<PostureFrameAngles>): PostureCategoryResult {
+        if (frames.size < 10) {
+            return PostureCategoryResult(
+                0, 0f, 0f, 6.5f, "%",
+                "수직진폭 측정을 위한 프레임이 부족합니다.", "",
+            )
+        }
+        val hipWindow = frames.map { it.hipMidY }
+        val movingAverages = hipWindow.windowed(5).map { it.average().toFloat() }
+        val oscillation = ((movingAverages.maxOrNull() ?: 0f) -
+            (movingAverages.minOrNull() ?: 0f)) / 2f * 100f
+        val assessment = when {
+            oscillation < 6.5f -> Assessment.GOOD
+            oscillation < 8f -> Assessment.NEEDS_IMPROVEMENT
+            else -> Assessment.BAD
+        }
+        return category(
+            oscillation, 0f, 6.5f, "%", assessment,
+            "수직진폭이 좋습니다.",
+            "수직진폭을 조금 줄여보세요.",
+            "수직진폭이 커서 에너지 손실이 발생할 수 있습니다.",
+        )
+    }
+
+    private fun maxCompletedSwing(frames: List<PostureFrameAngles>): Float {
+        val leftAngles = frames.mapNotNull { it.leftHipAngle }
+        val rightAngles = frames.mapNotNull { it.rightHipAngle }
+        if (leftAngles.isNotEmpty() || rightAngles.isNotEmpty()) {
+            return maxOf(
+                completedSwing(leftAngles),
+                completedSwing(rightAngles),
+            )
+        }
+        return frames.maxOfOrNull { abs(it.hipExtensionAngle) } ?: 0f
+    }
+
+    private fun completedSwing(values: List<Float>): Float {
+        var previous = 0f
+        var direction = 0
+        var currentForward = 0f
+        var currentBackward = 0f
+        var completedForward = 0f
+        var completedBackward = 0f
+
+        values.forEach { value ->
+            when {
+                value > previous -> {
+                    if (direction == -1) {
+                        completedBackward = currentBackward
+                        currentBackward = 0f
+                    }
+                    direction = 1
+                    currentForward = maxOf(currentForward, value)
+                }
+                value < previous -> {
+                    if (direction == 1) {
+                        completedForward = currentForward
+                        currentForward = 0f
+                    }
+                    direction = -1
+                    currentBackward = maxOf(currentBackward, abs(value))
+                }
+            }
+            previous = value
+        }
+        return maxOf(completedForward, completedBackward)
+    }
+
+    private fun category(
+        value: Float,
+        idealMin: Float,
+        idealMax: Float,
+        unit: String,
+        assessment: Assessment,
+        good: String,
+        needsImprovement: String,
+        bad: String,
+    ) = PostureCategoryResult(
+        score = assessment.score,
+        measuredValue = value,
+        idealMin = idealMin,
+        idealMax = idealMax,
+        unit = unit,
+        feedback = when (assessment) {
+            Assessment.GOOD -> good
+            Assessment.NEEDS_IMPROVEMENT -> needsImprovement
+            Assessment.BAD -> bad
+        },
+        tip = "",
+    )
 
     private fun List<Float>.median(): Float {
         if (isEmpty()) return 0f
         val sorted = sorted()
-        return if (sorted.size % 2 == 0)
-            (sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2f
-        else
-            sorted[sorted.size / 2]
+        val middle = sorted.size / 2
+        return if (sorted.size % 2 == 0) {
+            (sorted[middle - 1] + sorted[middle]) / 2f
+        } else {
+            sorted[middle]
+        }
+    }
+
+    private fun List<Long>.medianLong(): Float {
+        val sorted = sorted()
+        val middle = sorted.size / 2
+        return if (sorted.size % 2 == 1) {
+            sorted[middle].toFloat()
+        } else {
+            (sorted[middle - 1] + sorted[middle]) / 2f
+        }
     }
 
     private fun emptyResult() = PostureResult(
         overallScore = 0,
         grade = "D",
         overallFeedback = "분석 가능한 프레임이 없습니다. 다시 촬영해주세요.",
-        knee = PostureCategoryResult(0, 0f, 135f, 165f, "°", "분석 불가", ""),
-        trunk = PostureCategoryResult(0, 0f, 5f, 10f, "°", "분석 불가", ""),
-        elbow = PostureCategoryResult(0, 0f, 85f, 95f, "°", "분석 불가", ""),
-        hip = PostureCategoryResult(0, 0f, 160f, 180f, "°", "분석 불가", ""),
-        overstride = PostureCategoryResult(0, 0f, 0f, 0.10f, "%", "분석 불가", ""),
+        knee = PostureCategoryResult(0, 0f, 135f, 180f, "°", "분석 불가", ""),
+        trunk = PostureCategoryResult(0, 0f, 5f, 15f, "°", "분석 불가", ""),
+        elbow = PostureCategoryResult(0, 0f, 60f, 90f, "°", "분석 불가", ""),
+        hip = PostureCategoryResult(0, 0f, 29f, 41f, "°", "분석 불가", ""),
+        overstride = PostureCategoryResult(0, 0f, 0f, 15f, "°", "분석 불가", ""),
         cadence = PostureCategoryResult(0, 0f, 170f, 180f, "spm", "분석 불가", ""),
-        verticalOscillation = PostureCategoryResult(0, 0f, 4f, 8f, "%", "분석 불가", ""),
+        verticalOscillation = PostureCategoryResult(0, 0f, 0f, 6.5f, "%", "분석 불가", ""),
     )
+
+    private enum class Assessment(val score: Int) {
+        BAD(20),
+        NEEDS_IMPROVEMENT(60),
+        GOOD(100),
+    }
+
+    private companion object {
+        const val MIN_STEP_INTERVAL_MS = 250L
+        const val MAX_STEP_INTERVAL_MS = 1_000L
+    }
 }

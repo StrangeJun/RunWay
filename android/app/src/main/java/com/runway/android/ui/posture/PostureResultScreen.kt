@@ -230,9 +230,9 @@ private fun PostureResultContent(
         val scoredCategories = listOf(
             "무릎 굴곡" to result.knee,
             "상체 기울기" to result.trunk,
-            "오버스트라이드" to result.overstride,
+            "착지 위치" to result.overstride,
             "팔꿈치 각도" to result.elbow,
-            "고관절 신전" to result.hip,
+            "고관절 스윙" to result.hip,
         )
         scoredCategories.forEach { (label, cat) ->
             PostureCategoryCard(label = label, category = cat)
@@ -334,8 +334,6 @@ private fun PostureCategoryCard(
             Spacer(Modifier.height(10.dp))
 
             val displayValue = when {
-                category.unit == "%" && category.idealMax <= 0.5f ->
-                    "착지 위치: 엉덩이 기준 ${(category.measuredValue * 100).roundToInt()}% 앞"
                 category.unit == "spm" ->
                     "측정값: ${category.measuredValue.roundToInt()} spm  " +
                             "이상범위: ${category.idealMin.roundToInt()}~${category.idealMax.roundToInt()} spm"
@@ -370,13 +368,13 @@ private fun PostureAnalysisEntity.toPostureResult(): PostureResult = PostureResu
     overallScore = overallScore,
     grade = grade,
     overallFeedback = overallFeedback,
-    knee = PostureCategoryResult(kneeScore, kneeMeasuredAngle, 135f, 165f, "°", kneeFeedback, kneeTip),
-    trunk = PostureCategoryResult(trunkScore, trunkMeasuredAngle, 5f, 10f, "°", trunkFeedback, trunkTip),
-    elbow = PostureCategoryResult(elbowScore, elbowMeasuredAngle, 85f, 95f, "°", elbowFeedback, elbowTip),
-    hip = PostureCategoryResult(hipScore, hipMeasuredAngle, 160f, 180f, "°", hipFeedback, hipTip),
-    overstride = PostureCategoryResult(overstrideScore, overstrideRatio, 0f, 0.10f, "%", overstrideFeedback, overstrideTip),
+    knee = PostureCategoryResult(kneeScore, kneeMeasuredAngle, 135f, 180f, "°", kneeFeedback, kneeTip),
+    trunk = PostureCategoryResult(trunkScore, trunkMeasuredAngle, 5f, 15f, "°", trunkFeedback, trunkTip),
+    elbow = PostureCategoryResult(elbowScore, elbowMeasuredAngle, 60f, 90f, "°", elbowFeedback, elbowTip),
+    hip = PostureCategoryResult(hipScore, hipMeasuredAngle, 29f, 41f, "°", hipFeedback, hipTip),
+    overstride = PostureCategoryResult(overstrideScore, overstrideRatio, 0f, 15f, "°", overstrideFeedback, overstrideTip),
     cadence = PostureCategoryResult(cadenceScore, cadenceSpm, 170f, 180f, "spm", cadenceFeedback, cadenceTip),
-    verticalOscillation = PostureCategoryResult(verticalOscScore, verticalOscPercent, 4f, 8f, "%", verticalOscFeedback, verticalOscTip),
+    verticalOscillation = PostureCategoryResult(verticalOscScore, verticalOscPercent, 0f, 6.5f, "%", verticalOscFeedback, verticalOscTip),
 )
 
 @Preview(showBackground = true)
@@ -391,8 +389,8 @@ private fun PostureResultPreview() {
                 knee = PostureCategoryResult(82, 148f, 135f, 165f, "°", "착지 시 무릎 각도가 이상적입니다.", ""),
                 trunk = PostureCategoryResult(55, 2.3f, 5f, 10f, "°", "상체를 약 5도 앞으로 기울여 보세요.", "전방 기울기는 추진력과 효율을 높여줍니다."),
                 elbow = PostureCategoryResult(90, 91f, 85f, 95f, "°", "팔꿈치 각도가 이상적입니다.", ""),
-                hip = PostureCategoryResult(78, 172f, 160f, 180f, "°", "고관절 신전이 적절합니다.", ""),
-                overstride = PostureCategoryResult(70, 0.18f, 0f, 0.10f, "%", "착지 위치가 약간 앞쪽입니다.", "발이 엉덩이 아래에 가깝게 착지하면 제동력을 줄일 수 있습니다."),
+                hip = PostureCategoryResult(78, 35f, 29f, 41f, "°", "고관절 스윙 범위가 좋습니다.", ""),
+                overstride = PostureCategoryResult(70, 17f, 0f, 15f, "°", "착지 위치가 약간 앞쪽입니다.", "발이 엉덩이 아래에 가깝게 착지하면 제동력을 줄일 수 있습니다."),
                 cadence = PostureCategoryResult(85, 174f, 170f, 180f, "spm", "케이던스 174spm으로 이상적입니다.", ""),
                 verticalOscillation = PostureCategoryResult(72, 6.8f, 4f, 8f, "%", "수직진폭이 이상적입니다.", ""),
             ),

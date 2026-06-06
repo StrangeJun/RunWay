@@ -16,4 +16,18 @@ data class PostureFrameAngles(
     // running-form-analyzer additions
     val shankAngle: Float = 0f,      // shin angle from vertical at landing (0° = perfectly vertical)
     val armSwingAngle: Float = 0f,   // upper-arm vs torso angle
+    val leftKneeAngle: Float? = null,
+    val rightKneeAngle: Float? = null,
+    val leftElbowAngle: Float? = null,
+    val rightElbowAngle: Float? = null,
+    val leftHipAngle: Float? = null,
+    val rightHipAngle: Float? = null,
+    val leftHipAnkleAngle: Float? = null,
+    val rightHipAnkleAngle: Float? = null,
+    val leftShankAngle: Float? = null,
+    val rightShankAngle: Float? = null,
+    val leftArmSwingAngle: Float? = null,
+    val rightArmSwingAngle: Float? = null,
+    val leftFootStrike: Boolean = false,
+    val rightFootStrike: Boolean = false,
 )
