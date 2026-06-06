@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -156,17 +157,14 @@ private fun CourseFullMap(
     }
 
     val kmMarkers = remember(points) { calculateKmMarkers(points) }
-    val returnPoint = remember(points, isLoop) {
-        if (isLoop) findMidPoint(points) else points.last()
-    }
     val kmIcons = remember(primaryArgb, kmMarkers) {
         kmMarkers.associate { (km, _) -> km to createKmMarkerIcon(context, km, primaryArgb) }
     }
-    val returnIcon = remember {
-        BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)
+    val startIcon = remember(context) {
+        BitmapDescriptorFactory.fromBitmap(createPillMarker(context, "Start", "#22C55E"))
     }
-    val startIcon = remember {
-        BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
+    val finishIcon = remember(context) {
+        BitmapDescriptorFactory.fromBitmap(createPillMarker(context, "Finish", "#EF4444"))
     }
 
     GoogleMap(
@@ -196,20 +194,21 @@ private fun CourseFullMap(
             jointType = JointType.ROUND,
         )
 
-        // Start marker (green)
+        // Start marker
         Marker(
             state = MarkerState(position = latLngs.first()),
-            title = "출발",
+            title = "Start",
             icon = startIcon,
+            anchor = Offset(0.5f, 0.5f),
             zIndex = 3f,
         )
 
-        // Return / end marker (orange)
-        val returnLatLng = returnPoint?.let { LatLng(it.latitude, it.longitude) } ?: latLngs.last()
+        // Finish marker — last point (loop 코스는 start 위치와 거의 같음)
         Marker(
-            state = MarkerState(position = returnLatLng),
-            title = if (isLoop) "반환점" else "반환점",
-            icon = returnIcon,
+            state = MarkerState(position = latLngs.last()),
+            title = "Finish",
+            icon = finishIcon,
+            anchor = Offset(0.5f, 0.5f),
             zIndex = 3f,
         )
 
@@ -255,40 +254,6 @@ private fun calculateKmMarkers(points: List<MapPoint>): List<Pair<Int, MapPoint>
     return markers
 }
 
-/** For loop courses: returns the point at ~50% of the total route distance. */
-private fun findMidPoint(points: List<MapPoint>): MapPoint? {
-    if (points.size < 2) return null
-    val distResult = FloatArray(1)
-    var totalMeters = 0.0
-    for (i in 1 until points.size) {
-        Location.distanceBetween(
-            points[i - 1].latitude, points[i - 1].longitude,
-            points[i].latitude, points[i].longitude,
-            distResult,
-        )
-        totalMeters += distResult[0]
-    }
-    val halfway = totalMeters / 2.0
-    var cumulative = 0.0
-    for (i in 1 until points.size) {
-        Location.distanceBetween(
-            points[i - 1].latitude, points[i - 1].longitude,
-            points[i].latitude, points[i].longitude,
-            distResult,
-        )
-        val seg = distResult[0].toDouble()
-        if (cumulative + seg >= halfway) {
-            val fraction = if (seg > 0.0) (halfway - cumulative) / seg else 0.0
-            return MapPoint(
-                latitude = points[i - 1].latitude + fraction * (points[i].latitude - points[i - 1].latitude),
-                longitude = points[i - 1].longitude + fraction * (points[i].longitude - points[i - 1].longitude),
-            )
-        }
-        cumulative += seg
-    }
-    return points[points.size / 2]
-}
-
 /** Circle bitmap with km number — e.g. "1K", "2K". */
 private fun createKmMarkerIcon(context: Context, km: Int, primaryArgb: Int): BitmapDescriptor {
     val density = context.resources.displayMetrics.density
@@ -316,4 +281,40 @@ private fun createKmMarkerIcon(context: Context, km: Int, primaryArgb: Int): Bit
     canvas.drawText("${km}K", size / 2f, textY, paint)
 
     return BitmapDescriptorFactory.fromBitmap(bmp)
+}
+
+/** Rounded-pill bitmap matching RouteMapView's Start/Finish style. */
+private fun createPillMarker(context: Context, label: String, colorHex: String): Bitmap {
+    val density = context.resources.displayMetrics.density
+    val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 11f * density
+        isFakeBoldText = true
+        textAlign = Paint.Align.CENTER
+    }
+    val textW = textPaint.measureText(label)
+    val padH = 10f * density
+    val padV = 6f * density
+    val w = (textW + padH * 2).toInt().coerceAtLeast(1)
+    val h = (textPaint.textSize + padV * 2).toInt().coerceAtLeast(1)
+    val r = h / 2f
+
+    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bmp)
+    val bg = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    bg.color = android.graphics.Color.parseColor(colorHex)
+    bg.style = Paint.Style.FILL
+    canvas.drawRoundRect(0f, 0f, w.toFloat(), h.toFloat(), r, r, bg)
+
+    bg.color = android.graphics.Color.WHITE
+    bg.style = Paint.Style.STROKE
+    bg.strokeWidth = 1.5f * density
+    val sw = bg.strokeWidth / 2
+    canvas.drawRoundRect(sw, sw, w - sw, h - sw, r, r, bg)
+
+    textPaint.color = android.graphics.Color.WHITE
+    val textY = h / 2f - (textPaint.descent() + textPaint.ascent()) / 2f
+    canvas.drawText(label, w / 2f, textY, textPaint)
+
+    return bmp
 }
