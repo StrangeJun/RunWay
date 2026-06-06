@@ -28,7 +28,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AcUnit
+import androidx.compose.material.icons.filled.Air
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Thunderstorm
+import androidx.compose.material.icons.filled.Umbrella
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -117,14 +124,22 @@ fun RunHeroSection(
             )
         }
 
-        // ── GPS + Weather pill ────────────────────────────────────────────
-        GpsWeatherPill(
+        // ── GPS status + weather summary ──────────────────────────────────
+        GpsStatusPill(
+            pillBg = pillBg,
+            onPill = onHero,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 102.dp)
+                .padding(horizontal = 20.dp),
+        )
+        WeatherSummaryPill(
             weatherInfo = weatherInfo,
             pillBg = pillBg,
             onPill = onHero,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 110.dp)
+                .padding(top = 142.dp)
                 .padding(horizontal = 20.dp),
         )
 
@@ -241,76 +256,107 @@ private fun ScrollHintIndicator(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun GpsWeatherPill(
+private fun GpsStatusPill(
+    pillBg: Color,
+    onPill: Color,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .background(pillBg)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(7.dp)
+                .background(LimeGreen, CircleShape),
+        )
+        Text(
+            text = "GPS 준비 완료",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = onPill.copy(alpha = 0.90f),
+        )
+    }
+}
+
+@Composable
+private fun WeatherSummaryPill(
     weatherInfo: WeatherInfo?,
     pillBg: Color,
     onPill: Color,
     modifier: Modifier = Modifier,
 ) {
-    val shimmerTransition = rememberInfiniteTransition(label = "pill_shimmer")
+    val shimmerTransition = rememberInfiniteTransition(label = "weather_shimmer")
     val shimmerOffset by shimmerTransition.animateFloat(
         initialValue = -1f,
         targetValue = 2f,
         animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing)),
-        label = "shimmerX",
+        label = "weatherShimmerX",
     )
 
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(pillBg)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // Row 1: GPS status
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(7.dp)
-                    .background(LimeGreen, CircleShape),
-            )
-            Text(
-                text = "GPS 준비 완료",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = onPill.copy(alpha = 0.90f),
-            )
-        }
-
-        // Row 2: Weather data or shimmer placeholder while loading
         if (weatherInfo != null) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                WeatherChip(text = "${weatherInfo.tempCelsius}°C", onPill = onPill)
-                WeatherChip(text = "습도 ${weatherInfo.humidity}%", onPill = onPill)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        imageVector = weatherInfo.weatherIcon(),
+                        contentDescription = null,
+                        tint = LimeGreen,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        text = weatherInfo.weatherLabel(),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = onPill,
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    WeatherChip(text = "${weatherInfo.tempCelsius}°C", onPill = onPill)
+                    WeatherChip(text = "습도 ${weatherInfo.humidity}%", onPill = onPill)
+                }
+            }
 
-                if (weatherInfo.pm10 > 0) {
-                    DustChip(
-                        label = "미세먼지",
-                        quality = pm10Quality(weatherInfo.pm10),
-                        color = pm10Color(weatherInfo.pm10),
-                        onPill = onPill,
-                    )
-                }
-                if (weatherInfo.pm25 > 0) {
-                    DustChip(
-                        label = "초미세먼지",
-                        quality = pm25Quality(weatherInfo.pm25),
-                        color = pm25Color(weatherInfo.pm25),
-                        onPill = onPill,
-                    )
-                }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                DustChip(
+                    label = "미세먼지",
+                    quality = if (weatherInfo.pm10 > 0) pm10Quality(weatherInfo.pm10) else "-",
+                    color = if (weatherInfo.pm10 > 0) pm10Color(weatherInfo.pm10) else onPill.copy(alpha = 0.55f),
+                    onPill = onPill,
+                )
+                DustChip(
+                    label = "초미세먼지",
+                    quality = if (weatherInfo.pm25 > 0) pm25Quality(weatherInfo.pm25) else "-",
+                    color = if (weatherInfo.pm25 > 0) pm25Color(weatherInfo.pm25) else onPill.copy(alpha = 0.55f),
+                    onPill = onPill,
+                )
             }
         } else {
             Box(
                 modifier = Modifier
-                    .width(130.dp)
-                    .height(11.dp)
+                    .fillMaxWidth()
+                    .height(34.dp)
                     .clip(RoundedCornerShape(5.dp))
                     .background(onPill.copy(alpha = 0.07f))
                     .drawWithContent {
@@ -328,6 +374,28 @@ private fun GpsWeatherPill(
             )
         }
     }
+}
+
+private fun WeatherInfo.weatherLabel(): String = when {
+    conditionId in 200..232 -> "천둥번개"
+    conditionId in 300..321 -> "이슬비"
+    conditionId in 500..531 -> "비"
+    conditionId in 600..622 -> "눈"
+    conditionId in 700..781 -> "안개"
+    conditionId == 800 -> "맑음"
+    conditionId in 801..802 -> "구름 조금"
+    conditionId in 803..804 -> "흐림"
+    else -> description.ifBlank { condition.ifBlank { "현재 날씨" } }
+}
+
+private fun WeatherInfo.weatherIcon() = when {
+    conditionId in 200..232 -> Icons.Filled.Thunderstorm
+    conditionId in 300..321 -> Icons.Filled.Grain
+    conditionId in 500..531 -> Icons.Filled.Umbrella
+    conditionId in 600..622 -> Icons.Filled.AcUnit
+    conditionId in 700..781 -> Icons.Filled.Air
+    conditionId == 800 -> Icons.Filled.WbSunny
+    else -> Icons.Filled.Cloud
 }
 
 @Composable

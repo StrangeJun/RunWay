@@ -245,6 +245,7 @@ class DiscoverViewModel @Inject constructor(
             isLoop = isLoopFilter,
             keyword = keyword.trim().takeIf { it.isNotBlank() },
             includeRoutePoints = false,
+            includeExactStartPoint = true,
             size = MAP_COURSE_LIMIT,
         )) {
             is NetworkResult.Success -> rawMapCourses = result.data.content

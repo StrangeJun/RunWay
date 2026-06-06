@@ -31,6 +31,7 @@ interface CourseRepository {
         isLoop: Boolean? = null,
         keyword: String? = null,
         includeRoutePoints: Boolean = true,
+        includeExactStartPoint: Boolean = false,
         page: Int = 0,
         size: Int = 20,
     ): NetworkResult<PageResponse<NearbyCourseItem>>

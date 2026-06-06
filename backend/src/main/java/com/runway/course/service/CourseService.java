@@ -122,7 +122,7 @@ public class CourseService {
             Double latitude, Double longitude, Double radiusMeters,
             Double minDistanceMeters, Double maxDistanceMeters, Boolean isLoop,
             String keyword,
-            boolean includeRoutePoints,
+            boolean includeRoutePoints, boolean includeExactStartPoint,
             int page, int size) {
 
         // CTE로 현재 위치 포인트를 한 번 계산하고 재사용
@@ -192,7 +192,9 @@ public class CourseService {
 
         @SuppressWarnings("unchecked")
         List<Object[]> rows = buildQuery(dataSql, dataParams).getResultList();
-        List<NearbyCourseItem> items = rows.stream().map(this::toNearbyCourseItem).toList();
+        List<NearbyCourseItem> items = rows.stream()
+                .map(row -> toNearbyCourseItem(row, includeExactStartPoint))
+                .toList();
 
         // 결과 코스들의 경로 포인트를 단일 쿼리로 일괄 조회
         if (includeRoutePoints && !items.isEmpty()) {
@@ -541,10 +543,14 @@ public class CourseService {
         return query;
     }
 
-    private NearbyCourseItem toNearbyCourseItem(Object[] row) {
-        // Mask start coordinates to ~1.1 km precision to protect privacy
-        double maskedLat = CoursePrivacyUtils.maskCoordinate(((Number) row[8]).doubleValue());
-        double maskedLon = CoursePrivacyUtils.maskCoordinate(((Number) row[9]).doubleValue());
+    private NearbyCourseItem toNearbyCourseItem(Object[] row, boolean includeExactStartPoint) {
+        double startLat = ((Number) row[8]).doubleValue();
+        double startLon = ((Number) row[9]).doubleValue();
+        if (!includeExactStartPoint) {
+            // Mask start coordinates to ~1.1 km precision for regular public lists.
+            startLat = CoursePrivacyUtils.maskCoordinate(startLat);
+            startLon = CoursePrivacyUtils.maskCoordinate(startLon);
+        }
         return NearbyCourseItem.builder()
                 .courseId(UUID.fromString(row[0].toString()))
                 .name((String) row[1])
@@ -554,7 +560,7 @@ public class CourseService {
                 .isLoop((Boolean) row[5])
                 .attemptCount(((Number) row[6]).intValue())
                 .completionCount(((Number) row[7]).intValue())
-                .startPoint(new GeoPoint(maskedLat, maskedLon))
+                .startPoint(new GeoPoint(startLat, startLon))
                 .avgRating(row[10] != null ? ((Number) row[10]).doubleValue() : null)
                 .ratingCount(row[11] != null ? ((Number) row[11]).longValue() : null)
                 .routePoints(List.of())
