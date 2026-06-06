@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.runway.android.BuildConfig
 import kotlinx.coroutines.delay
 
 private val CountdownBackground = Color(0xFF07070E)
@@ -83,7 +84,7 @@ fun RunningCountdownOverlay(
     ) {
         // Subtle brand mark at top
         Text(
-            text = "RUNWAY",
+            text = BuildConfig.APP_NAME.uppercase(),
             fontSize = 13.sp,
             fontWeight = FontWeight.ExtraBold,
             letterSpacing = 5.sp,

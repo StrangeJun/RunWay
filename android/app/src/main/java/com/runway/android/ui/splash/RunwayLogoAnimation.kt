@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.runway.android.BuildConfig
 import com.runway.android.ui.theme.BackgroundDark
 import com.runway.android.ui.theme.RunwayTheme
 import kotlin.math.PI
@@ -50,7 +51,7 @@ fun RunwayLogoAnimation(
         )
         Spacer(modifier = Modifier.height(18.dp))
         Text(
-            text = "RunWay",
+            text = BuildConfig.APP_NAME,
             color = MaterialTheme.colorScheme.onBackground,
             fontSize = 38.sp,
             fontWeight = FontWeight.ExtraBold,

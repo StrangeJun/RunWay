@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.runway.android.BuildConfig
 
 @Composable
 fun PermissionScreen(
@@ -76,7 +77,7 @@ fun PermissionScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "RunWay가 제대로 동작하려면 아래 권한이 필요합니다.",
+                text = "${BuildConfig.APP_NAME}가 제대로 동작하려면 아래 권한이 필요합니다.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

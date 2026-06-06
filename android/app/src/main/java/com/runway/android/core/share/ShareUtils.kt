@@ -3,6 +3,7 @@ package com.runway.android.core.share
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import com.runway.android.BuildConfig
 
 object ShareUtils {
     fun shareText(context: Context, subject: String, text: String) {
@@ -29,13 +30,13 @@ object ShareUtils {
     ) {
         val loopTag = if (isLoop) " (루프 코스)" else ""
         val text = buildString {
-            appendLine("RunWay 코스 공유 🏃")
+            appendLine("${BuildConfig.APP_NAME} 코스 공유 🏃")
             appendLine()
             appendLine("📍 $name$loopTag")
             appendLine("📏 거리: $distanceKm")
             appendLine("🏅 완주 횟수: ${completionCount}회")
             appendLine()
-            append("RunWay 앱에서 이 코스에 도전해보세요!")
+            append("${BuildConfig.APP_NAME} 앱에서 이 코스에 도전해보세요!")
         }
         shareText(context, "코스 공유 — $name", text)
     }
@@ -48,14 +49,14 @@ object ShareUtils {
         date: String,
     ) {
         val text = buildString {
-            appendLine("RunWay 러닝 기록 🏃")
+            appendLine("${BuildConfig.APP_NAME} 러닝 기록 🏃")
             appendLine()
             appendLine("📅 $date")
             appendLine("📏 거리: $distanceFormatted")
             appendLine("⏱ 시간: $duration")
             appendLine("🚀 페이스: $pace")
             appendLine()
-            append("RunWay에서 기록하세요!")
+            append("${BuildConfig.APP_NAME}에서 기록하세요!")
         }
         shareText(context, "러닝 기록 공유", text)
     }

@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
+import com.runway.android.BuildConfig
 import com.runway.android.data.running.model.RunDetailResponse
 import com.runway.android.data.running.model.RunPointResponse
 import java.time.Instant
@@ -34,17 +35,18 @@ object ImageCaptureUtil {
         val accentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = template.accentColor.toInt() }
         canvas.drawRect(0f, 0f, W, 10f, accentPaint)
 
-        // "RUN WAY" wordmark
+        // App wordmark
         val brandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = template.textPrimary.toInt()
             textSize = 64f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             letterSpacing = 0.25f
         }
-        canvas.drawText("RUN WAY", 80f, 120f, brandPaint)
+        val wordmark = BuildConfig.APP_NAME.uppercase()
+        canvas.drawText(wordmark, 80f, 120f, brandPaint)
 
         // Accent dot after wordmark
-        canvas.drawCircle(80f + brandPaint.measureText("RUN WAY") + 18f, 107f, 8f, accentPaint)
+        canvas.drawCircle(80f + brandPaint.measureText(wordmark) + 18f, 107f, 8f, accentPaint)
 
         // Date
         val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

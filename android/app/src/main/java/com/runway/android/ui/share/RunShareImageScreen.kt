@@ -50,6 +50,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.runway.android.BuildConfig
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.share.MetricPreset
 import com.runway.android.core.share.ShareTemplate
@@ -266,7 +267,7 @@ private fun ShareCardPreview(
 
             // Brand
             Text(
-                text = "RUN WAY",
+                text = BuildConfig.APP_NAME.uppercase(),
                 color = textPrimary,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black,

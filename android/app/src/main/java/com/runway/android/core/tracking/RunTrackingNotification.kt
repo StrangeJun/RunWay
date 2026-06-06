@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
+import com.runway.android.BuildConfig
 import com.runway.android.MainActivity
 import com.runway.android.R
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -28,7 +29,7 @@ class RunTrackingNotification @Inject constructor(
     init {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "RunWay Tracking",
+            "${BuildConfig.APP_NAME} Tracking",
             NotificationManager.IMPORTANCE_LOW, // LOW = no sound, no vibration
         ).apply {
             description = "Shown while running or course attempt tracking is active"
@@ -55,7 +56,7 @@ class RunTrackingNotification @Inject constructor(
 
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("RunWay tracking")
+            .setContentTitle("${BuildConfig.APP_NAME} tracking")
             .setContentText("$modeLabel · $timeStr · $distStr")
             .setContentIntent(tapIntent)
             .setOngoing(true)

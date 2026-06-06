@@ -1,6 +1,7 @@
 import java.util.Properties
 
 private val roomVersion = "2.6.1"
+private val brandName = "Pathfinder"
 
 plugins {
     id("com.android.application")
@@ -20,6 +21,8 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+        resValue("string", "app_name", brandName)
+        buildConfigField("String", "APP_NAME", "\"$brandName\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

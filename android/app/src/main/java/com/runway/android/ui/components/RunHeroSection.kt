@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.runway.android.BuildConfig
 import com.runway.android.core.map.MapPoint
 import com.runway.android.ui.home.RunGoal
 import com.runway.android.ui.theme.LocalIsDarkTheme
@@ -110,7 +111,7 @@ fun RunHeroSection(
                 .padding(horizontal = 20.dp, vertical = 14.dp),
         ) {
             Text(
-                text = "YOUR RUNWAY",
+                text = BuildConfig.APP_NAME.uppercase(),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 2.8.sp,
