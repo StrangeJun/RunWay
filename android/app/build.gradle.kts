@@ -1,7 +1,7 @@
 import java.util.Properties
 
 private val roomVersion = "2.6.1"
-private val brandName = "Pathfinder"
+private val brandName = "PathFinder"
 
 plugins {
     id("com.android.application")
