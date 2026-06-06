@@ -52,7 +52,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private val Lime = Color(0xFFA4E168)
 private val SheetBg = Color(0xFF16171F)
 private val ChipBg = Color(0xFF1E1F2A)
 private val DividerColor = Color(0xFF2A2B38)
@@ -168,7 +167,7 @@ private fun GoalSetupContent(
                     color = if (active) Color(0xFF0A0B10) else Color.White.copy(alpha = 0.65f),
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
-                        .background(if (active) Lime else ChipBg)
+                        .background(if (active) MaterialTheme.colorScheme.primary else ChipBg)
                         .clickable { selectedTab = tab }
                         .padding(horizontal = 18.dp, vertical = 9.dp),
                 )
@@ -714,15 +713,15 @@ private fun WheelFrame(content: @Composable RowScope.() -> Unit) {
                 .background(
                     Brush.horizontalGradient(
                         colors = listOf(
-                            Lime.copy(alpha = 0.03f),
-                            Lime.copy(alpha = 0.13f),
-                            Lime.copy(alpha = 0.03f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.03f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.13f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.03f),
                         ),
                     ),
                 )
                 .border(
                     width = 1.dp,
-                    color = Lime.copy(alpha = 0.16f),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
                     shape = RoundedCornerShape(10.dp),
                 ),
         )
@@ -743,7 +742,7 @@ private fun UnitLabel(text: String) {
         text = text,
         fontSize = 15.sp,
         fontWeight = FontWeight.SemiBold,
-        color = Lime.copy(alpha = 0.88f),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.88f),
         modifier = Modifier.padding(horizontal = 6.dp),
     )
 }
@@ -795,7 +794,7 @@ private fun ToggleRow(options: List<String>, selectedIndex: Int, onSelect: (Int)
                 color = if (active) Color(0xFF0A0B10) else Color.White.copy(alpha = 0.58f),
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (active) Lime else Color.Transparent)
+                    .background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent)
                     .clickable { onSelect(idx) }
                     .padding(horizontal = 15.dp, vertical = 8.dp),
             )
@@ -810,13 +809,17 @@ private fun GoalSummaryBox(text: String) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(Color.White.copy(alpha = 0.05f))
-            .border(1.dp, Lime.copy(alpha = 0.30f), RoundedCornerShape(14.dp))
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.30f),
+                RoundedCornerShape(14.dp),
+            )
             .padding(horizontal = 16.dp, vertical = 13.dp),
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
-            color = Lime.copy(alpha = 0.88f),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.88f),
         )
     }
 }

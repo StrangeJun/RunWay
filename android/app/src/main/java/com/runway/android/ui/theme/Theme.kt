@@ -14,15 +14,29 @@ val LocalIsDarkTheme = compositionLocalOf { true }
 
 enum class ThemeMode { DARK, LIGHT, SYSTEM }
 
-private val RunwayDarkColorScheme = darkColorScheme(
+enum class AccentColor(
+    val displayName: String,
+    val color: Color,
+    val darkContainer: Color,
+    val lightContainer: Color,
+) {
+    RED("빨강", RunwayRed, Color(0xFF3D1B20), Color(0xFFFFDADA)),
+    ORANGE("주황", RunwayOrange, Color(0xFF3B2414), Color(0xFFFFDCC2)),
+    YELLOW("노랑", RunwayYellow, Color(0xFF342D12), Color(0xFFFFEFA8)),
+    GREEN("초록", RunwayGreen, Color(0xFF1C2E14), Color(0xFFD6F5B0)),
+    BLUE("파랑", RunwayBlue, Color(0xFF142B3D), Color(0xFFCDE8FF)),
+    PURPLE("보라", RunwayPurple, Color(0xFF2D1D3D), Color(0xFFEBD8FF)),
+}
+
+private fun runwayDarkColorScheme(accent: AccentColor) = darkColorScheme(
     background = BackgroundDark,
     surface = SurfaceDark,
     surfaceVariant = MutedDark,
 
-    primary = RunwayGreen,
+    primary = accent.color,
     onPrimary = OnRunwayGreen,
-    primaryContainer = Color(0xFF1C2E14),
-    onPrimaryContainer = RunwayGreen,
+    primaryContainer = accent.darkContainer,
+    onPrimaryContainer = accent.color,
 
     secondary = SecondaryContainerDark,
     onSecondary = OnSurfaceWhite,
@@ -43,18 +57,18 @@ private val RunwayDarkColorScheme = darkColorScheme(
 
     inverseSurface = OnSurfaceWhite,
     inverseOnSurface = BackgroundDark,
-    inversePrimary = Color(0xFF2A5C10),
+    inversePrimary = accent.color,
 )
 
-private val RunwayLightColorScheme = lightColorScheme(
+private fun runwayLightColorScheme(accent: AccentColor) = lightColorScheme(
     background = BackgroundLight,
     surface = SurfaceLight,
     surfaceVariant = MutedLight,
 
-    primary = RunwayGreen,
+    primary = accent.color,
     onPrimary = OnRunwayGreen,
-    primaryContainer = Color(0xFFD6F5B0),
-    onPrimaryContainer = Color(0xFF1A4000),
+    primaryContainer = accent.lightContainer,
+    onPrimaryContainer = OnSurfaceDark,
 
     secondary = SecondaryContainerLight,
     onSecondary = OnSurfaceDark,
@@ -75,12 +89,13 @@ private val RunwayLightColorScheme = lightColorScheme(
 
     inverseSurface = OnSurfaceDark,
     inverseOnSurface = BackgroundLight,
-    inversePrimary = Color(0xFF2A5C10),
+    inversePrimary = accent.color,
 )
 
 @Composable
 fun RunwayTheme(
     themeMode: ThemeMode = ThemeMode.DARK,
+    accentColor: AccentColor = AccentColor.GREEN,
     content: @Composable () -> Unit,
 ) {
     val isDark = when (themeMode) {
@@ -90,7 +105,11 @@ fun RunwayTheme(
     }
     CompositionLocalProvider(LocalIsDarkTheme provides isDark) {
         MaterialTheme(
-            colorScheme = if (isDark) RunwayDarkColorScheme else RunwayLightColorScheme,
+            colorScheme = if (isDark) {
+                runwayDarkColorScheme(accentColor)
+            } else {
+                runwayLightColorScheme(accentColor)
+            },
             typography = RunwayTypography,
             shapes = RunwayShapes,
             content = content,

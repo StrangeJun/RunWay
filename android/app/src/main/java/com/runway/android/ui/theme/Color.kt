@@ -30,6 +30,13 @@ val BorderColorLight = Color(0xFFD8D8E8)
 val RunwayGreen = Color(0xFFA4E168)
 val OnRunwayGreen = Color(0xFF111119)
 
+// ─── User-selectable accent colors ───
+val RunwayRed = Color(0xFFFF7474)
+val RunwayOrange = Color(0xFFFFA45B)
+val RunwayYellow = Color(0xFFF3D45C)
+val RunwayBlue = Color(0xFF65B7FF)
+val RunwayPurple = Color(0xFFC58BFF)
+
 // ─── Semantic states ───
 val DestructiveRed = Color(0xFFDC5040)
 val SuccessGreen = Color(0xFF7FD98A)

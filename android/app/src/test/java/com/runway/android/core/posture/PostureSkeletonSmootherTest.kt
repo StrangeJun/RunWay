@@ -7,121 +7,87 @@ import org.junit.Test
 
 class PostureSkeletonSmootherTest {
 
-    private val defaultSmoother = PostureSkeletonSmoother(alpha = 0.4f, maxDelta = 0.12f, lowVisAlpha = 0.15f)
-
-    // ─── init validation ───
-
-    @Test(expected = IllegalArgumentException::class)
-    fun `alpha above 1 throws`() {
-        PostureSkeletonSmoother(alpha = 1.1f)
-    }
-
-    @Test(expected = IllegalArgumentException::class)
-    fun `alpha below 0 throws`() {
-        PostureSkeletonSmoother(alpha = -0.1f)
-    }
-
-    @Test(expected = IllegalArgumentException::class)
-    fun `negative maxDelta throws`() {
-        PostureSkeletonSmoother(maxDelta = -0.01f)
-    }
-
-    // ─── first call passes through unchanged ───
-
     @Test
-    fun `first smooth call returns raw values unchanged`() {
+    fun `first smooth call preserves coordinates`() {
         val raw = listOf(pt(0.5f, 0.5f, 0.9f), pt(0.1f, 0.2f, 0.8f))
-        val result = defaultSmoother.smooth(raw)
-        assertEquals(raw, result)
-    }
+        val result = PostureSkeletonSmoother().smooth(raw, 0L)
 
-    // ─── EMA converges toward raw ───
-
-    @Test
-    fun `repeated calls with same input converge to that value`() {
-        val smoother = PostureSkeletonSmoother(alpha = 0.4f, maxDelta = 1f)
-        val target = listOf(pt(0.8f, 0.6f, 0.9f))
-        // First call seeds state
-        smoother.smooth(listOf(pt(0.0f, 0.0f, 0.9f)))
-        // Repeatedly apply target
-        var last = smoother.smooth(target)
-        repeat(20) { last = smoother.smooth(target) }
-        assertTrue("x should converge within 0.01 of 0.8", kotlin.math.abs(last[0].x - 0.8f) < 0.01f)
-        assertTrue("y should converge within 0.01 of 0.6", kotlin.math.abs(last[0].y - 0.6f) < 0.01f)
-    }
-
-    // ─── jump clamping ───
-
-    @Test
-    fun `jump larger than maxDelta is clamped`() {
-        val smoother = PostureSkeletonSmoother(alpha = 1.0f, maxDelta = 0.10f)
-        smoother.smooth(listOf(pt(0.0f, 0.0f, 0.9f)))
-        // Raw jump of 0.5 should be clamped to 0.10
-        val result = smoother.smooth(listOf(pt(0.5f, 0.0f, 0.9f)))
-        assertEquals(0.10f, result[0].x, 0.001f)
+        assertEquals(raw[0].x, result[0].x, 0.0001f)
+        assertEquals(raw[0].y, result[0].y, 0.0001f)
+        assertEquals(raw[1].x, result[1].x, 0.0001f)
+        assertEquals(raw[1].y, result[1].y, 0.0001f)
     }
 
     @Test
-    fun `jump within maxDelta passes through at alpha=1`() {
-        val smoother = PostureSkeletonSmoother(alpha = 1.0f, maxDelta = 0.20f)
-        smoother.smooth(listOf(pt(0.0f, 0.0f, 0.9f)))
-        val result = smoother.smooth(listOf(pt(0.15f, 0.0f, 0.9f)))
-        assertEquals(0.15f, result[0].x, 0.001f)
-    }
-
-    // ─── low-visibility uses smaller alpha ───
-
-    @Test
-    fun `low visibility landmark moves less than high visibility`() {
-        val smootherHigh = PostureSkeletonSmoother(alpha = 0.4f, maxDelta = 1f, lowVisAlpha = 0.05f)
-        val smootherLow  = PostureSkeletonSmoother(alpha = 0.4f, maxDelta = 1f, lowVisAlpha = 0.05f)
-
-        smootherHigh.smooth(listOf(pt(0.0f, 0.0f, 0.9f)))   // seed
-        smootherLow.smooth(listOf(pt(0.0f, 0.0f, 0.3f)))    // seed
-
-        val highResult = smootherHigh.smooth(listOf(pt(1.0f, 0.0f, 0.9f)))
-        val lowResult  = smootherLow.smooth(listOf(pt(1.0f, 0.0f, 0.3f)))
-
-        // High-vis moves more (alpha=0.4) than low-vis (alpha=0.05)
-        assertTrue("high-vis should move more than low-vis", highResult[0].x > lowResult[0].x)
-    }
-
-    // ─── reset ───
-
-    @Test
-    fun `reset causes next call to return raw values`() {
+    fun `repeated visible samples converge toward input`() {
         val smoother = PostureSkeletonSmoother()
-        smoother.smooth(listOf(pt(0.0f, 0.0f, 0.9f)))
+        smoother.smooth(listOf(pt(0f, 0f, 0.9f)), 0L)
+
+        var result = emptyList<SkeletonPoint>()
+        repeat(30) { index ->
+            result = smoother.smooth(listOf(pt(0.8f, 0.6f, 0.9f)), (index + 1) * 100L)
+        }
+
+        assertTrue(kotlin.math.abs(result[0].x - 0.8f) < 0.01f)
+        assertTrue(kotlin.math.abs(result[0].y - 0.6f) < 0.01f)
+    }
+
+    @Test
+    fun `low visibility sample stays at last reliable coordinate`() {
+        val smoother = PostureSkeletonSmoother(lowVisFreezeThreshold = 0.45f)
+        smoother.smooth(listOf(pt(0.2f, 0.3f, 0.9f)), 0L)
+        val result = smoother.smooth(listOf(pt(0.9f, 0.8f, 0.2f)), 100L)
+
+        assertEquals(0.2f, result[0].x, 0.0001f)
+        assertEquals(0.3f, result[0].y, 0.0001f)
+    }
+
+    @Test
+    fun `faster movement receives a more responsive cutoff`() {
+        val slow = PostureSkeletonSmoother(minCutoff = 1f, beta = 4f)
+        val fast = PostureSkeletonSmoother(minCutoff = 1f, beta = 4f)
+        slow.smooth(listOf(pt(0f, 0f, 0.9f)), 0L)
+        fast.smooth(listOf(pt(0f, 0f, 0.9f)), 0L)
+
+        val slowTarget = 0.02f
+        val fastTarget = 0.2f
+        val slowResult = slow.smooth(listOf(pt(slowTarget, 0f, 0.9f)), 100L)
+        val fastResult = fast.smooth(listOf(pt(fastTarget, 0f, 0.9f)), 100L)
+
+        assertTrue(fastResult[0].x / fastTarget > slowResult[0].x / slowTarget)
+    }
+
+    @Test
+    fun `reset causes next coordinates to pass through`() {
+        val smoother = PostureSkeletonSmoother()
+        smoother.smooth(listOf(pt(0f, 0f, 0.9f)), 0L)
         smoother.reset()
-        val raw = listOf(pt(0.7f, 0.3f, 0.9f))
-        assertEquals(raw, smoother.smooth(raw))
+
+        val raw = pt(0.7f, 0.3f, 0.9f)
+        val result = smoother.smooth(listOf(raw), 100L)
+        assertEquals(raw.x, result[0].x, 0.0001f)
+        assertEquals(raw.y, result[0].y, 0.0001f)
     }
 
-    // ─── size mismatch falls back to raw ───
-
     @Test
-    fun `mismatched size resets and returns raw`() {
+    fun `landmark count change reinitializes filters`() {
         val smoother = PostureSkeletonSmoother()
-        smoother.smooth(listOf(pt(0f, 0f, 1f), pt(0f, 0f, 1f)))
-        // Different size — smoother should return raw without crashing
-        val raw = listOf(pt(0.5f, 0.5f, 0.8f))
-        val result = smoother.smooth(raw)
-        assertEquals(raw, result)
+        smoother.smooth(listOf(pt(0f, 0f, 1f), pt(0f, 0f, 1f)), 0L)
+
+        val raw = pt(0.5f, 0.5f, 0.8f)
+        val result = smoother.smooth(listOf(raw), 100L)
+        assertEquals(raw.x, result[0].x, 0.0001f)
+        assertEquals(raw.y, result[0].y, 0.0001f)
     }
 
-    // ─── output is a new list, not mutation of input ───
-
     @Test
-    fun `smooth returns new list not input reference`() {
+    fun `smooth returns a new list`() {
         val smoother = PostureSkeletonSmoother()
         val raw = listOf(pt(0f, 0f, 1f))
-        smoother.smooth(raw)
-        val raw2 = listOf(pt(0.5f, 0.5f, 1f))
-        val result = smoother.smooth(raw2)
-        assertNotSame(raw2, result)
-    }
+        val result = smoother.smooth(raw, 0L)
 
-    // ─── helper ───
+        assertNotSame(raw, result)
+    }
 
     private fun pt(x: Float, y: Float, v: Float) = SkeletonPoint(x, y, v)
 }

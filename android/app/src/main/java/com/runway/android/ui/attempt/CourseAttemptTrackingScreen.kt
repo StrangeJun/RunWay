@@ -565,8 +565,6 @@ private fun StopStatBlock(label: String, value: String) {
     }
 }
 
-private val LimeGreen = Color(0xFFA4E168)
-
 @Composable
 private fun CourseMapPanel(
     points: List<com.runway.android.core.map.MapPoint>,
@@ -583,7 +581,7 @@ private fun CourseMapPanel(
         label = "courseProgress",
     )
     val progressColor by animateColorAsState(
-        targetValue = if (progressPercent >= 90) LimeGreen else MaterialTheme.colorScheme.primary,
+        targetValue = MaterialTheme.colorScheme.primary,
         animationSpec = tween(400),
         label = "progressColor",
     )

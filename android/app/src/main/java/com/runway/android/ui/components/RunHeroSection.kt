@@ -35,7 +35,9 @@ import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Thunderstorm
+import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.Umbrella
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -61,7 +63,6 @@ import com.runway.android.ui.theme.LocalIsDarkTheme
 
 private val HeroScrimDark = Color(0xFF0A0B10)
 private val HeroScrimLight = Color(0xFFF5F5FA)
-private val LimeGreen = Color(0xFFA4E168)
 
 @Composable
 fun RunHeroSection(
@@ -113,7 +114,7 @@ fun RunHeroSection(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 2.8.sp,
-                color = LimeGreen,
+                color = MaterialTheme.colorScheme.primary,
             )
             Spacer(Modifier.height(4.dp))
             Text(
@@ -176,7 +177,7 @@ fun RunHeroSection(
                 modifier = Modifier.size(96.dp).scale(startButtonScale),
                 interactionSource = startButtonInteraction,
                 shape = CircleShape,
-                color = LimeGreen,
+                color = MaterialTheme.colorScheme.primary,
                 shadowElevation = 14.dp,
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -194,7 +195,11 @@ fun RunHeroSection(
             Surface(
                 onClick = onSetGoal,
                 shape = RoundedCornerShape(50),
-                color = if (selectedGoal != null) LimeGreen.copy(alpha = 0.18f) else pillBg,
+                color = if (selectedGoal != null) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                } else {
+                    pillBg
+                },
             ) {
                 Text(
                     text = when (selectedGoal) {
@@ -205,7 +210,11 @@ fun RunHeroSection(
                     },
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (selectedGoal != null) LimeGreen else onHero.copy(alpha = 0.65f),
+                    color = if (selectedGoal != null) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        onHero.copy(alpha = 0.65f)
+                    },
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
                 )
             }
@@ -273,7 +282,7 @@ private fun GpsStatusPill(
         Box(
             modifier = Modifier
                 .size(7.dp)
-                .background(LimeGreen, CircleShape),
+                .background(MaterialTheme.colorScheme.primary, CircleShape),
         )
         Text(
             text = "GPS 준비 완료",
@@ -319,7 +328,7 @@ private fun WeatherSummaryPill(
                     Icon(
                         imageVector = weatherInfo.weatherIcon(),
                         contentDescription = null,
-                        tint = LimeGreen,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(18.dp),
                     )
                     Text(
@@ -334,11 +343,13 @@ private fun WeatherSummaryPill(
                         text = "${weatherInfo.tempCelsius}°C",
                         onPill = onPill,
                         emphasized = true,
+                        icon = Icons.Filled.Thermostat,
                     )
                     WeatherChip(
                         text = "습도 ${weatherInfo.humidity}%",
                         onPill = onPill,
                         emphasized = true,
+                        icon = Icons.Filled.WaterDrop,
                     )
                 }
             }
@@ -411,17 +422,31 @@ private fun WeatherChip(
     text: String,
     onPill: Color,
     emphasized: Boolean = false,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
 ) {
-    Text(
-        text = text,
-        style = if (emphasized) {
-            MaterialTheme.typography.labelLarge
-        } else {
-            MaterialTheme.typography.bodySmall
-        },
-        fontWeight = if (emphasized) FontWeight.Bold else FontWeight.Normal,
-        color = if (emphasized) onPill else onPill.copy(alpha = 0.75f),
-    )
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        icon?.let {
+            Icon(
+                imageVector = it,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+        Text(
+            text = text,
+            style = if (emphasized) {
+                MaterialTheme.typography.labelLarge
+            } else {
+                MaterialTheme.typography.bodySmall
+            },
+            fontWeight = if (emphasized) FontWeight.Bold else FontWeight.Normal,
+            color = if (emphasized) onPill else onPill.copy(alpha = 0.75f),
+        )
+    }
 }
 
 @Composable

@@ -92,11 +92,12 @@ class PostureSkeletonSmoother(
         val ve = visEma!!
 
         return raw.mapIndexed { i, pt ->
-            val visibleEnough = pt.v >= lowVisFreezeThreshold || !fx[i].isInitialized
+            val wasInitialized = fx[i].isInitialized
+            val visibleEnough = pt.v >= lowVisFreezeThreshold || !wasInitialized
             val x = if (visibleEnough) fx[i].filter(pt.x, dt) else fx[i].lastOutput
             val y = if (visibleEnough) fy[i].filter(pt.y, dt) else fy[i].lastOutput
             // Visibility: simple EMA (no freeze needed — we want it to track confidence changes)
-            ve[i] = ve[i] + 0.4f * (pt.v - ve[i])
+            ve[i] = if (wasInitialized) ve[i] + 0.4f * (pt.v - ve[i]) else pt.v
             SkeletonPoint(x = x, y = y, v = ve[i])
         }
     }

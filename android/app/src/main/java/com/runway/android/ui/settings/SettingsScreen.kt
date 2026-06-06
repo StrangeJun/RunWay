@@ -2,6 +2,8 @@ package com.runway.android.ui.settings
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,11 +16,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BrightnessMedium
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.CheckCircle
@@ -32,9 +36,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.runway.android.ui.theme.AccentColor
 import com.runway.android.ui.theme.ThemeMode
 
 @Composable
@@ -43,6 +49,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val currentMode by viewModel.themeMode.collectAsState()
+    val currentAccent by viewModel.accentColor.collectAsState()
 
     Column(
         modifier = Modifier
@@ -109,6 +116,78 @@ fun SettingsScreen(
                     description = "기기의 다크 모드 설정을 따릅니다",
                     selected = currentMode == ThemeMode.SYSTEM,
                     onClick = { viewModel.setThemeMode(ThemeMode.SYSTEM) },
+                )
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+            Text(
+                text = "컨셉 색상",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "아이콘, 버튼과 강조 텍스트에 적용됩니다",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            AccentColorPicker(
+                selected = currentAccent,
+                onSelect = viewModel::setAccentColor,
+            )
+            Spacer(modifier = Modifier.height(28.dp))
+        }
+    }
+}
+
+@Composable
+private fun AccentColorPicker(
+    selected: AccentColor,
+    onSelect: (AccentColor) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        AccentColor.entries.forEach { accent ->
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(accent.color, CircleShape)
+                        .border(
+                            width = if (accent == selected) 3.dp else 1.dp,
+                            color = if (accent == selected) {
+                                MaterialTheme.colorScheme.onBackground
+                            } else {
+                                MaterialTheme.colorScheme.outline
+                            },
+                            shape = CircleShape,
+                        )
+                        .clickable { onSelect(accent) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (accent == selected) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = "${accent.displayName} 선택됨",
+                            tint = Color(0xFF111119),
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                }
+                Text(
+                    text = accent.displayName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (accent == selected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 )
             }
         }

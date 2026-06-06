@@ -22,7 +22,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val themeMode by viewModel.themeMode.collectAsState()
-            RunwayTheme(themeMode = themeMode) {
+            val accentColor by viewModel.accentColor.collectAsState()
+            RunwayTheme(themeMode = themeMode, accentColor = accentColor) {
                 RunwayNavGraph()
             }
         }

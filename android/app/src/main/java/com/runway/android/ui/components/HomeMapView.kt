@@ -12,6 +12,7 @@ import com.runway.android.ui.theme.LocalIsDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,7 +34,6 @@ import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.runway.android.R
 import com.runway.android.core.map.MapPoint
-import com.runway.android.ui.theme.RunwayGreen
 
 @SuppressLint("MissingPermission")
 @Composable
@@ -85,7 +85,7 @@ fun HomeMapView(
 
         if (currentLocation != null && hasLocationPermission) {
             PulsingLocationDot(
-                color = RunwayGreen,
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.align(Alignment.Center),
             )
         }

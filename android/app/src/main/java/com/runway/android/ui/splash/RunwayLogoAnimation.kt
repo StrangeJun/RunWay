@@ -28,7 +28,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.runway.android.ui.theme.BackgroundDark
-import com.runway.android.ui.theme.RunwayGreen
 import com.runway.android.ui.theme.RunwayTheme
 import kotlin.math.PI
 import kotlin.math.sin

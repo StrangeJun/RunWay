@@ -34,7 +34,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
@@ -87,6 +88,9 @@ fun PostureCaptureScreen(
     var showGuide by remember { mutableStateOf(true) }
     var countdownValue by remember { mutableStateOf<Int?>(null) }
     var activeRecording by remember { mutableStateOf<Recording?>(null) }
+    var lensFacing by remember { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
+    var hasFrontCamera by remember { mutableStateOf(false) }
+    var isCameraReady by remember { mutableStateOf(false) }
 
     val toneGen = remember { ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90) }
     DisposableEffect(Unit) { onDispose { toneGen.release() } }
@@ -118,23 +122,40 @@ fun PostureCaptureScreen(
     var videoCapture by remember { mutableStateOf<VideoCapture<Recorder>?>(null) }
 
     if (hasCameraPermission) {
-        DisposableEffect(lifecycleOwner) {
+        DisposableEffect(lifecycleOwner, lensFacing) {
+            isCameraReady = false
+            videoCapture = null
             val cameraProviderFuture = androidx.camera.lifecycle.ProcessCameraProvider.getInstance(context)
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
+                hasFrontCamera = runCatching {
+                    cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)
+                }.getOrDefault(false)
+                val selector = CameraSelector.Builder()
+                    .requireLensFacing(lensFacing)
+                    .build()
                 val preview = androidx.camera.core.Preview.Builder().build()
                     .also { it.surfaceProvider = previewView.surfaceProvider }
                 val recorder = Recorder.Builder()
                     .setQualitySelector(QualitySelector.from(Quality.HD))
                     .build()
-                videoCapture = VideoCapture.withOutput(recorder)
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA,
-                    preview,
-                    videoCapture,
-                )
+                val capture = VideoCapture.withOutput(recorder)
+                runCatching {
+                    cameraProvider.unbindAll()
+                    cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        selector,
+                        preview,
+                        capture,
+                    )
+                }.onSuccess {
+                    videoCapture = capture
+                    isCameraReady = true
+                }.onFailure {
+                    if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
+                        lensFacing = CameraSelector.LENS_FACING_BACK
+                    }
+                }
             }, ContextCompat.getMainExecutor(context))
             onDispose {
                 runCatching {
@@ -194,7 +215,35 @@ fun PostureCaptureScreen(
             onClick = onBack,
             modifier = Modifier.align(Alignment.TopStart).padding(16.dp),
         ) {
-            Icon(Icons.Filled.ArrowBack, contentDescription = "뒤로", tint = Color.White)
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로", tint = Color.White)
+        }
+
+        if (hasCameraPermission && hasFrontCamera) {
+            val canSwitchCamera = !isRecording && countdownValue == null
+            IconButton(
+                onClick = {
+                    lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
+                        CameraSelector.LENS_FACING_FRONT
+                    } else {
+                        CameraSelector.LENS_FACING_BACK
+                    }
+                },
+                enabled = canSwitchCamera,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .background(Color.Black.copy(alpha = 0.35f), CircleShape),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Cameraswitch,
+                    contentDescription = if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
+                        "후면 카메라로 전환"
+                    } else {
+                        "셀카 카메라로 전환"
+                    },
+                    tint = Color.White.copy(alpha = if (canSwitchCamera) 1f else 0.45f),
+                )
+            }
         }
 
         // Countdown overlay
@@ -238,9 +287,12 @@ fun PostureCaptureScreen(
                 Spacer(Modifier.height(16.dp))
                 TextButton(
                     onClick = { startCountdownAndRecord() },
+                    enabled = isCameraReady,
                     modifier = Modifier
                         .background(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                            MaterialTheme.colorScheme.primary.copy(
+                                alpha = if (isCameraReady) 0.85f else 0.35f,
+                            ),
                             MaterialTheme.shapes.extraLarge,
                         )
                         .padding(horizontal = 8.dp),
