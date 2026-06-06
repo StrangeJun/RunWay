@@ -26,7 +26,7 @@ fun PostureAnalyzingScreen(modifier: Modifier = Modifier) {
         Text("자세를 분석하고 있어요...", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
         Text(
-            "15초 영상 기준 최대 1분 이내에 완료됩니다",
+            "분석에는 약 1분 정도 소요됩니다",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
