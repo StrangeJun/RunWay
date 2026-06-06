@@ -2,6 +2,8 @@ package com.runway.wear.data
 
 import android.content.Context
 import com.google.android.gms.wearable.Wearable
+import com.runway.wear.model.GoalCompletionAction
+import com.runway.wear.model.IntervalTarget
 import com.runway.wear.model.RunGoal
 import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
@@ -27,14 +29,17 @@ class WatchDataLayerClient(context: Context) {
             is RunGoal.Time -> JSONObject()
                 .put("type", "START_TIME_GOAL_RUN")
                 .put("targetMinutes", goal.minutes)
+                .putCompletionAction(goal.completionAction)
             is RunGoal.Distance -> JSONObject()
                 .put("type", "START_DISTANCE_GOAL_RUN")
                 .put("targetMeters", goal.meters)
+                .putCompletionAction(goal.completionAction)
             is RunGoal.Interval -> JSONObject()
                 .put("type", "START_INTERVAL_RUN")
-                .put("workSeconds", goal.workSeconds)
-                .put("restSeconds", goal.restSeconds)
                 .put("sets", goal.sets)
+                .putTarget("work", goal.work)
+                .putTarget("recovery", goal.recovery)
+                .putCompletionAction(goal.completionAction)
         },
     )
 
@@ -55,4 +60,16 @@ class WatchDataLayerClient(context: Context) {
         }
         true
     }.getOrDefault(false)
+
+    private fun JSONObject.putCompletionAction(action: GoalCompletionAction): JSONObject =
+        put("completionAction", action.name)
+
+    private fun JSONObject.putTarget(prefix: String, target: IntervalTarget): JSONObject {
+        return when (target) {
+            is IntervalTarget.Time -> put("${prefix}Type", "TIME")
+                .put("${prefix}Seconds", target.seconds)
+            is IntervalTarget.Distance -> put("${prefix}Type", "DISTANCE")
+                .put("${prefix}Meters", target.meters)
+        }
+    }
 }

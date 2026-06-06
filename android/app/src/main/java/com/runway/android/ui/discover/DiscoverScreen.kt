@@ -60,7 +60,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -78,7 +77,6 @@ fun DiscoverScreen(
     viewModel: DiscoverViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current
     val keyboardController = LocalSoftwareKeyboardController.current
     var showFilterSheet by remember { mutableStateOf(false) }
 
@@ -113,6 +111,127 @@ fun DiscoverScreen(
         1000 -> "1km"; 5000 -> "5km"; else -> "3km"
     }
 
+    // Keep the map outside LazyColumn so map gestures never scroll the whole screen.
+    if (viewModel.viewMode == DiscoverViewMode.MAP) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 16.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "코스 탐색",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Text(
+                        text = "전국 공개 코스를 지도에서 확인하세요",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = onRefresh) {
+                    Icon(Icons.Filled.Refresh, "새로고침", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                BadgedBox(
+                    badge = {
+                        if (viewModel.activeFilterCount > 0) Badge { Text("${viewModel.activeFilterCount}") }
+                    }
+                ) {
+                    IconButton(onClick = { showFilterSheet = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.FilterList,
+                            contentDescription = "필터",
+                            tint = if (viewModel.activeFilterCount > 0)
+                                MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 1.dp,
+            ) {
+                TextField(
+                    value = viewModel.keyword,
+                    onValueChange = viewModel::onKeywordChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text("코스 이름으로 검색", style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Filled.Search, null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp))
+                    },
+                    trailingIcon = if (viewModel.keyword.isNotEmpty()) {
+                        { IconButton(onClick = viewModel::clearKeyword) {
+                            Icon(Icons.Filled.Close, "검색어 지우기", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }}
+                    } else null,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide(); viewModel.onSearch() }),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                    ),
+                )
+            }
+
+            DiscoverViewModeSelector(
+                selectedMode = viewModel.viewMode,
+                onModeSelected = viewModel::onViewModeChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 12.dp),
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            DiscoverCourseMap(
+                courses = viewModel.mapCourses,
+                isLoading = viewModel.isMapLoading,
+                errorMessage = viewModel.mapErrorMessage,
+                currentLocation = viewModel.currentLocation,
+                onCourseClick = onNavigateToCourseDetail,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            )
+        }
+        if (showFilterSheet) {
+            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ModalBottomSheet(
+                onDismissRequest = { showFilterSheet = false },
+                sheetState = sheetState,
+                containerColor = MaterialTheme.colorScheme.surface,
+            ) {
+                FilterSheetContent(viewModel = viewModel, onDismiss = { showFilterSheet = false })
+            }
+        }
+        return
+    }
+
     PullToRefreshBox(
         isRefreshing = viewModel.isRefreshing,
         onRefresh = onRefresh,
@@ -142,11 +261,7 @@ fun DiscoverScreen(
                         )
                         Text(
                             text = if (viewModel.isLoading) "불러오는 중…"
-                            else if (viewModel.viewMode == DiscoverViewMode.MAP) {
-                                "전국 공개 코스를 지도에서 확인하세요"
-                            } else {
-                                "${viewModel.courses.size}개 코스 · 반경 $radiusLabel"
-                            },
+                            else "${viewModel.courses.size}개 코스 · 반경 $radiusLabel",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -241,10 +356,7 @@ fun DiscoverScreen(
                         contentPadding = PaddingValues(horizontal = 20.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        if (
-                            viewModel.viewMode == DiscoverViewMode.LIST &&
-                            viewModel.radiusMeters != 3000
-                        ) {
+                        if (viewModel.radiusMeters != 3000) {
                             item {
                                 ActiveChip(label = "반경 $radiusLabel") {
                                     viewModel.onRadiusChange(3000)
@@ -294,19 +406,6 @@ fun DiscoverScreen(
 
             // ─── 코스 목록 ───
             when {
-                viewModel.viewMode == DiscoverViewMode.MAP -> item {
-                    DiscoverCourseMap(
-                        courses = viewModel.mapCourses,
-                        isLoading = viewModel.isMapLoading,
-                        errorMessage = viewModel.mapErrorMessage,
-                        currentLocation = viewModel.currentLocation,
-                        onCourseClick = onNavigateToCourseDetail,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height((configuration.screenHeightDp - 340).coerceAtLeast(360).dp),
-                    )
-                }
-
                 viewModel.isLoading -> item {
                     Box(
                         modifier = Modifier.fillMaxWidth().padding(top = 80.dp),

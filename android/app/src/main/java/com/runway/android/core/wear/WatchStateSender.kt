@@ -59,16 +59,32 @@ class WatchStateSender @Inject constructor(
             is WatchRunGoal.Time -> {
                 put("goalType", "TIME")
                 put("targetMinutes", goal.targetMinutes)
+                put("completionAction", goal.completionAction.name)
             }
             is WatchRunGoal.Distance -> {
                 put("goalType", "DISTANCE")
                 put("targetMeters", goal.targetMeters)
+                put("completionAction", goal.completionAction.name)
             }
             is WatchRunGoal.Interval -> {
                 put("goalType", "INTERVAL")
-                put("workSeconds", goal.workSeconds)
-                put("restSeconds", goal.restSeconds)
                 put("sets", goal.sets)
+                put("completionAction", goal.completionAction.name)
+                putTarget("work", goal.work)
+                putTarget("recovery", goal.recovery)
+            }
+        }
+    }
+
+    private fun JSONObject.putTarget(prefix: String, target: WatchIntervalTarget) {
+        when (target) {
+            is WatchIntervalTarget.Time -> {
+                put("${prefix}Type", "TIME")
+                put("${prefix}Seconds", target.seconds)
+            }
+            is WatchIntervalTarget.Distance -> {
+                put("${prefix}Type", "DISTANCE")
+                put("${prefix}Meters", target.meters)
             }
         }
     }

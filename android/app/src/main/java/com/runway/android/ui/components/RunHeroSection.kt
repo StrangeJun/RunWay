@@ -361,12 +361,14 @@ private fun WeatherSummaryPill(
             ) {
                 DustChip(
                     label = "미세먼지",
+                    value = weatherInfo.pm10.takeIf { it > 0 },
                     quality = if (weatherInfo.pm10 > 0) pm10Quality(weatherInfo.pm10) else "-",
                     color = if (weatherInfo.pm10 > 0) pm10Color(weatherInfo.pm10) else onPill.copy(alpha = 0.55f),
                     onPill = onPill,
                 )
                 DustChip(
                     label = "초미세먼지",
+                    value = weatherInfo.pm25.takeIf { it > 0 },
                     quality = if (weatherInfo.pm25 > 0) pm25Quality(weatherInfo.pm25) else "-",
                     color = if (weatherInfo.pm25 > 0) pm25Color(weatherInfo.pm25) else onPill.copy(alpha = 0.55f),
                     onPill = onPill,
@@ -451,7 +453,13 @@ private fun WeatherChip(
 }
 
 @Composable
-private fun DustChip(label: String, quality: String, color: Color, onPill: Color) {
+private fun DustChip(
+    label: String,
+    value: Int?,
+    quality: String,
+    color: Color,
+    onPill: Color,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
@@ -467,7 +475,7 @@ private fun DustChip(label: String, quality: String, color: Color, onPill: Color
                 .background(color, CircleShape),
         )
         Text(
-            text = quality,
+            text = value?.let { "$it㎍/㎥ $quality" } ?: quality,
             fontSize = 13.sp,
             color = color,
         )

@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.runway.wear.data.WatchDataLayerClient
 import com.runway.wear.data.PhoneRunStateRepository
 import com.runway.wear.health.HealthServicesManager
+import com.runway.wear.model.GoalCompletionAction
+import com.runway.wear.model.IntervalTarget
 import com.runway.wear.model.RunGoal
 import com.runway.wear.model.WatchRunState
 import com.runway.wear.model.WatchScreen
@@ -26,6 +28,8 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
 
     private var timerJob: Job? = null
     private var metricsJob: Job? = null
+    private var intervalSegmentStartSeconds = 0L
+    private var intervalSegmentStartMeters = 0.0
 
     init {
         refreshConnection()
@@ -43,6 +47,8 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun start(goal: RunGoal) {
+        intervalSegmentStartSeconds = 0L
+        intervalSegmentStartMeters = 0.0
         _state.update {
             WatchRunState(
                 screen = WatchScreen.TRACKING,
@@ -111,6 +117,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
                         current
                     }
                 }
+                updateGoalProgress()
             }
         }
     }
@@ -135,8 +142,84 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
                         gpsStatus = update.gpsStatus ?: current.gpsStatus,
                     )
                 }
+                updateGoalProgress()
             }
         }
+    }
+
+    private fun updateGoalProgress() {
+        val current = _state.value
+        if (!current.isRunning || current.isPaused || current.goalCompleted) return
+
+        when (val goal = current.goal) {
+            RunGoal.Free -> Unit
+            is RunGoal.Time -> {
+                if (current.elapsedSeconds >= goal.minutes * 60L) completeGoal(goal.completionAction)
+            }
+            is RunGoal.Distance -> {
+                if (current.distanceMeters >= goal.meters) completeGoal(goal.completionAction)
+            }
+            is RunGoal.Interval -> updateIntervalProgress(current, goal)
+        }
+    }
+
+    private fun updateIntervalProgress(current: WatchRunState, goal: RunGoal.Interval) {
+        val target = if (current.intervalIsWork) goal.work else goal.recovery
+        val progress = when (target) {
+            is IntervalTarget.Time -> {
+                val elapsed = current.elapsedSeconds - intervalSegmentStartSeconds
+                ((elapsed * 100) / target.seconds.coerceAtLeast(1)).toInt()
+            }
+            is IntervalTarget.Distance -> {
+                val distance = current.distanceMeters - intervalSegmentStartMeters
+                ((distance * 100) / target.meters.coerceAtLeast(1)).toInt()
+            }
+        }.coerceIn(0, 100)
+
+        val remaining = when (target) {
+            is IntervalTarget.Time -> {
+                val elapsed = current.elapsedSeconds - intervalSegmentStartSeconds
+                "${(target.seconds - elapsed).coerceAtLeast(0)}초 남음"
+            }
+            is IntervalTarget.Distance -> {
+                val distance = current.distanceMeters - intervalSegmentStartMeters
+                "${(target.meters - distance).coerceAtLeast(0.0).toInt()}m 남음"
+            }
+        }
+
+        _state.update {
+            it.copy(
+                intervalSegmentProgress = progress,
+                intervalRemainingLabel = remaining,
+            )
+        }
+
+        if (progress < 100) return
+        if (current.intervalIsWork) {
+            startNextIntervalSegment(isWork = false, step = current.intervalStep)
+        } else if (current.intervalStep < goal.sets) {
+            startNextIntervalSegment(isWork = true, step = current.intervalStep + 1)
+        } else {
+            completeGoal(goal.completionAction)
+        }
+    }
+
+    private fun startNextIntervalSegment(isWork: Boolean, step: Int) {
+        val current = _state.value
+        intervalSegmentStartSeconds = current.elapsedSeconds
+        intervalSegmentStartMeters = current.distanceMeters
+        _state.update {
+            it.copy(
+                intervalIsWork = isWork,
+                intervalStep = step,
+                intervalSegmentProgress = 0,
+            )
+        }
+    }
+
+    private fun completeGoal(action: GoalCompletionAction) {
+        _state.update { it.copy(goalCompleted = true) }
+        if (action == GoalCompletionAction.PAUSE) pause()
     }
 
     private fun observePhoneState() {

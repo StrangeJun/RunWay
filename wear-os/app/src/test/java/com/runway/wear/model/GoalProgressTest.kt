@@ -6,15 +6,21 @@ import org.junit.Test
 class GoalProgressTest {
     @Test
     fun `time goal progress is clamped`() {
-        assertEquals(50, GoalProgress.percent(RunGoal.Time(10), 300, 0.0))
-        assertEquals(100, GoalProgress.percent(RunGoal.Time(10), 900, 0.0))
+        val goal = RunGoal.Time(10, GoalCompletionAction.PAUSE)
+        assertEquals(50, GoalProgress.percent(WatchRunState(goal = goal, elapsedSeconds = 300)))
+        assertEquals(100, GoalProgress.percent(WatchRunState(goal = goal, elapsedSeconds = 900)))
     }
 
     @Test
     fun `distance goal reports remaining kilometers`() {
         assertEquals(
             "2.5km 남음",
-            GoalProgress.remaining(RunGoal.Distance(5_000), 0, 2_500.0, 1, true),
+            GoalProgress.remaining(
+                WatchRunState(
+                    goal = RunGoal.Distance(5_000, GoalCompletionAction.CONTINUE),
+                    distanceMeters = 2_500.0,
+                ),
+            ),
         )
     }
 

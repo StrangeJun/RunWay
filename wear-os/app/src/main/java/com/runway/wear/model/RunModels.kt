@@ -1,13 +1,37 @@
 package com.runway.wear.model
 
+enum class GoalCompletionAction {
+    PAUSE,
+    CONTINUE,
+}
+
+sealed interface IntervalTarget {
+    data class Time(val seconds: Int) : IntervalTarget
+    data class Distance(val meters: Int) : IntervalTarget
+}
+
 sealed interface RunGoal {
-    data object Free : RunGoal
-    data class Time(val minutes: Int) : RunGoal
-    data class Distance(val meters: Int) : RunGoal
+    val completionAction: GoalCompletionAction
+
+    data object Free : RunGoal {
+        override val completionAction = GoalCompletionAction.CONTINUE
+    }
+
+    data class Time(
+        val minutes: Int,
+        override val completionAction: GoalCompletionAction,
+    ) : RunGoal
+
+    data class Distance(
+        val meters: Int,
+        override val completionAction: GoalCompletionAction,
+    ) : RunGoal
+
     data class Interval(
-        val workSeconds: Int,
-        val restSeconds: Int,
+        val work: IntervalTarget,
+        val recovery: IntervalTarget,
         val sets: Int,
+        override val completionAction: GoalCompletionAction,
     ) : RunGoal
 }
 
@@ -36,42 +60,48 @@ data class WatchRunState(
     val gpsStatus: String = "SEARCHING",
     val intervalStep: Int = 1,
     val intervalIsWork: Boolean = true,
+    val intervalSegmentProgress: Int = 0,
+    val intervalRemainingLabel: String? = null,
+    val goalCompleted: Boolean = false,
     val phoneStatusMessage: String? = null,
 ) {
     val progressPercent: Int?
-        get() = GoalProgress.percent(goal, elapsedSeconds, distanceMeters)
+        get() = GoalProgress.percent(this)
 
     val remainingLabel: String?
-        get() = GoalProgress.remaining(goal, elapsedSeconds, distanceMeters, intervalStep, intervalIsWork)
+        get() = GoalProgress.remaining(this)
 }
 
 object GoalProgress {
-    fun percent(goal: RunGoal, elapsedSeconds: Long, distanceMeters: Double): Int? = when (goal) {
+    fun percent(state: WatchRunState): Int? = when (val goal = state.goal) {
         RunGoal.Free -> null
-        is RunGoal.Time -> (elapsedSeconds * 100 / (goal.minutes * 60L))
+        is RunGoal.Time -> (state.elapsedSeconds * 100 / (goal.minutes * 60L))
             .toInt().coerceIn(0, 100)
-        is RunGoal.Distance -> (distanceMeters * 100 / goal.meters)
+        is RunGoal.Distance -> (state.distanceMeters * 100 / goal.meters)
             .toInt().coerceIn(0, 100)
         is RunGoal.Interval -> {
-            val total = (goal.workSeconds + goal.restSeconds) * goal.sets
-            (elapsedSeconds * 100 / total.coerceAtLeast(1)).toInt().coerceIn(0, 100)
+            val completedSegments = (state.intervalStep - 1) * 2 +
+                if (state.intervalIsWork) 0 else 1
+            ((completedSegments * 100 + state.intervalSegmentProgress) / (goal.sets * 2))
+                .coerceIn(0, 100)
         }
     }
 
-    fun remaining(
-        goal: RunGoal,
-        elapsedSeconds: Long,
-        distanceMeters: Double,
-        intervalStep: Int,
-        intervalIsWork: Boolean,
-    ): String? = when (goal) {
-        RunGoal.Free -> null
-        is RunGoal.Time -> "${formatDuration((goal.minutes * 60L - elapsedSeconds).coerceAtLeast(0))} 남음"
-        is RunGoal.Distance -> {
-            val remainingKm = (goal.meters - distanceMeters).coerceAtLeast(0.0) / 1000.0
-            "%.1fkm 남음".format(remainingKm)
+    fun remaining(state: WatchRunState): String? {
+        if (state.goalCompleted) return "목표 달성 · 계속 기록 중"
+        return when (val goal = state.goal) {
+            RunGoal.Free -> null
+            is RunGoal.Time ->
+                "${formatDuration((goal.minutes * 60L - state.elapsedSeconds).coerceAtLeast(0))} 남음"
+            is RunGoal.Distance -> {
+                val remainingKm = (goal.meters - state.distanceMeters).coerceAtLeast(0.0) / 1000.0
+                "%.1fkm 남음".format(remainingKm)
+            }
+            is RunGoal.Interval -> {
+                val phase = if (state.intervalIsWork) "운동" else "회복"
+                "$phase ${state.intervalStep}/${goal.sets} · ${state.intervalRemainingLabel.orEmpty()}"
+            }
         }
-        is RunGoal.Interval -> "${if (intervalIsWork) "운동" else "회복"} $intervalStep/${goal.sets}"
     }
 }
 

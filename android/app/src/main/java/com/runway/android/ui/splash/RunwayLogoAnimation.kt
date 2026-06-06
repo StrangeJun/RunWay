@@ -1,5 +1,6 @@
 package com.runway.android.ui.splash
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,13 +9,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathMeasure
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -29,12 +29,11 @@ fun RunwayLogoAnimation(
     modifier: Modifier = Modifier,
 ) {
     val clampedProgress = progress.coerceIn(0f, 1f)
-
     Box(
-        modifier = modifier.size(320.dp),
-        contentAlignment = Alignment.Center
+        modifier = modifier.size(240.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        PathFinderImageRevealAnimation(
+        PathFinderMarkDrawAnimation(
             progress = clampedProgress,
             modifier = Modifier.fillMaxSize(),
         )
@@ -42,32 +41,62 @@ fun RunwayLogoAnimation(
 }
 
 @Composable
-private fun PathFinderImageRevealAnimation(
+private fun PathFinderMarkDrawAnimation(
     progress: Float,
     modifier: Modifier = Modifier,
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
+    val drawProgress = (easeInOut(progress) / 0.78f).coerceIn(0f, 1f)
+    val revealProgress = ((progress - 0.70f) / 0.30f).coerceIn(0f, 1f)
 
-    // 진행도에 따른 Easing 적용
-    val easedProgress = easeInOut(progress)
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val diameter = size.minDimension * 0.68f
+            val left = (size.width - diameter) / 2f
+            val top = (size.height - diameter) / 2f
+            val scale = diameter / 48f
 
-    Image(
-        painter = painterResource(id = R.drawable.app_logo),
-        contentDescription = "PathFinder Logo",
-        contentScale = ContentScale.Fit,
-        colorFilter = ColorFilter.tint(primaryColor), // 테마의 포인트 색상으로 로고 렌더링
-        modifier = modifier
-            .graphicsLayer {
-                // 부드러운 페이드인 효과
-                val easedProgress = easeOut(progress)
-                alpha = easedProgress
-                
-                // 살짝 커지는 스케일 효과
-                val scale = 0.9f + (0.1f * easedProgress)
-                scaleX = scale
-                scaleY = scale
+            drawCircle(
+                color = Color(0xFF111318),
+                radius = diameter / 2f,
+                center = Offset(size.width / 2f, size.height / 2f),
+            )
+
+            val mark = Path().apply {
+                moveTo(left + 13f * scale, top + 30f * scale)
+                lineTo(left + 20f * scale, top + 18f * scale)
+                lineTo(left + 25f * scale, top + 24f * scale)
+                lineTo(left + 31f * scale, top + 13f * scale)
+                lineTo(left + 35f * scale, top + 16f * scale)
+                lineTo(left + 26f * scale, top + 35f * scale)
+                lineTo(left + 20f * scale, top + 28f * scale)
+                lineTo(left + 17f * scale, top + 33f * scale)
+                close()
             }
-    )
+            val measure = PathMeasure().apply { setPath(mark, false) }
+            val segment = Path()
+            measure.getSegment(0f, measure.length * drawProgress, segment, true)
+            drawPath(
+                path = segment,
+                color = primaryColor,
+                style = Stroke(width = 2.4f * scale, cap = StrokeCap.Round),
+            )
+        }
+
+        Image(
+            painter = painterResource(id = R.drawable.app_logo_mark),
+            contentDescription = "PathFinder Logo",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .fillMaxSize(0.68f)
+                .graphicsLayer {
+                    alpha = easeOut(revealProgress)
+                    val revealScale = 0.94f + 0.06f * revealProgress
+                    scaleX = revealScale
+                    scaleY = revealScale
+                },
+        )
+    }
 }
 
 private fun easeOut(value: Float): Float {
@@ -82,12 +111,9 @@ private fun easeInOut(value: Float): Float {
 
 @Preview(showBackground = true, backgroundColor = 0xFF000000)
 @Composable
-private fun PathFinderExactLogoAnimationPreview() {
+private fun PathFinderLogoAnimationPreview() {
     RunwayTheme {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             RunwayLogoAnimation(progress = 0.6f)
         }
     }

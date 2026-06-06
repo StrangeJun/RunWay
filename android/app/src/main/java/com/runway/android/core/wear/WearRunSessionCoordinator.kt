@@ -53,14 +53,15 @@ class WearRunSessionCoordinator @Inject constructor(
                 when (command) {
                     WatchCommand.StartFreeRun -> start(WatchRunGoal.Free)
                     is WatchCommand.StartTimeGoalRun ->
-                        start(WatchRunGoal.Time(command.targetMinutes))
+                        start(WatchRunGoal.Time(command.targetMinutes, command.completionAction))
                     is WatchCommand.StartDistanceGoalRun ->
-                        start(WatchRunGoal.Distance(command.targetMeters))
+                        start(WatchRunGoal.Distance(command.targetMeters, command.completionAction))
                     is WatchCommand.StartIntervalRun -> start(
                         WatchRunGoal.Interval(
-                            command.workSeconds,
-                            command.restSeconds,
+                            command.work,
+                            command.recovery,
                             command.sets,
+                            command.completionAction,
                         ),
                     )
                     WatchCommand.PauseRun -> pause()

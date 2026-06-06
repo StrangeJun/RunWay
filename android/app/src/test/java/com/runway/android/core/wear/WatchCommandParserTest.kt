@@ -11,7 +11,13 @@ class WatchCommandParserTest {
             """{"type":"START_DISTANCE_GOAL_RUN","targetMeters":5000}""".encodeToByteArray(),
         )
 
-        assertEquals(WatchCommand.StartDistanceGoalRun(5000), command)
+        assertEquals(
+            WatchCommand.StartDistanceGoalRun(
+                targetMeters = 5000,
+                completionAction = WatchGoalCompletionAction.CONTINUE,
+            ),
+            command,
+        )
     }
 
     @Test
@@ -22,7 +28,39 @@ class WatchCommandParserTest {
         )
 
         assertEquals(
-            WatchCommand.StartIntervalRun(workSeconds = 60, restSeconds = 60, sets = 20),
+            WatchCommand.StartIntervalRun(
+                work = WatchIntervalTarget.Time(10),
+                recovery = WatchIntervalTarget.Time(10),
+                sets = 20,
+                completionAction = WatchGoalCompletionAction.CONTINUE,
+            ),
+            command,
+        )
+    }
+
+    @Test
+    fun `parses distance interval and pause completion action`() {
+        val command = WatchCommandParser.parse(
+            """
+            {
+              "type":"START_INTERVAL_RUN",
+              "workType":"DISTANCE",
+              "workMeters":400,
+              "recoveryType":"DISTANCE",
+              "recoveryMeters":200,
+              "sets":6,
+              "completionAction":"PAUSE"
+            }
+            """.trimIndent().encodeToByteArray(),
+        )
+
+        assertEquals(
+            WatchCommand.StartIntervalRun(
+                work = WatchIntervalTarget.Distance(400),
+                recovery = WatchIntervalTarget.Distance(200),
+                sets = 6,
+                completionAction = WatchGoalCompletionAction.PAUSE,
+            ),
             command,
         )
     }
