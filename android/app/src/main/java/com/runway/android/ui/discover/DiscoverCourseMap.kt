@@ -222,8 +222,8 @@ fun DiscoverCourseMap(
                 } else {
                     // ── 클러스터 마커: 숫자 뱃지 ───────────────────────
                     val isSelected = cluster.id == selectedCluster?.id
-                    val icon = remember(primaryArgb, cluster.courses.size, isSelected) {
-                        createClusterIcon(context, primaryArgb, cluster.courses.size, isSelected)
+                    val icon = remember(primaryArgb, surfaceArgb, cluster.courses.size, isSelected) {
+                        createClusterIcon(context, primaryArgb, surfaceArgb, cluster.courses.size, isSelected)
                     }
                     val state = remember(cluster.id) {
                         MarkerState(position = cluster.center)
@@ -549,47 +549,116 @@ private data class SportMarkerIcons(
     val selected: BitmapDescriptor,
 )
 
-/** 클러스터 마커: 원형 뱃지 + 숫자 */
+/** 클러스터 마커: 기존 핀 + 우하단 숫자 뱃지 */
 private fun createClusterIcon(
     context: Context,
     primaryColor: Int,
+    surfaceColor: Int,
     count: Int,
     selected: Boolean,
 ): BitmapDescriptor {
     val density = context.resources.displayMetrics.density
-    val baseSize = if (selected) 46 else 40
-    val sizePx = (baseSize * density).toInt()
-    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+
+    // 핀 영역은 기존 single 마커와 동일한 크기
+    val pinW = ((if (selected) 33 else 29) * density).toInt()
+    val pinH = ((if (selected) 37 else 33) * density).toInt()
+
+    // 뱃지 크기 (핀 우하단에 겹쳐 붙음)
+    val badgeR = 8.5f * density          // 뱃지 반지름
+    val badgePad = 1.5f * density        // 핀 경계 바깥쪽 여백
+
+    // 전체 비트맵: 핀 + 뱃지가 우하단으로 삐져나오는 만큼 확장
+    val totalW = pinW + (badgeR + badgePad).toInt()
+    val totalH = pinH + (badgeR + badgePad).toInt()
+
+    val bitmap = Bitmap.createBitmap(totalW, totalH, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
-    val cx = sizePx / 2f
-    val cy = sizePx / 2f
-    val radius = sizePx / 2f - density
 
-    // 그림자
-    val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x44000000 }
-    canvas.drawCircle(cx + density, cy + density * 1.5f, radius, shadowPaint)
-
-    // 배경 원
-    val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = primaryColor }
-    canvas.drawCircle(cx, cy, radius, fillPaint)
-
-    // 흰 테두리
+    // ── 핀 그리기 (기존 createSportMarkerIcon 로직 그대로) ──────────
+    val logo = BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher_foreground)
+    val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x59000000 }
     val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = if (selected) 0xFFFFFFFF.toInt() else 0xCCFFFFFF.toInt()
+        color = if (selected) surfaceColor else 0xE6FFFFFF.toInt()
         style = Paint.Style.STROKE
-        strokeWidth = (if (selected) 2.8f else 2f) * density
+        strokeWidth = (if (selected) 2.5f else 1.3f) * density
     }
-    canvas.drawCircle(cx, cy, radius - density, borderPaint)
+    val tailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = primaryColor }
 
-    // 숫자 텍스트
+    val circleDiameter = pinW * 0.88f
+    val circleLeft = (pinW - circleDiameter) / 2f
+    val circleTop = density
+    val circleRect = RectF(circleLeft, circleTop, circleLeft + circleDiameter, circleTop + circleDiameter)
+
+    val tail = Path().apply {
+        moveTo(pinW * 0.35f, circleRect.bottom - density)
+        lineTo(pinW * 0.65f, circleRect.bottom - density)
+        lineTo(pinW * 0.5f, pinH - density)
+        close()
+    }
+    canvas.drawPath(tail, shadowPaint)
+    canvas.drawPath(tail, tailPaint)
+    canvas.drawCircle(
+        circleRect.centerX() + density,
+        circleRect.centerY() + 1.8f * density,
+        circleDiameter / 2f,
+        shadowPaint,
+    )
+    val clipPath = Path().apply { addOval(circleRect, Path.Direction.CW) }
+    canvas.save()
+    canvas.clipPath(clipPath)
+    canvas.drawBitmap(
+        logo,
+        Rect(0, 0, logo.width, logo.height),
+        circleRect,
+        Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG),
+    )
+    canvas.restore()
+    canvas.drawOval(circleRect, borderPaint)
+    if (selected) {
+        val accentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = primaryColor
+            style = Paint.Style.STROKE
+            strokeWidth = 1.2f * density
+        }
+        canvas.drawOval(
+            RectF(
+                circleRect.left - density,
+                circleRect.top - density,
+                circleRect.right + density,
+                circleRect.bottom + density,
+            ),
+            accentPaint,
+        )
+    }
+
+    // ── 숫자 뱃지 (핀 원의 우하단 모서리에 겹쳐서) ──────────────────
+    // 원 중심 기준 45° 방향 끝 지점
+    val circleCx = circleRect.centerX()
+    val circleCy = circleRect.centerY()
+    val edgeFraction = 0.707f   // cos(45°)
+    val badgeCx = circleCx + circleDiameter / 2f * edgeFraction
+    val badgeCy = circleCy + circleDiameter / 2f * edgeFraction
+
+    // 흰 테두리 (겹쳐 보이는 부분 가리개)
+    val badgeBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFFFFFFF.toInt()
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(badgeCx, badgeCy, badgeR + 1.8f * density, badgeBorder)
+
+    // 뱃지 배경
+    val badgeFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = primaryColor }
+    canvas.drawCircle(badgeCx, badgeCy, badgeR, badgeFill)
+
+    // 숫자
     val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = 0xFFFFFFFF.toInt()
-        textSize = (if (count >= 10) 14f else 16f) * density
+        textSize = (if (count >= 10) 7.5f else 9f) * density
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     }
-    val textY = cy - (textPaint.descent() + textPaint.ascent()) / 2f
-    canvas.drawText(count.toString(), cx, textY, textPaint)
+    val textY = badgeCy - (textPaint.descent() + textPaint.ascent()) / 2f
+    canvas.drawText(count.toString(), badgeCx, textY, textPaint)
 
     return BitmapDescriptorFactory.fromBitmap(bitmap)
 }
