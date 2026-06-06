@@ -30,6 +30,11 @@ enum class CourseSortOption(val label: String) {
     COMPLETION_RATE("완주율 순"),
 }
 
+enum class DiscoverViewMode {
+    LIST,
+    MAP,
+}
+
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
     private val courseRepository: CourseRepository,
@@ -54,8 +59,15 @@ class DiscoverViewModel @Inject constructor(
         private set
     var sortOption by mutableStateOf(CourseSortOption.NEAREST)
         private set
+    var viewMode by mutableStateOf(DiscoverViewMode.LIST)
+        private set
+    var isMapLoading by mutableStateOf(false)
+        private set
+    var mapErrorMessage by mutableStateOf<String?>(null)
+        private set
 
     private var rawCourses = listOf<NearbyCourseItem>()
+    private var rawMapCourses = listOf<NearbyCourseItem>()
     private var currentLatitude = 0.0
     private var currentLongitude = 0.0
     private var hasLocation = false
@@ -67,6 +79,21 @@ class DiscoverViewModel @Inject constructor(
             CourseSortOption.POPULAR -> rawCourses.sortedByDescending { it.completionCount }
             CourseSortOption.COMPLETION_RATE -> rawCourses.sortedByDescending { completionRate(it) }
         }
+
+    val mapCourses: List<NearbyCourseItem>
+        get() = when (sortOption) {
+            CourseSortOption.NEAREST -> rawMapCourses
+            CourseSortOption.POPULAR -> rawMapCourses.sortedByDescending { it.completionCount }
+            CourseSortOption.COMPLETION_RATE -> rawMapCourses.sortedByDescending { completionRate(it) }
+        }
+
+    fun onViewModeChange(mode: DiscoverViewMode) {
+        if (viewMode == mode) return
+        viewMode = mode
+        if (mode == DiscoverViewMode.MAP && rawMapCourses.isEmpty()) {
+            loadMapCourses()
+        }
+    }
 
     fun onSortChange(option: CourseSortOption) {
         sortOption = option
@@ -81,13 +108,13 @@ class DiscoverViewModel @Inject constructor(
     fun onIsLoopFilterChange(value: Boolean?) {
         if (isLoopFilter == value) return
         isLoopFilter = value
-        if (hasLocation) loadCourses()
+        reloadVisibleMode()
     }
 
     fun onDistanceFilterChange(option: DistanceFilterOption) {
         if (distanceFilter == option) return
         distanceFilter = option
-        if (hasLocation) loadCourses()
+        reloadVisibleMode()
     }
 
     fun onKeywordChange(value: String) {
@@ -95,12 +122,12 @@ class DiscoverViewModel @Inject constructor(
     }
 
     fun onSearch() {
-        if (hasLocation) loadCourses()
+        reloadVisibleMode()
     }
 
     fun clearKeyword() {
         keyword = ""
-        if (hasLocation) loadCourses()
+        reloadVisibleMode()
     }
 
     fun resetFilters() {
@@ -108,7 +135,7 @@ class DiscoverViewModel @Inject constructor(
         isLoopFilter = null
         distanceFilter = DistanceFilterOption.ALL
         sortOption = CourseSortOption.NEAREST
-        if (hasLocation) loadCourses()
+        reloadVisibleMode()
     }
 
     val activeFilterCount: Int
@@ -120,6 +147,10 @@ class DiscoverViewModel @Inject constructor(
         ).size
 
     fun refresh() {
+        if (viewMode == DiscoverViewMode.MAP) {
+            loadMapCourses()
+            return
+        }
         if (isLocationRequired || !hasLocation) return
         viewModelScope.launch {
             isRefreshing = true
@@ -166,6 +197,19 @@ class DiscoverViewModel @Inject constructor(
         loadJob = viewModelScope.launch { doLoadCourses() }
     }
 
+    private fun loadMapCourses() {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch { doLoadMapCourses() }
+    }
+
+    private fun reloadVisibleMode() {
+        if (viewMode == DiscoverViewMode.MAP) {
+            loadMapCourses()
+        } else if (hasLocation) {
+            loadCourses()
+        }
+    }
+
     private suspend fun doLoadCourses() {
         isLoading = true
         errorMessage = null
@@ -185,7 +229,36 @@ class DiscoverViewModel @Inject constructor(
         isLoading = false
     }
 
+    private suspend fun doLoadMapCourses() {
+        isMapLoading = true
+        mapErrorMessage = null
+        when (val result = courseRepository.getNearbyCourses(
+            latitude = KOREA_CENTER_LATITUDE,
+            longitude = KOREA_CENTER_LONGITUDE,
+            radiusMeters = NATIONWIDE_RADIUS_METERS,
+            minDistanceMeters = distanceFilter.minMeters,
+            maxDistanceMeters = distanceFilter.maxMeters,
+            isLoop = isLoopFilter,
+            keyword = keyword.trim().takeIf { it.isNotBlank() },
+            includeRoutePoints = false,
+            size = MAP_COURSE_LIMIT,
+        )) {
+            is NetworkResult.Success -> rawMapCourses = result.data.content
+            is NetworkResult.ApiError -> {
+                rawMapCourses = emptyList()
+                mapErrorMessage = "전국 코스를 불러오지 못했습니다."
+            }
+            is NetworkResult.NetworkError -> mapErrorMessage = "네트워크 오류가 발생했습니다."
+        }
+        isMapLoading = false
+    }
+
     companion object {
+        private const val KOREA_CENTER_LATITUDE = 36.35
+        private const val KOREA_CENTER_LONGITUDE = 127.8
+        private const val NATIONWIDE_RADIUS_METERS = 600_000
+        private const val MAP_COURSE_LIMIT = 500
+
         fun completionRate(course: NearbyCourseItem): Float =
             if (course.attemptCount > 0) course.completionCount.toFloat() / course.attemptCount else 0f
 

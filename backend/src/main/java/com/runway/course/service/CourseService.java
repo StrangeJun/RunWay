@@ -122,6 +122,7 @@ public class CourseService {
             Double latitude, Double longitude, Double radiusMeters,
             Double minDistanceMeters, Double maxDistanceMeters, Boolean isLoop,
             String keyword,
+            boolean includeRoutePoints,
             int page, int size) {
 
         // CTE로 현재 위치 포인트를 한 번 계산하고 재사용
@@ -194,7 +195,7 @@ public class CourseService {
         List<NearbyCourseItem> items = rows.stream().map(this::toNearbyCourseItem).toList();
 
         // 결과 코스들의 경로 포인트를 단일 쿼리로 일괄 조회
-        if (!items.isEmpty()) {
+        if (includeRoutePoints && !items.isEmpty()) {
             List<String> courseIdStrs = items.stream()
                     .map(it -> it.getCourseId().toString())
                     .toList();

@@ -29,8 +29,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Badge
@@ -58,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -75,6 +78,7 @@ fun DiscoverScreen(
     viewModel: DiscoverViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
     val keyboardController = LocalSoftwareKeyboardController.current
     var showFilterSheet by remember { mutableStateOf(false) }
 
@@ -99,7 +103,9 @@ fun DiscoverScreen(
         )
     }
 
-    val onRefresh: () -> Unit = if (viewModel.isLocationRequired) {
+    val onRefresh: () -> Unit = if (
+        viewModel.viewMode == DiscoverViewMode.LIST && viewModel.isLocationRequired
+    ) {
         { permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }
     } else viewModel::refresh
 
@@ -136,7 +142,11 @@ fun DiscoverScreen(
                         )
                         Text(
                             text = if (viewModel.isLoading) "불러오는 중…"
-                            else "${viewModel.courses.size}개 코스 · 반경 $radiusLabel",
+                            else if (viewModel.viewMode == DiscoverViewMode.MAP) {
+                                "전국 공개 코스를 지도에서 확인하세요"
+                            } else {
+                                "${viewModel.courses.size}개 코스 · 반경 $radiusLabel"
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -212,6 +222,17 @@ fun DiscoverScreen(
                 }
             }
 
+            item {
+                DiscoverViewModeSelector(
+                    selectedMode = viewModel.viewMode,
+                    onModeSelected = viewModel::onViewModeChange,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 12.dp),
+                )
+            }
+
             // ─── 활성 필터 요약 칩 ───
             if (viewModel.activeFilterCount > 0) {
                 item {
@@ -220,7 +241,10 @@ fun DiscoverScreen(
                         contentPadding = PaddingValues(horizontal = 20.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        if (viewModel.radiusMeters != 3000) {
+                        if (
+                            viewModel.viewMode == DiscoverViewMode.LIST &&
+                            viewModel.radiusMeters != 3000
+                        ) {
                             item {
                                 ActiveChip(label = "반경 $radiusLabel") {
                                     viewModel.onRadiusChange(3000)
@@ -270,6 +294,18 @@ fun DiscoverScreen(
 
             // ─── 코스 목록 ───
             when {
+                viewModel.viewMode == DiscoverViewMode.MAP -> item {
+                    DiscoverCourseMap(
+                        courses = viewModel.mapCourses,
+                        isLoading = viewModel.isMapLoading,
+                        errorMessage = viewModel.mapErrorMessage,
+                        onCourseClick = onNavigateToCourseDetail,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height((configuration.screenHeightDp - 384).coerceAtLeast(340).dp),
+                    )
+                }
+
                 viewModel.isLoading -> item {
                     Box(
                         modifier = Modifier.fillMaxWidth().padding(top = 80.dp),
@@ -364,6 +400,67 @@ fun DiscoverScreen(
     }
 }
 
+@Composable
+private fun DiscoverViewModeSelector(
+    selectedMode: DiscoverViewMode,
+    onModeSelected: (DiscoverViewMode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Row(modifier = Modifier.padding(4.dp)) {
+            listOf(
+                Triple(DiscoverViewMode.LIST, Icons.AutoMirrored.Filled.List, "목록"),
+                Triple(DiscoverViewMode.MAP, Icons.Filled.Map, "지도"),
+            ).forEach { (mode, icon, label) ->
+                val selected = selectedMode == mode
+                Surface(
+                    onClick = { onModeSelected(mode) },
+                    modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.small,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.surface
+                    } else {
+                        Color.Transparent
+                    },
+                    shadowElevation = if (selected) 1.dp else 0.dp,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ─── 필터 바텀시트 내용 ───────────────────────────────────────────────────────
 
 @Composable
@@ -411,20 +508,22 @@ private fun FilterSheetContent(
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ─── 반경 ───
-        FilterSection(title = "반경") {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(1000 to "1km", 3000 to "3km", 5000 to "5km").forEach { (meters, label) ->
-                    SheetChip(
-                        label = label,
-                        selected = viewModel.radiusMeters == meters,
-                        onClick = { viewModel.onRadiusChange(meters) },
-                    )
+        if (viewModel.viewMode == DiscoverViewMode.LIST) {
+            // ─── 반경 ───
+            FilterSection(title = "반경") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(1000 to "1km", 3000 to "3km", 5000 to "5km").forEach { (meters, label) ->
+                        SheetChip(
+                            label = label,
+                            selected = viewModel.radiusMeters == meters,
+                            onClick = { viewModel.onRadiusChange(meters) },
+                        )
+                    }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(20.dp))
+        }
 
         // ─── 코스 유형 ───
         FilterSection(title = "코스 유형") {

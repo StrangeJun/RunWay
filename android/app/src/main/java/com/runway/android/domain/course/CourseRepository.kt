@@ -30,6 +30,7 @@ interface CourseRepository {
         maxDistanceMeters: Double? = null,
         isLoop: Boolean? = null,
         keyword: String? = null,
+        includeRoutePoints: Boolean = true,
         page: Int = 0,
         size: Int = 20,
     ): NetworkResult<PageResponse<NearbyCourseItem>>
