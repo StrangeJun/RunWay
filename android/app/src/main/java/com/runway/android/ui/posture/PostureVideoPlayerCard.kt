@@ -456,31 +456,33 @@ private fun DrawScope.drawAnglePanel(
     textMeasurer: androidx.compose.ui.text.TextMeasurer,
 ) {
     val lines = buildList {
-        angles.trunkAngle?.let { add("Trunk  ${it.fmt()}°") }
-        angles.kneeAngleL?.let { add("Knee L  ${it.fmt()}°") }
-        angles.kneeAngleR?.let { add("Knee R  ${it.fmt()}°") }
-        angles.shankAngleL?.let { add("Shank L  ${it.fmt()}°") }
-        angles.shankAngleR?.let { add("Shank R  ${it.fmt()}°") }
-        angles.elbowAngle?.let { add("Elbow  ${it.fmt()}°") }
+        angles.trunkAngle?.let  { add("Trunk   ${it.fmt()}°") }
+        angles.kneeAngleL?.let  { add("Knee L  ${it.fmt()}°") }
+        angles.kneeAngleR?.let  { add("Knee R  ${it.fmt()}°") }
+        angles.shankAngleL?.let { add("Shank L ${it.fmt()}°") }
+        angles.shankAngleR?.let { add("Shank R ${it.fmt()}°") }
+        angles.elbowAngle?.let  { add("Elbow   ${it.fmt()}°") }
     }
     if (lines.isEmpty()) return
 
-    val style = TextStyle(fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Medium)
-    val lineH = 14f
-    val padX = 8f; val padY = 6f
-    val panelW = 110f
+    val style = TextStyle(fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Medium)
+
+    // Measure actual text dimensions so layout never overlaps
+    val measured = lines.map { textMeasurer.measure(it, style) }
+    val textH  = measured.first().size.height.toFloat()
+    val lineH  = textH * 1.25f
+    val padX   = 10f; val padY = 8f
+    val panelW = (measured.maxOf { it.size.width.toFloat() }) + padX * 2
     val panelH = lines.size * lineH + padY * 2
 
-    // Semi-transparent background
     drawRect(
-        Color.Black.copy(alpha = 0.55f),
+        Color.Black.copy(alpha = 0.6f),
         topLeft = Offset(6f, 6f),
         size = Size(panelW, panelH),
     )
 
-    lines.forEachIndexed { i, text ->
-        val measured = textMeasurer.measure(text, style)
-        drawText(measured, topLeft = Offset(6f + padX, 6f + padY + i * lineH))
+    measured.forEachIndexed { i, m ->
+        drawText(m, topLeft = Offset(6f + padX, 6f + padY + i * lineH))
     }
 }
 
