@@ -63,7 +63,7 @@ class PostureAnalysisViewModel @Inject constructor(
                 savedVideoPath = output.videoPath
 
                 check(output.frames.isNotEmpty()) {
-                    "영상에서 자세를 감지하지 못했습니다. 전신이 잘 보이도록 다시 촬영해주세요."
+                    "영상에서 자세를 감지하지 못했습니다. 전신이 잘 보이는 측면 러닝 영상을 선택하거나 다시 촬영해주세요."
                 }
 
                 val result = evaluator.evaluate(output.frames)

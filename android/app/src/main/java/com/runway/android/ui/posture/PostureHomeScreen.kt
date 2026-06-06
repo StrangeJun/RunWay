@@ -1,5 +1,9 @@
 package com.runway.android.ui.posture
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.filled.VideoCameraBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -58,12 +63,18 @@ import java.util.Locale
 @Composable
 fun PostureHomeScreen(
     onStartCapture: () -> Unit,
+    onSelectVideo: (Uri) -> Unit,
     onOpenResult: (String) -> Unit,
     viewModel: PostureAnalysisViewModel = hiltViewModel(),
 ) {
     val history by viewModel.analysisHistory.collectAsState()
     var showHelp by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<PostureAnalysisEntity?>(null) }
+    val videoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        uri?.let(onSelectVideo)
+    }
 
     if (showHelp) {
         PostureHelpDialog(onDismiss = { showHelp = false })
@@ -117,6 +128,11 @@ fun PostureHomeScreen(
                 PostureHeroCard(
                     historyCount = history.size,
                     onStartCapture = onStartCapture,
+                    onSelectVideo = {
+                        videoPicker.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly),
+                        )
+                    },
                 )
             }
             item {
@@ -182,7 +198,7 @@ private fun PostureEmptyState() {
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "측면 러닝 영상을 촬영하면 착지, 상체, 팔 각도 피드백을 저장해 비교할 수 있습니다.",
+                "측면 러닝 영상을 촬영하거나 갤러리에서 선택해 착지, 상체, 팔 각도를 분석할 수 있습니다.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -194,6 +210,7 @@ private fun PostureEmptyState() {
 private fun PostureHeroCard(
     historyCount: Int,
     onStartCapture: () -> Unit,
+    onSelectVideo: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -233,14 +250,31 @@ private fun PostureHeroCard(
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = onStartCapture,
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Icon(Icons.Filled.VideoCameraBack, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("새 분석 시작")
+                Button(
+                    onClick = onStartCapture,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                ) {
+                    Icon(Icons.Filled.VideoCameraBack, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("촬영")
+                }
+                Button(
+                    onClick = onSelectVideo,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    ),
+                ) {
+                    Icon(Icons.Filled.VideoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("영상 선택")
+                }
             }
         }
     }
@@ -328,12 +362,13 @@ internal fun gradeColor(grade: String) = when (grade) {
 @Composable
 private fun PostureHelpDialog(onDismiss: () -> Unit) {
     val steps = listOf(
+        "'촬영' 또는 '영상 선택'으로 분석할 러닝 영상을 준비하세요.",
         "카메라를 옆면에 고정하고 허리 높이에 맞추세요.",
         "전신이 화면 안에 들어오도록 거리를 조정하세요.",
-        "화면의 실루엣 가이드에 몸을 맞춘 뒤 '분석 시작'을 누르세요.",
+        "직접 촬영할 때는 실루엣 가이드에 몸을 맞춘 뒤 '분석 시작'을 누르세요.",
         "5초 카운트다운 후 자동으로 녹화가 시작됩니다.",
         "자연스럽게 10~15초간 달리는 모습을 촬영하세요.",
-        "녹화가 끝나면 AI가 러닝 자세를 분석해 드립니다.",
+        "선택하거나 촬영한 영상을 AI가 분석해 드립니다.",
     )
     AlertDialog(
         onDismissRequest = onDismiss,

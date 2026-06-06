@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -300,16 +301,16 @@ private fun WeatherSummaryPill(
 
     Column(
         modifier = modifier
+            .widthIn(max = 300.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(pillBg)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         if (weatherInfo != null) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -328,16 +329,23 @@ private fun WeatherSummaryPill(
                         color = onPill,
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    WeatherChip(text = "${weatherInfo.tempCelsius}°C", onPill = onPill)
-                    WeatherChip(text = "습도 ${weatherInfo.humidity}%", onPill = onPill)
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    WeatherChip(
+                        text = "${weatherInfo.tempCelsius}°C",
+                        onPill = onPill,
+                        emphasized = true,
+                    )
+                    WeatherChip(
+                        text = "습도 ${weatherInfo.humidity}%",
+                        onPill = onPill,
+                        emphasized = true,
+                    )
                 }
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 DustChip(
                     label = "미세먼지",
@@ -355,7 +363,7 @@ private fun WeatherSummaryPill(
         } else {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .width(240.dp)
                     .height(34.dp)
                     .clip(RoundedCornerShape(5.dp))
                     .background(onPill.copy(alpha = 0.07f))
@@ -399,11 +407,20 @@ private fun WeatherInfo.weatherIcon() = when {
 }
 
 @Composable
-private fun WeatherChip(text: String, onPill: Color) {
+private fun WeatherChip(
+    text: String,
+    onPill: Color,
+    emphasized: Boolean = false,
+) {
     Text(
         text = text,
-        fontSize = 13.sp,
-        color = onPill.copy(alpha = 0.75f),
+        style = if (emphasized) {
+            MaterialTheme.typography.labelLarge
+        } else {
+            MaterialTheme.typography.bodySmall
+        },
+        fontWeight = if (emphasized) FontWeight.Bold else FontWeight.Normal,
+        color = if (emphasized) onPill else onPill.copy(alpha = 0.75f),
     )
 }
 

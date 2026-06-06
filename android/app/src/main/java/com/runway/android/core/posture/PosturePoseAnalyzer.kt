@@ -23,7 +23,7 @@ data class PostureAnalysisOutput(
 
 class PosturePoseAnalyzer(private val context: Context) {
 
-    suspend fun extractAnalysis(videoUri: Uri, analysisId: String, targetFps: Int = 10): PostureAnalysisOutput =
+    suspend fun extractAnalysis(videoUri: Uri, analysisId: String, targetFps: Int = 15): PostureAnalysisOutput =
         withContext(Dispatchers.Default) {
             val retriever = MediaMetadataRetriever()
             try {
@@ -52,32 +52,16 @@ class PosturePoseAnalyzer(private val context: Context) {
                 val landmarker  = buildLandmarker()
                 val frames      = mutableListOf<PostureFrameAngles>()
                 val videoFrames = mutableListOf<PostureVideoFrame>()
-                var lastContentHash = Int.MIN_VALUE   // sentinel that no real frame will match
 
                 try {
                     var timeMs = 0L
                     while (timeMs < durationMs) {
                         val rawBitmap: Bitmap? = retriever.getFrameAtTime(
                             timeMs * 1000L,
-                            MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+                            MediaMetadataRetriever.OPTION_CLOSEST,
                         )
 
                         if (rawBitmap != null) {
-                            // Check for duplicate keyframes by sampling 5 pixels spread
-                            // across the frame. OPTION_CLOSEST_SYNC returns the same
-                            // keyframe for all sample times in the same keyframe interval;
-                            // object-identity checks are unreliable because the retriever
-                            // may return new Bitmap objects with identical pixel content.
-                            val contentHash = rawBitmap.contentHash()
-                            if (contentHash == lastContentHash) {
-                                rawBitmap.recycle()
-                                timeMs += intervalMs
-                                continue
-                            }
-                            lastContentHash = contentHash
-
-                            // Apply rotation AFTER the duplicate check so we don't waste
-                            // allocation work on frames we're going to skip.
                             val bitmap = if (rotationMatrix != null) {
                                 Bitmap.createBitmap(
                                     rawBitmap, 0, 0, rawBitmap.width, rawBitmap.height, rotationMatrix, true,
@@ -111,17 +95,6 @@ class PosturePoseAnalyzer(private val context: Context) {
                 retriever.release()
             }
         }
-
-    // Sample 5 pixels spread across the frame as a cheap content fingerprint.
-    // Collisions are possible but extremely rare for adjacent video frames.
-    private fun Bitmap.contentHash(): Int {
-        val w = width; val h = height
-        return getPixel(w / 4,     h / 4)     xor
-               getPixel(3 * w / 4, h / 4)     xor
-               getPixel(w / 2,     h / 2)     xor
-               getPixel(w / 4,     3 * h / 4) xor
-               getPixel(3 * w / 4, 3 * h / 4)
-    }
 
     private fun saveVideo(videoUri: Uri, id: String): String? = runCatching {
         val dir  = File(context.filesDir, "posture").also { it.mkdirs() }

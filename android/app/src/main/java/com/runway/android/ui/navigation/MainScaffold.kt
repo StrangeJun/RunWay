@@ -153,6 +153,7 @@ fun MainScaffold(
                     else -> {
                         PostureHomeScreen(
                             onStartCapture = { showPostureCapture = true },
+                            onSelectVideo = { uri -> postureViewModel.analyze(uri) },
                             onOpenResult = { postureResultId = it },
                             viewModel = postureViewModel,
                         )
