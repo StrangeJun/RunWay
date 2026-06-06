@@ -243,7 +243,7 @@ public class RunningService {
 
         // DB aggregate projection으로 기간 내 통계 조회
         RunningStatsProjection stats = runningRecordRepository
-                .aggregateStatsByPeriod(userId, completed.name(), periodStart, periodEnd);
+                .aggregateStatsByPeriod(userId, completed.getDbValue(), periodStart, periodEnd);
 
         long totalRuns = stats.getTotalRuns();
         double totalDistanceMeters = stats.getTotalDistanceMeters();
@@ -256,7 +256,7 @@ public class RunningService {
 
         // streak 계산 — 전체 완료 런 기준 (기간 무관)
         List<LocalDate> runDates = runningRecordRepository
-                .findDistinctRunDatesByUserId(userId, completed.name())
+                .findDistinctRunDatesByUserId(userId, completed.getDbValue())
                 .stream()
                 .map(RunDateProjection::getRunDate)
                 .collect(java.util.stream.Collectors.toList());

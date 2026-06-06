@@ -18,6 +18,7 @@ public class RunSummaryResponse {
     private Double distanceMeters;
     private Integer durationSeconds;
     private Integer avgPaceSecondsPerKm;
+    private Integer caloriesBurned;
 
     public static RunSummaryResponse from(RunningRecord record) {
         return RunSummaryResponse.builder()
@@ -28,6 +29,7 @@ public class RunSummaryResponse {
                 .distanceMeters(record.getDistanceMeters())
                 .durationSeconds(record.getDurationSeconds())
                 .avgPaceSecondsPerKm(record.getAvgPaceSecondsPerKm())
+                .caloriesBurned(record.getCaloriesBurned())
                 .build();
     }
 }

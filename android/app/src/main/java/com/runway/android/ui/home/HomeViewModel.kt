@@ -19,6 +19,7 @@ import com.runway.android.BuildConfig
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.course.model.NearbyCourseItem
 import com.runway.android.data.running.model.RunSummaryResponse
+import com.runway.android.data.running.model.RunningStatsResponse
 import com.runway.android.domain.course.CourseRepository
 import com.runway.android.domain.running.RunningRepository
 import com.runway.android.domain.user.UserRepository
@@ -105,26 +106,12 @@ class HomeViewModel @Inject constructor(
             isRefreshing = true
             nearbyCourses = emptyList()
             // Inline the essential awaits to correctly track completion
-            val runsResult = runningRepository.getMyRuns(page = 0, size = 20)
+            val runsResult = runningRepository.getMyRuns(page = 0, size = HOME_RUN_FETCH_SIZE)
             if (runsResult is NetworkResult.Success) {
-                recentRuns = runsResult.data.content.map { it.toRecentRun() }
+                recentRuns = runsResult.data.content.take(RECENT_RUN_COUNT).map { it.toRecentRun() }
             }
-            runningRepository.getRunningStats("weekly").let { r ->
-                if (r is NetworkResult.Success) {
-                    val s = r.data
-                    val pace = if (s.averagePaceSecondsPerKm > 0)
-                        "%d'%02d\"".format(s.averagePaceSecondsPerKm / 60, s.averagePaceSecondsPerKm % 60)
-                    else "--'--\""
-                    val streakSuffix = if (s.currentStreakDays > 0) " · ${s.currentStreakDays}day streak" else ""
-                    weeklyStats = WeeklyStats(
-                        distanceKm = if (s.totalDistanceMeters < 1000) "%.2f".format(s.totalDistanceMeters / 1000.0)
-                                     else "%.1f".format(s.totalDistanceMeters / 1000.0),
-                        runs = "${s.totalRuns}$streakSuffix",
-                        avgPace = pace,
-                        calories = s.totalCaloriesBurned.toString(),
-                    )
-                }
-            }
+            val statsResult = runningRepository.getRunningStats("weekly")
+            weeklyStats = resolveWeeklyStats(runsResult, statsResult)
             loadNearbyCoursesIfPermitted()
             isRefreshing = false
         }
@@ -244,50 +231,66 @@ class HomeViewModel @Inject constructor(
                 }
             }
 
-            val runsResult = runningRepository.getMyRuns(page = 0, size = 20)
+            val runsResult = runningRepository.getMyRuns(page = 0, size = HOME_RUN_FETCH_SIZE)
             val statsResult = runningRepository.getRunningStats("weekly")
 
             if (runsResult is NetworkResult.Success) {
-                recentRuns = runsResult.data.content.map { it.toRecentRun() }
+                recentRuns = runsResult.data.content.take(RECENT_RUN_COUNT).map { it.toRecentRun() }
             }
 
-            if (statsResult is NetworkResult.Success) {
-                val s = statsResult.data
-                val pace = if (s.averagePaceSecondsPerKm > 0)
-                    "%d'%02d\"".format(s.averagePaceSecondsPerKm / 60, s.averagePaceSecondsPerKm % 60)
-                else "--'--\""
-                val streakSuffix = if (s.currentStreakDays > 0) " · ${s.currentStreakDays}day streak" else ""
-                weeklyStats = WeeklyStats(
-                    distanceKm = if (s.totalDistanceMeters < 1000) "%.2f".format(s.totalDistanceMeters / 1000.0)
-                                 else "%.1f".format(s.totalDistanceMeters / 1000.0),
-                    runs = "${s.totalRuns}$streakSuffix",
-                    avgPace = pace,
-                    calories = s.totalCaloriesBurned.toString(),
-                )
-            } else if (runsResult is NetworkResult.Success) {
-                weeklyStats = calculateWeeklyStats(runsResult.data.content)
-            }
+            weeklyStats = resolveWeeklyStats(runsResult, statsResult)
             isLoadingRuns = false
         }
     }
 
-    private fun calculateWeeklyStats(runs: List<RunSummaryResponse>): WeeklyStats {
-        val zone = ZoneId.systemDefault()
-        val today = LocalDate.now(zone)
-        val weekStart = today
-            .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-            .atStartOfDay(zone)
-            .toInstant()
+    private fun resolveWeeklyStats(
+        runsResult: NetworkResult<com.runway.android.core.model.PageResponse<RunSummaryResponse>>,
+        statsResult: NetworkResult<RunningStatsResponse>,
+    ): WeeklyStats {
+        val runs = (runsResult as? NetworkResult.Success)?.data?.content
+        val localStats = runs?.let(::calculateWeeklyStats)
+        val localRunCount = runs?.count(::isCurrentWeekCompletedRun) ?: 0
+        val serverStats = (statsResult as? NetworkResult.Success)?.data
 
-        val weekRuns = runs.filter { run ->
-            val startedAt = runCatching { Instant.parse(run.startedAt) }.getOrNull() ?: return@filter false
-            startedAt >= weekStart
+        return when {
+            localRunCount > 0 -> localStats!!
+            serverStats != null -> serverStats.toWeeklyStats()
+            localStats != null -> localStats
+            else -> WeeklyStats("0.0", "0", "--'--\"", "0")
         }
+    }
+
+    private fun RunningStatsResponse.toWeeklyStats(): WeeklyStats {
+        val pace = if (averagePaceSecondsPerKm > 0) {
+            "%d'%02d\"".format(averagePaceSecondsPerKm / 60, averagePaceSecondsPerKm % 60)
+        } else {
+            "--'--\""
+        }
+        val streakSuffix = if (currentStreakDays > 0) " · ${currentStreakDays}day streak" else ""
+        return WeeklyStats(
+            distanceKm = if (totalDistanceMeters < 1000) {
+                "%.2f".format(totalDistanceMeters / 1000.0)
+            } else {
+                "%.1f".format(totalDistanceMeters / 1000.0)
+            },
+            runs = "$totalRuns$streakSuffix",
+            avgPace = pace,
+            calories = totalCaloriesBurned.toString(),
+        )
+    }
+
+    private fun calculateWeeklyStats(runs: List<RunSummaryResponse>): WeeklyStats {
+        val weekRuns = runs.filter(::isCurrentWeekCompletedRun)
 
         val totalDistanceKm = weekRuns.sumOf { it.distanceMeters ?: 0.0 } / 1000.0
         val totalSeconds = weekRuns.sumOf { it.durationSeconds ?: 0 }
         val avgPaceSecsPerKm = if (totalDistanceKm > 0.001) (totalSeconds / totalDistanceKm).toInt() else 0
-        val calories = (weekRuns.sumOf { it.distanceMeters ?: 0.0 } / 1000.0 * 72).toInt()
+        val recordedCalories = weekRuns.mapNotNull { it.caloriesBurned }
+        val calories = if (recordedCalories.isNotEmpty()) {
+            recordedCalories.sum()
+        } else {
+            (totalDistanceKm * 72).toInt()
+        }
 
         return WeeklyStats(
             distanceKm = "%.1f".format(totalDistanceKm),
@@ -295,6 +298,19 @@ class HomeViewModel @Inject constructor(
             avgPace = if (avgPaceSecsPerKm > 0) "%d'%02d\"".format(avgPaceSecsPerKm / 60, avgPaceSecsPerKm % 60) else "--'--\"",
             calories = calories.toString(),
         )
+    }
+
+    private fun isCurrentWeekCompletedRun(run: RunSummaryResponse): Boolean {
+        if (!run.status.equals("completed", ignoreCase = true)) return false
+
+        val zone = ZoneId.systemDefault()
+        val weekStart = LocalDate.now(zone)
+            .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            .atStartOfDay(zone)
+            .toInstant()
+        val nextWeekStart = weekStart.plusSeconds(7 * 24 * 60 * 60)
+        val startedAt = runCatching { Instant.parse(run.startedAt) }.getOrNull() ?: return false
+        return startedAt >= weekStart && startedAt < nextWeekStart
     }
 
     private fun RunSummaryResponse.toRecentRun(): RecentRun {
@@ -343,4 +359,9 @@ class HomeViewModel @Inject constructor(
         val pm10: Double,
         @SerializedName("pm2_5") val pm25: Double,
     )
+
+    private companion object {
+        const val HOME_RUN_FETCH_SIZE = 200
+        const val RECENT_RUN_COUNT = 20
+    }
 }
