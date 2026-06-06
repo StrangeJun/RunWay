@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [PostureAnalysisEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class PostureDatabase : RoomDatabase() {
@@ -24,6 +24,12 @@ abstract class PostureDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE posture_analyses ADD COLUMN verticalOscPercent REAL NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE posture_analyses ADD COLUMN verticalOscFeedback TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE posture_analyses ADD COLUMN verticalOscTip TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE posture_analyses ADD COLUMN ownerId TEXT NOT NULL DEFAULT ''")
             }
         }
     }

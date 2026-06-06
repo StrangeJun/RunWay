@@ -1,5 +1,6 @@
 package com.runway.android.core.datastore
 
+import android.util.Base64
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -8,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -31,6 +33,7 @@ class TokenDataStore @Inject constructor(
     // Flow — SplashScreen/ViewModel에서 로그인 상태 관찰 시 사용
     val accessTokenFlow: Flow<String?> = dataStore.data.map { it[KEY_ACCESS_TOKEN] }
     val refreshTokenFlow: Flow<String?> = dataStore.data.map { it[KEY_REFRESH_TOKEN] }
+    val userIdFlow: Flow<String?> = accessTokenFlow.map(::decodeUserId)
 
     suspend fun saveTokens(accessToken: String, refreshToken: String) {
         dataStore.edit { prefs ->
@@ -52,4 +55,12 @@ class TokenDataStore @Inject constructor(
     fun getRefreshTokenBlocking(): String? = runBlocking {
         refreshTokenFlow.first()
     }
+
+    suspend fun getUserId(): String? = userIdFlow.first()
+
+    private fun decodeUserId(token: String?): String? = runCatching {
+        val payload = token?.split(".")?.getOrNull(1) ?: return null
+        val decoded = Base64.decode(payload, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+        JSONObject(String(decoded, Charsets.UTF_8)).optString("sub").takeIf { it.isNotBlank() }
+    }.getOrNull()
 }

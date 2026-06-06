@@ -24,6 +24,7 @@ import com.runway.android.ui.home.HomeScreen
 import com.runway.android.ui.home.HomeViewModel
 import com.runway.android.ui.course.library.CoursesLibraryScreen
 import com.runway.android.ui.posture.PostureAnalysisState
+import com.runway.android.core.posture.local.MAX_POSTURE_ANALYSIS_HISTORY
 import com.runway.android.ui.posture.PostureAnalysisViewModel
 import com.runway.android.ui.posture.PostureAnalyzingScreen
 import com.runway.android.ui.posture.PostureHomeScreen
@@ -55,6 +56,15 @@ fun MainScaffold(
     var showPostureCapture by remember { mutableStateOf(false) }
     var postureResultId by remember { mutableStateOf<String?>(null) }
     val postureState by postureViewModel.analysisState.collectAsState()
+    val postureHistory by postureViewModel.analysisHistory.collectAsState()
+    val canCreatePostureAnalysis = postureHistory.size < MAX_POSTURE_ANALYSIS_HISTORY
+    val showPostureLimitMessage = {
+        Toast.makeText(
+            context,
+            "분석 이력은 최대 ${MAX_POSTURE_ANALYSIS_HISTORY}개입니다. 기존 이력을 삭제해주세요.",
+            Toast.LENGTH_LONG,
+        ).show()
+    }
 
     // Handle analysis errors without mutating state during composition
     LaunchedEffect(postureState) {
@@ -132,8 +142,12 @@ fun MainScaffold(
                             result = success.result,
                             onBack = { postureViewModel.resetState() },
                             onRetake = {
-                                postureViewModel.resetState()
-                                showPostureCapture = true
+                                if (canCreatePostureAnalysis) {
+                                    postureViewModel.resetState()
+                                    showPostureCapture = true
+                                } else {
+                                    showPostureLimitMessage()
+                                }
                             },
                             viewModel = postureViewModel,
                         )
@@ -144,8 +158,12 @@ fun MainScaffold(
                             result = null,
                             onBack = { postureResultId = null },
                             onRetake = {
-                                postureResultId = null
-                                showPostureCapture = true
+                                if (canCreatePostureAnalysis) {
+                                    postureResultId = null
+                                    showPostureCapture = true
+                                } else {
+                                    showPostureLimitMessage()
+                                }
                             },
                             viewModel = postureViewModel,
                         )

@@ -12,12 +12,18 @@ interface PostureAnalysisDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: PostureAnalysisEntity)
 
-    @Query("SELECT * FROM posture_analyses ORDER BY createdAt DESC")
-    fun observeAll(): Flow<List<PostureAnalysisEntity>>
+    @Query("SELECT * FROM posture_analyses WHERE ownerId = :ownerId ORDER BY createdAt DESC")
+    fun observeAll(ownerId: String): Flow<List<PostureAnalysisEntity>>
 
-    @Query("SELECT * FROM posture_analyses WHERE id = :id")
-    suspend fun findById(id: String): PostureAnalysisEntity?
+    @Query("SELECT * FROM posture_analyses WHERE id = :id AND ownerId = :ownerId")
+    suspend fun findById(id: String, ownerId: String): PostureAnalysisEntity?
 
-    @Query("DELETE FROM posture_analyses WHERE id = :id")
-    suspend fun deleteById(id: String)
+    @Query("SELECT COUNT(*) FROM posture_analyses WHERE ownerId = :ownerId")
+    suspend fun count(ownerId: String): Int
+
+    @Query("DELETE FROM posture_analyses WHERE id = :id AND ownerId = :ownerId")
+    suspend fun deleteById(id: String, ownerId: String)
+
+    @Query("UPDATE posture_analyses SET ownerId = :ownerId WHERE ownerId = ''")
+    suspend fun assignUnowned(ownerId: String)
 }

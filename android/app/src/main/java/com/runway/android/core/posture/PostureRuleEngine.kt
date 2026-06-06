@@ -189,7 +189,9 @@ class PostureRuleEngine @Inject constructor() : PostureEvaluator {
     }
 
     private fun assessCadence(frames: List<PostureFrameAngles>): PostureCategoryResult {
-        val spm = cadenceFromAlternatingAnkles(frames) ?: cadenceFromStrikeEvents(frames)
+        val spm = cadenceFromSingleLegCycle(frames)
+            ?: cadenceFromAlternatingAnkles(frames)
+            ?: cadenceFromStrikeEvents(frames)
         if (spm == null) {
             return PostureCategoryResult(
                 0, 0f, 170f, 180f, "spm",
@@ -207,6 +209,56 @@ class PostureRuleEngine @Inject constructor() : PostureEvaluator {
             "케이던스를 170~180spm에 가깝게 조정해보세요.",
             "케이던스가 권장 범위에서 크게 벗어났습니다.",
         )
+    }
+
+    private fun cadenceFromSingleLegCycle(frames: List<PostureFrameAngles>): Float? {
+        val left = relativeAnkleSignal(frames, SKEL_L_HIP, SKEL_L_ANKLE)
+        val right = relativeAnkleSignal(frames, SKEL_R_HIP, SKEL_R_ANKLE)
+        val signal = listOf(left, right)
+            .filter { it.size >= MIN_CADENCE_SIGNAL_FRAMES }
+            .maxByOrNull { it.size } ?: return null
+
+        val smoothed = signal.indices.map { index ->
+            val from = (index - 1).coerceAtLeast(0)
+            val to = (index + 1).coerceAtMost(signal.lastIndex)
+            signal[index].first to (from..to).map { signal[it].second }.average().toFloat()
+        }
+        val values = smoothed.map { it.second }
+        val range = (values.maxOrNull() ?: 0f) - (values.minOrNull() ?: 0f)
+        if (range < MIN_ANKLE_SWING_RANGE) return null
+        val peakThreshold = (values.maxOrNull() ?: 0f) - range * 0.35f
+
+        val peaks = mutableListOf<Long>()
+        for (index in 1 until smoothed.lastIndex) {
+            val previous = smoothed[index - 1].second
+            val current = smoothed[index].second
+            val next = smoothed[index + 1].second
+            val timestamp = smoothed[index].first
+            if (current >= peakThreshold && current > previous && current >= next) {
+                if (peaks.isEmpty() || timestamp - peaks.last() >= MIN_STRIDE_INTERVAL_MS) {
+                    peaks += timestamp
+                }
+            }
+        }
+
+        val strideIntervals = peaks.zipWithNext { first, second -> second - first }
+            .filter { it in MIN_STRIDE_INTERVAL_MS..MAX_STRIDE_INTERVAL_MS }
+        if (strideIntervals.size < 2) return null
+        return 120_000f / strideIntervals.medianLong()
+    }
+
+    private fun relativeAnkleSignal(
+        frames: List<PostureFrameAngles>,
+        hipIndex: Int,
+        ankleIndex: Int,
+    ): List<Pair<Long, Float>> = frames.mapNotNull { frame ->
+        val hip = frame.landmarks.getOrNull(hipIndex)
+        val ankle = frame.landmarks.getOrNull(ankleIndex)
+        if (hip == null || ankle == null || minOf(hip.v, ankle.v) < 0.3f) {
+            null
+        } else {
+            frame.timestampMs to (ankle.x - hip.x)
+        }
     }
 
     /**
@@ -434,5 +486,9 @@ class PostureRuleEngine @Inject constructor() : PostureEvaluator {
     private companion object {
         const val MIN_STEP_INTERVAL_MS = 250L
         const val MAX_STEP_INTERVAL_MS = 1_000L
+        const val MIN_STRIDE_INTERVAL_MS = 450L
+        const val MAX_STRIDE_INTERVAL_MS = 1_500L
+        const val MIN_CADENCE_SIGNAL_FRAMES = 12
+        const val MIN_ANKLE_SWING_RANGE = 0.05f
     }
 }

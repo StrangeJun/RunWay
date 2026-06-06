@@ -19,6 +19,7 @@ class PostureLandmarkValidator {
         ).coerceAtLeast(MIN_TORSO_SCALE)
 
         validateMotion(output, previous, torsoScale)
+        validateLegLength(output, torsoScale)
         validateLegLengthBalance(output)
         previous = output
         return output
@@ -69,6 +70,19 @@ class PostureLandmarkValidator {
         }
     }
 
+    private fun validateLegLength(points: MutableList<SkeletonPoint>, torsoScale: Float) {
+        val minimumLegLength = torsoScale * MIN_LEG_TO_TORSO_RATIO
+        val leftLength = legLength(points, SKEL_L_HIP, SKEL_L_KNEE, SKEL_L_ANKLE)
+        val rightLength = legLength(points, SKEL_R_HIP, SKEL_R_KNEE, SKEL_R_ANKLE)
+
+        if (leftLength in 0f..<minimumLegLength) {
+            hideLeg(points, SKEL_L_KNEE, SKEL_L_ANKLE)
+        }
+        if (rightLength in 0f..<minimumLegLength) {
+            hideLeg(points, SKEL_R_KNEE, SKEL_R_ANKLE)
+        }
+    }
+
     private fun legLength(
         points: List<SkeletonPoint>,
         hipIndex: Int,
@@ -102,8 +116,9 @@ class PostureLandmarkValidator {
     private companion object {
         const val MIN_VISIBILITY = 0.30f
         const val MIN_TORSO_SCALE = 0.08f
-        const val MAX_KNEE_TRAVEL = 0.85f
-        const val MAX_ANKLE_TRAVEL = 1.25f
-        const val MIN_BILATERAL_LEG_RATIO = 0.72f
+        const val MAX_KNEE_TRAVEL = 0.45f
+        const val MAX_ANKLE_TRAVEL = 0.70f
+        const val MIN_LEG_TO_TORSO_RATIO = 1.25f
+        const val MIN_BILATERAL_LEG_RATIO = 0.78f
     }
 }

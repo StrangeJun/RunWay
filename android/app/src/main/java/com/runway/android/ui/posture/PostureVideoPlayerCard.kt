@@ -5,11 +5,13 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -274,14 +276,16 @@ private fun PostureVideoPlayerSurface(
         shape = if (isFullscreen) MaterialTheme.shapes.extraSmall else MaterialTheme.shapes.extraLarge,
         color = Color.Black,
     ) {
-        Column(modifier = if (isFullscreen) Modifier.fillMaxSize() else Modifier) {
-            Box(
-                modifier = if (isFullscreen) {
-                    Modifier.fillMaxWidth().weight(1f)
-                } else {
-                    Modifier.fillMaxWidth().height(260.dp)
-                },
-            ) {
+        BoxWithConstraints {
+            val fullscreenControlsHeight = maxHeight * 0.22f
+            Column(modifier = if (isFullscreen) Modifier.fillMaxSize() else Modifier) {
+                Box(
+                    modifier = if (isFullscreen) {
+                        Modifier.fillMaxWidth().weight(1f)
+                    } else {
+                        Modifier.fillMaxWidth().height(260.dp)
+                    },
+                ) {
                 AndroidView(
                     factory = { ctx ->
                         PlayerView(ctx).apply {
@@ -319,20 +323,25 @@ private fun PostureVideoPlayerSurface(
                         tint = Color.White,
                     )
                 }
-            }
+                }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF111111))
-                    .then(if (isFullscreen) Modifier.navigationBarsPadding() else Modifier)
-                    .padding(
-                        start = 16.dp,
-                        top = 8.dp,
-                        end = 16.dp,
-                        bottom = if (isFullscreen) 20.dp else 8.dp,
-                    ),
-            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (isFullscreen) {
+                                Modifier
+                                    .heightIn(min = 112.dp)
+                                    .height(fullscreenControlsHeight)
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .background(Color(0xFF111111))
+                        .then(if (isFullscreen) Modifier.navigationBarsPadding() else Modifier)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.Center,
+                ) {
                 Slider(
                     value = if (duration > 0) currentPosition.toFloat() / duration else 0f,
                     onValueChange = onSeek,
@@ -381,6 +390,7 @@ private fun PostureVideoPlayerSurface(
                             )
                         }
                     }
+                }
                 }
             }
         }

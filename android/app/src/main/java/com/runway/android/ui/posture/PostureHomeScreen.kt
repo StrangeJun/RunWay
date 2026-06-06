@@ -54,6 +54,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.posture.local.PostureAnalysisEntity
+import com.runway.android.core.posture.local.MAX_POSTURE_ANALYSIS_HISTORY
 import com.runway.android.ui.theme.RunwayTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -69,7 +70,9 @@ fun PostureHomeScreen(
 ) {
     val history by viewModel.analysisHistory.collectAsState()
     var showHelp by remember { mutableStateOf(false) }
+    var showLimitDialog by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<PostureAnalysisEntity?>(null) }
+    val isAtLimit = history.size >= MAX_POSTURE_ANALYSIS_HISTORY
     val videoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
@@ -78,6 +81,18 @@ fun PostureHomeScreen(
 
     if (showHelp) {
         PostureHelpDialog(onDismiss = { showHelp = false })
+    }
+    if (showLimitDialog) {
+        AlertDialog(
+            onDismissRequest = { showLimitDialog = false },
+            title = { Text("분석 이력 저장 한도") },
+            text = {
+                Text("분석 이력은 최대 ${MAX_POSTURE_ANALYSIS_HISTORY}개까지 저장됩니다. 기존 이력을 하나 삭제하면 새 영상을 분석할 수 있습니다.")
+            },
+            confirmButton = {
+                TextButton(onClick = { showLimitDialog = false }) { Text("확인") }
+            },
+        )
     }
     pendingDelete?.let { entity ->
         AlertDialog(
@@ -127,11 +142,18 @@ fun PostureHomeScreen(
             item {
                 PostureHeroCard(
                     historyCount = history.size,
-                    onStartCapture = onStartCapture,
+                    isAtLimit = isAtLimit,
+                    onStartCapture = {
+                        if (isAtLimit) showLimitDialog = true else onStartCapture()
+                    },
                     onSelectVideo = {
-                        videoPicker.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly),
-                        )
+                        if (isAtLimit) {
+                            showLimitDialog = true
+                        } else {
+                            videoPicker.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly),
+                            )
+                        }
                     },
                 )
             }
@@ -209,6 +231,7 @@ private fun PostureEmptyState() {
 @Composable
 private fun PostureHeroCard(
     historyCount: Int,
+    isAtLimit: Boolean,
     onStartCapture: () -> Unit,
     onSelectVideo: () -> Unit,
 ) {
@@ -243,9 +266,14 @@ private fun PostureHeroCard(
                     )
                     Spacer(Modifier.height(3.dp))
                     Text(
-                        text = "최근 ${historyCount}개의 분석 이력을 관리합니다.",
+                        text = if (isAtLimit) {
+                            "${historyCount}/${MAX_POSTURE_ANALYSIS_HISTORY}개 저장됨 · 삭제 후 새 분석 가능"
+                        } else {
+                            "${historyCount}/${MAX_POSTURE_ANALYSIS_HISTORY}개 저장됨"
+                        },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (isAtLimit) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -288,6 +316,13 @@ private fun PostureHistoryCard(
     onDelete: () -> Unit,
 ) {
     val dateStr = SimpleDateFormat("M월 d일 HH:mm", Locale.KOREAN).format(Date(entity.createdAt))
+    val topMetrics = listOf(
+        "무릎" to entity.kneeScore,
+        "상체" to entity.trunkScore,
+        "팔" to entity.elbowScore,
+        "고관절" to entity.hipScore,
+    ).sortedByDescending { it.second }.take(2)
+    val metricSummary = topMetrics.joinToString(" · ") { (label, score) -> "$label $score" }
 
     Surface(
         onClick = onClick,
@@ -322,14 +357,18 @@ private fun PostureHistoryCard(
                 }
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(dateStr, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(4.dp))
                 Text(
-                    entity.overallFeedback,
+                    "상위 지표 · $metricSummary",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    dateStr,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             IconButton(onClick = onDelete) {

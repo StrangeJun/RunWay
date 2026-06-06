@@ -128,6 +128,22 @@ class PostureRuleEngineTest {
     }
 
     @Test
+    fun `cadence uses one reliable leg when the other leg is hidden`() {
+        val frames = (0 until 120).map { index ->
+            val timestamp = index * (1_000L / 15L)
+            val seconds = timestamp / 1_000.0
+            val ankleX = (0.20 * sin(2.0 * PI * 1.5 * seconds)).toFloat()
+            frame(timestamp = timestamp).copy(
+                landmarks = singleLegLandmarks(ankleX),
+            )
+        }
+
+        val cadence = engine.evaluate(frames).cadence
+
+        assertTrue(cadence.measuredValue in 175f..185f)
+    }
+
+    @Test
     fun `legacy representative fields remain evaluable`() {
         val legacy = PostureFrameAngles(
             kneeFlexAngle = 140f,
@@ -183,5 +199,13 @@ class PostureRuleEngineTest {
         MutableList(13) { SkeletonPoint(0.5f, 0.5f, 0.95f) }.apply {
             this[SKEL_L_ANKLE] = SkeletonPoint(0.45f, 0.75f + difference / 2f, 0.95f)
             this[SKEL_R_ANKLE] = SkeletonPoint(0.55f, 0.75f - difference / 2f, 0.95f)
+        }
+
+    private fun singleLegLandmarks(ankleOffsetX: Float): List<SkeletonPoint> =
+        MutableList(13) { SkeletonPoint(0.5f, 0.5f, 0.95f) }.apply {
+            this[SKEL_L_HIP] = SkeletonPoint(0.5f, 0.5f, 0.95f)
+            this[SKEL_L_ANKLE] = SkeletonPoint(0.5f + ankleOffsetX, 0.85f, 0.95f)
+            this[SKEL_R_HIP] = SkeletonPoint(0.5f, 0.5f, 0f)
+            this[SKEL_R_ANKLE] = SkeletonPoint(0.5f, 0.5f, 0f)
         }
 }

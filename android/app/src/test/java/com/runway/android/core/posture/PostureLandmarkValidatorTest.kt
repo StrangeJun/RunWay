@@ -43,6 +43,19 @@ class PostureLandmarkValidatorTest {
         assertEquals(0f, result[SKEL_R_ANKLE].v, 0f)
     }
 
+    @Test
+    fun `hides a high confidence leg that is too short for the torso`() {
+        val points = normalPose().toMutableList().apply {
+            this[SKEL_R_KNEE] = point(0.55f, 0.55f)
+            this[SKEL_R_ANKLE] = point(0.58f, 0.62f)
+        }
+
+        val result = PostureLandmarkValidator().validate(points)
+
+        assertEquals(0f, result[SKEL_R_KNEE].v, 0f)
+        assertEquals(0f, result[SKEL_R_ANKLE].v, 0f)
+    }
+
     private fun normalPose(): List<SkeletonPoint> = listOf(
         point(0.50f, 0.16f),
         point(0.46f, 0.28f), point(0.54f, 0.28f),

@@ -3,9 +3,12 @@ package com.runway.android.core.posture.local
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+const val MAX_POSTURE_ANALYSIS_HISTORY = 10
+
 @Entity(tableName = "posture_analyses")
 data class PostureAnalysisEntity(
     @PrimaryKey val id: String,
+    val ownerId: String = "",
     val createdAt: Long,
     val overallScore: Int,
     val grade: String,
