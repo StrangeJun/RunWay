@@ -74,8 +74,6 @@ class RunResultViewModel @Inject constructor(
         private set
     var isLoop by mutableStateOf(false)
         private set
-    var publish by mutableStateOf(true)
-        private set
     var isCreating by mutableStateOf(false)
         private set
     var createError by mutableStateOf<String?>(null)
@@ -109,10 +107,6 @@ class RunResultViewModel @Inject constructor(
         isLoop = value
     }
 
-    fun onPublishChange(value: Boolean) {
-        publish = value
-    }
-
     fun createCourse() {
         val id = runId ?: return
         if (courseName.isBlank()) {
@@ -124,9 +118,9 @@ class RunResultViewModel @Inject constructor(
             createError = null
             val request = CreateCourseFromRunRequest(
                 name = courseName.trim(),
-                description = courseDescription.trim().ifBlank { null },
+                description = null,
                 isLoop = isLoop,
-                publish = publish,
+                publish = false,
             )
             when (val result = courseRepository.createCourseFromRun(id, request)) {
                 is NetworkResult.Success -> {

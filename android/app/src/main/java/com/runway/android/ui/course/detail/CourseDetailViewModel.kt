@@ -38,6 +38,10 @@ class CourseDetailViewModel @Inject constructor(
     private val courseAttemptRepository: CourseAttemptRepository,
 ) : ViewModel() {
 
+    companion object {
+        const val PUBLISH_MIN_COMPLETIONS = 10
+    }
+
     val courseId: String = checkNotNull(savedStateHandle["courseId"])
 
     var isLoading by mutableStateOf(false)
@@ -89,6 +93,8 @@ class CourseDetailViewModel @Inject constructor(
     var publishError by mutableStateOf<String?>(null)
         private set
     var publishSuccess by mutableStateOf(false)
+        private set
+    var showPublishLockedDialog by mutableStateOf(false)
         private set
 
     var showArchiveDialog by mutableStateOf(false)
@@ -237,9 +243,18 @@ class CourseDetailViewModel @Inject constructor(
     }
 
     fun openPublishDialog() {
-        publishError = null
-        publishSuccess = false
-        showPublishDialog = true
+        val completions = courseDetail?.completionCount ?: 0
+        if (completions < PUBLISH_MIN_COMPLETIONS) {
+            showPublishLockedDialog = true
+        } else {
+            publishError = null
+            publishSuccess = false
+            showPublishDialog = true
+        }
+    }
+
+    fun dismissPublishLockedDialog() {
+        showPublishLockedDialog = false
     }
 
     fun dismissPublishDialog() {

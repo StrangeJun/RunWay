@@ -310,17 +310,13 @@ fun RunResultScreen(
         }
     }
 
-    // ─── 코스 생성 다이얼로그 ───
+    // ─── 코스 저장 다이얼로그 (항상 draft로 저장) ───
     if (viewModel.showCreateDialog) {
         CreateCourseDialog(
             courseName = viewModel.courseName,
             onCourseNameChange = viewModel::onCourseNameChange,
-            courseDescription = viewModel.courseDescription,
-            onDescriptionChange = viewModel::onDescriptionChange,
             isLoop = viewModel.isLoop,
             onIsLoopChange = viewModel::onIsLoopChange,
-            publish = viewModel.publish,
-            onPublishChange = viewModel::onPublishChange,
             isCreating = viewModel.isCreating,
             errorMessage = viewModel.createError,
             onConfirm = viewModel::createCourse,

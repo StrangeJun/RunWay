@@ -169,6 +169,26 @@ fun CourseDetailScreen(
         )
     }
 
+    // 공개 잠금 팝업 — 10회 완주 미달 시
+    if (viewModel.showPublishLockedDialog) {
+        val completions = viewModel.courseDetail?.completionCount ?: 0
+        val remaining = (CourseDetailViewModel.PUBLISH_MIN_COMPLETIONS - completions).coerceAtLeast(0)
+        AlertDialog(
+            onDismissRequest = viewModel::dismissPublishLockedDialog,
+            title = { Text("공개 코스 등록 조건 미달") },
+            text = {
+                Text(
+                    "내가 만든 코스를 ${CourseDetailViewModel.PUBLISH_MIN_COMPLETIONS}회 완주해야 공개 코스로 등록할 수 있습니다.\n\n" +
+                    "현재 완주: ${completions}회 / ${CourseDetailViewModel.PUBLISH_MIN_COMPLETIONS}회\n" +
+                    "앞으로 ${remaining}회 더 완주하면 공개할 수 있어요.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissPublishLockedDialog) { Text("확인") }
+            },
+        )
+    }
+
     // 발행 성공 다이얼로그
     if (viewModel.publishSuccess) {
         AlertDialog(

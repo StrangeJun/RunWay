@@ -11,8 +11,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,19 +18,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.runway.android.ui.components.RunwayLoadingButton
 import com.runway.android.ui.components.RunwayTextField
 
 @Composable
 fun CreateCourseDialog(
     courseName: String,
     onCourseNameChange: (String) -> Unit,
-    courseDescription: String,
-    onDescriptionChange: (String) -> Unit,
     isLoop: Boolean,
     onIsLoopChange: (Boolean) -> Unit,
-    publish: Boolean,
-    onPublishChange: (Boolean) -> Unit,
     isCreating: Boolean,
     errorMessage: String?,
     onConfirm: () -> Unit,
@@ -43,52 +36,25 @@ fun CreateCourseDialog(
         containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Text(
-                text = "코스 만들기",
+                text = "코스 저장",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(
+                    text = "내 코스로 저장합니다. 코스를 10회 완주하면 공개 코스로 등록할 수 있습니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
                 RunwayTextField(
                     value = courseName,
                     onValueChange = onCourseNameChange,
                     label = "코스 이름 *",
                     placeholder = "아침 러닝 코스",
                     isError = errorMessage != null && courseName.isBlank(),
-                )
-
-                OutlinedTextField(
-                    value = courseDescription,
-                    onValueChange = onDescriptionChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = {
-                        Text(
-                            text = "설명 (선택)",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    },
-                    placeholder = {
-                        Text(
-                            text = "코스에 대한 간단한 설명을 입력하세요.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        )
-                    },
-                    minLines = 2,
-                    maxLines = 4,
-                    shape = MaterialTheme.shapes.medium,
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurface,
-                    ),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        cursorColor = MaterialTheme.colorScheme.primary,
-                    ),
                 )
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -98,13 +64,6 @@ fun CreateCourseDialog(
                     description = "시작점과 종료점이 같은 코스",
                     checked = isLoop,
                     onCheckedChange = onIsLoopChange,
-                )
-
-                ToggleRow(
-                    label = "바로 공개",
-                    description = "저장 후 다른 사람이 탐색할 수 있게 공개합니다.",
-                    checked = publish,
-                    onCheckedChange = onPublishChange,
                 )
 
                 if (errorMessage != null) {

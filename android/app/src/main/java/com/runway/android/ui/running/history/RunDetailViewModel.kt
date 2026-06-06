@@ -100,9 +100,7 @@ class RunDetailViewModel @Inject constructor(
 
     var showCreateCourseDialog by mutableStateOf(false)
     var courseName by mutableStateOf("")
-    var courseDescription by mutableStateOf("")
     var isLoop by mutableStateOf(false)
-    var publish by mutableStateOf(true)
     var isCreatingCourse by mutableStateOf(false)
     var createCourseError by mutableStateOf<String?>(null)
 
@@ -113,9 +111,7 @@ class RunDetailViewModel @Inject constructor(
 
     fun openCreateCourseDialog() {
         courseName = ""
-        courseDescription = ""
         isLoop = false
-        publish = true
         createCourseError = null
         showCreateCourseDialog = true
     }
@@ -134,9 +130,9 @@ class RunDetailViewModel @Inject constructor(
             createCourseError = null
             val request = CreateCourseFromRunRequest(
                 name = courseName.trim(),
-                description = courseDescription.trim().ifBlank { null },
+                description = null,
                 isLoop = isLoop,
-                publish = publish,
+                publish = false,
             )
             when (val result = courseRepository.createCourseFromRun(runId, request)) {
                 is NetworkResult.Success -> {
