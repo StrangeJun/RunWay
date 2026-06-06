@@ -564,7 +564,7 @@ private fun createClusterIcon(
     val pinH = ((if (selected) 37 else 33) * density).toInt()
 
     // 뱃지 크기 (핀 우하단에 겹쳐 붙음)
-    val badgeR = 8.5f * density          // 뱃지 반지름
+    val badgeR = 12f * density           // 뱃지 반지름
     val badgePad = 1.5f * density        // 핀 경계 바깥쪽 여백
 
     // 전체 비트맵: 핀 + 뱃지가 우하단으로 삐져나오는 만큼 확장
@@ -653,7 +653,7 @@ private fun createClusterIcon(
     // 숫자
     val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = 0xFFFFFFFF.toInt()
-        textSize = (if (count >= 10) 7.5f else 9f) * density
+        textSize = (if (count >= 10) 11f else 13f) * density
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     }
