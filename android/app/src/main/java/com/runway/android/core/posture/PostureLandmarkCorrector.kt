@@ -88,8 +88,8 @@ class PostureLandmarkCorrector {
         const val FACING_UPDATE_RATIO = 0.12f
         const val SIDE_PROFILE_START_RATIO = 0.08f
         const val SIDE_PROFILE_FULL_RATIO = 0.28f
-        const val KNEE_OFFSET_RATIO = 0.03f
-        const val MIN_KNEE_OFFSET = 0.004f
-        const val MAX_KNEE_OFFSET = 0.016f
+        const val KNEE_OFFSET_RATIO = 0.06f
+        const val MIN_KNEE_OFFSET = 0.006f
+        const val MAX_KNEE_OFFSET = 0.030f
     }
 }
