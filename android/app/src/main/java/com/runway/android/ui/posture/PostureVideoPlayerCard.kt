@@ -53,7 +53,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
-import com.runway.android.core.posture.LegSwapCorrector
 import com.runway.android.core.posture.RunningFormStrikeDetector
 import com.runway.android.core.posture.SKEL_L_ANKLE
 import com.runway.android.core.posture.SKEL_L_ELBOW
@@ -109,8 +108,7 @@ fun PostureVideoPlayerCard(
     }
     DisposableEffect(exoPlayer) { onDispose { exoPlayer.release() } }
 
-    val sortedFrames     = remember(videoFrames) { videoFrames.sortedBy { it.t } }
-    val legSwapCorrector = remember(videoFrames) { LegSwapCorrector() }
+    val sortedFrames = remember(videoFrames) { videoFrames.sortedBy { it.t } }
 
     // running-form-analyzer FootStrikeDetector — one per ankle
     val strikeDetectorL = remember(videoFrames) { RunningFormStrikeDetector() }
@@ -142,29 +140,19 @@ fun PostureVideoPlayerCard(
     LaunchedEffect(currentPosition) {
         val interpolated = interpolateFrame(sortedFrames, currentPosition)
         currentFrame = interpolated?.let {
-            // 분석 파이프라인(PostureLandmarkCorrector)에서 이미 One Euro Filter로 평활화가
-            // 완료되어 있으므로 재생 시점에 smoother.smooth()를 재적용하지 않는다.
-            // 이중 평활화는 특히 저속(0.25x)에서 알파≈0.11 → 과도한 지연을 유발한다.
-            val corrected = legSwapCorrector.correct(it.pts, it.t)
+            // 분석 파이프라인에서 이미 LegSwapCorrector + One Euro Filter 가 완료되었으므로
+            // 재생 시점에는 추가 post-processing 을 하지 않는다(이중 처리 시 0.25x 에서 큰 지연).
+            val pts = it.pts
 
-            val lKnee  = corrected.getOrNull(SKEL_L_KNEE)
-            val rKnee  = corrected.getOrNull(SKEL_R_KNEE)
-            val lAnkle = corrected.getOrNull(SKEL_L_ANKLE)
-            val rAnkle = corrected.getOrNull(SKEL_R_ANKLE)
-
-            Log.d(TAG_OVERLAY, "pos=${currentPosition}ms  frame=${it.t}ms  " +
-                "lKneeV=${lKnee?.v?.let{"%.2f".format(it)} ?: "n/a"}  " +
-                "rKneeV=${rKnee?.v?.let{"%.2f".format(it)} ?: "n/a"}  " +
-                "lAnkleV=${lAnkle?.v?.let{"%.2f".format(it)} ?: "n/a"}  " +
-                "rAnkleV=${rAnkle?.v?.let{"%.2f".format(it)} ?: "n/a"}")
-
+            val lAnkle = pts.getOrNull(SKEL_L_ANKLE)
+            val rAnkle = pts.getOrNull(SKEL_R_ANKLE)
             if (lAnkle != null && strikeDetectorL.update(lAnkle, it.t)) strikeAgeL = 0
             if (rAnkle != null && strikeDetectorR.update(rAnkle, it.t)) strikeAgeR = 0
             strikeAgeL++; strikeAgeR++
 
-            overlayAngles = computeOverlayAngles(corrected)
+            overlayAngles = computeOverlayAngles(pts)
 
-            it.copy(pts = corrected)
+            it
         }
     }
 
@@ -217,7 +205,6 @@ fun PostureVideoPlayerCard(
                     value = if (duration > 0) currentPosition.toFloat() / duration else 0f,
                     onValueChange = { frac ->
                         exoPlayer.seekTo((frac * duration).toLong())
-                        legSwapCorrector.reset()
                         strikeDetectorL.reset(); strikeDetectorR.reset()
                         strikeAgeL = Int.MAX_VALUE; strikeAgeR = Int.MAX_VALUE
                         isEnded = false
@@ -240,7 +227,6 @@ fun PostureVideoPlayerCard(
                             when {
                                 isEnded -> {
                                     exoPlayer.seekTo(0)
-                                    legSwapCorrector.reset()
                                     strikeDetectorL.reset(); strikeDetectorR.reset()
                                     strikeAgeL = Int.MAX_VALUE; strikeAgeR = Int.MAX_VALUE
                                     exoPlayer.play()

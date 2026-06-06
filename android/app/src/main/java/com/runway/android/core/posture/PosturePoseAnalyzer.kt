@@ -83,6 +83,12 @@ class PosturePoseAnalyzer(private val context: Context) {
                 val landmarker  = buildLandmarker()
                 val frames      = mutableListOf<PostureFrameAngles>()
                 val videoFrames = mutableListOf<PostureVideoFrame>()
+                // 파이프라인:
+                //   raw → LegSwapCorrector(좌/우 식별 보정) → PostureLandmarkCorrector(평활+무릎 X 보정)
+                //   → PostureAngleCalculator(각도 계산)
+                // LegSwapCorrector 는 평활화 이전에 호출되어야 한다 — 평활기는 잘못된 식별을
+                // "안정된 잘못된 위치"로 굳혀 후처리로 되돌릴 수 없게 만들기 때문이다.
+                val legSwapCorrector = LegSwapCorrector()
                 val landmarkCorrector = PostureLandmarkCorrector()
 
                 try {
@@ -113,7 +119,8 @@ class PosturePoseAnalyzer(private val context: Context) {
                                     val lm = landmarkList[idx]
                                     SkeletonPoint(lm.x(), lm.y(), lm.visibility().orElse(0f))
                                 }
-                                val skeletonPts = landmarkCorrector.correct(rawSkeletonPts, timeMs)
+                                val swapCorrected = legSwapCorrector.correct(rawSkeletonPts, timeMs)
+                                val skeletonPts   = landmarkCorrector.correct(swapCorrected, timeMs)
                                 videoFrames.add(PostureVideoFrame(timeMs, skeletonPts))
 
                                 PostureAngleCalculator.compute(skeletonPts)?.let { angles ->

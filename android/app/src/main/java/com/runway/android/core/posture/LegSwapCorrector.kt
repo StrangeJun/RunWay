@@ -3,155 +3,128 @@ package com.runway.android.core.posture
 import kotlin.math.sqrt
 
 /**
- * Two-track cost-based leg identity corrector for MediaPipe Pose Landmarker.
+ * MediaPipe Pose Landmarker의 좌우 다리 식별 오류(특히 다리 교차 시점) 보정 레이어.
  *
- * MediaPipe can assign "rightKnee" / "rightAnkle" to the anatomically-left leg
- * when legs cross in a side-view gait recording. This class treats the problem as
- * tracking-by-detection: it maintains two persistent leg tracks (A and B) and, on
- * each frame, assigns the two MediaPipe observations to tracks by cost rather than
- * by MediaPipe's own left/right labels.
+ * 파이프라인 위치:
+ *   raw landmarks → (confidence validation) → LegSwapCorrector → temporal smoothing → angles
  *
- * A swap is only confirmed after [N_CONFIRM] consecutive frames where the swapped
- * assignment is cheaper by more than [HYSTERESIS_MARGIN]. This prevents false
- * corrections on normal frames.
+ * 동작:
+ *   1. 이전 프레임의 보정된 좌/우 무릎·발목 위치를 보관한다.
+ *   2. 현재 프레임에서
+ *      keepCost = 거리(현재 L → 이전 L) + 거리(현재 R → 이전 R)   // 무릎+발목 합산
+ *      swapCost = 거리(현재 L → 이전 R) + 거리(현재 R → 이전 L)
+ *   3. swapCost + HYSTERESIS_MARGIN < keepCost 가 N_CONFIRM 프레임 연속이면 식별을 토글한다.
+ *   4. 토글된 식별로 좌/우 hip/knee/ankle 을 함께 스왑한다.
  *
- * Pipeline position: apply AFTER [PostureSkeletonSmoother], BEFORE joint-angle
- * calculation.
+ * 안전장치:
+ *   - 다리 평균 visibility 가 MIN_LEG_VISIBILITY 미만이면 swap 평가를 건너뛴다(이전 결정 유지).
+ *   - 타임스탬프 갭이 MAX_DT_MS 를 넘으면 (seek/재시작) 상태를 리셋한다.
  *
- * Usage:
- *   val corrector = LegSwapCorrector()
- *   corrector.reset()                             // call on seek or new video
- *   val corrected = corrector.correct(smoothed, frameTimestampMs)
+ * 분석 파이프라인 1회 사용 가정. 재생 단계에서는 호출하지 않는다(분석 시점에 영구 적용).
  */
 class LegSwapCorrector {
 
     companion object {
-        /** Total-cost margin required for a swap to be considered (normalized coords). */
-        private const val HYSTERESIS_MARGIN = 0.20f
+        /** swap 이 keep 보다 이만큼 작아야 후보로 인정 (normalized 좌표 합). */
+        private const val HYSTERESIS_MARGIN = 0.15f
 
-        /** Consecutive frames with swap advantage required before switching identity. */
+        /** swap 후보가 연속 충족되어야 하는 프레임 수. */
         private const val N_CONFIRM = 2
 
-        /** Minimum landmark visibility to include in track updates. */
-        private const val VIS_MIN = 0.40f
+        /** 다리 4개 landmark 평균 visibility 가 이 값 미만이면 swap 평가 보류. */
+        private const val MIN_LEG_VISIBILITY = 0.40f
 
-        /** EMA weight for velocity update (higher = faster velocity adaptation). */
-        private const val ALPHA_VEL = 0.30f
-
-        /** Clamp dt so large pauses don't produce huge velocity-extrapolation jumps. */
-        private const val MAX_DT = 0.20f
+        /** 이 값을 넘는 타임스탬프 갭(ms) 발생 시 상태 리셋. */
+        private const val MAX_DT_MS = 500L
     }
 
-    // Internal state per leg track ─────────────────────────────────────────────
+    // 이전 프레임의 "보정된 식별 기준" 좌/우 무릎·발목 위치.
+    private var prevLeftKnee: SkeletonPoint? = null
+    private var prevRightKnee: SkeletonPoint? = null
+    private var prevLeftAnkle: SkeletonPoint? = null
+    private var prevRightAnkle: SkeletonPoint? = null
 
-    private data class LegState(
-        var kneeX: Float = 0f, var kneeY: Float = 0f,
-        var ankleX: Float = 0f, var ankleY: Float = 0f,
-        var kneeVx: Float = 0f, var kneeVy: Float = 0f,
-        var ankleVx: Float = 0f, var ankleVy: Float = 0f,
-        var initialized: Boolean = false,
-    )
-
-    // trackA starts assigned to MediaPipe "left"; trackB to "right".
-    private val trackA = LegState()
-    private val trackB = LegState()
-
-    // When true, the current best assignment has A←right / B←left.
+    // 현재 누적된 식별 상태. true 이면 MediaPipe 의 L/R 을 스왑해서 출력해야 한다.
     private var isSwapped = false
-
-    // Frames where the swap hypothesis has been cheaper (cleared on keep-wins frame).
-    private var pendingSwapCount = 0
-
+    private var pendingSwapVotes = 0
     private var lastTimestampMs: Long = -1L
 
-    // ── Public API ─────────────────────────────────────────────────────────────
-
     /**
-     * Returns [pts] with lower-body landmarks (hip/knee/ankle) swapped if a
-     * persistent left/right identity switch is detected.
-     *
-     * [pts] must be in KEY_LANDMARK_INDICES order (≥ 13 points).
-     * [timestampMs] is the video-frame timestamp from [PostureVideoFrame.t].
+     * [pts] 는 KEY_LANDMARK_INDICES 순서(13 keypoints). 길이는 R_ANKLE(12) 이상이어야 한다.
+     * [timestampMs] 는 비디오 타임라인 기준 (분석 단계에서는 timeMs).
      */
-    fun correct(pts: List<SkeletonPoint>, timestampMs: Long = -1L): List<SkeletonPoint> {
+    fun correct(pts: List<SkeletonPoint>, timestampMs: Long): List<SkeletonPoint> {
         if (pts.size <= SKEL_R_ANKLE) return pts
 
-        // Same timestamp → replay or polling duplicate; apply existing decision, skip update.
-        if (timestampMs >= 0L && timestampMs == lastTimestampMs) {
+        // 큰 타임스탬프 갭 → seek/재시작으로 보고 상태 리셋.
+        if (lastTimestampMs >= 0L) {
+            val gap = timestampMs - lastTimestampMs
+            if (gap < 0L || gap > MAX_DT_MS) reset()
+        }
+
+        // 현재 isSwapped 상태가 적용된 좌/우 식별값.
+        val curLK = if (!isSwapped) pts[SKEL_L_KNEE]  else pts[SKEL_R_KNEE]
+        val curRK = if (!isSwapped) pts[SKEL_R_KNEE]  else pts[SKEL_L_KNEE]
+        val curLA = if (!isSwapped) pts[SKEL_L_ANKLE] else pts[SKEL_R_ANKLE]
+        val curRA = if (!isSwapped) pts[SKEL_R_ANKLE] else pts[SKEL_L_ANKLE]
+
+        val pLK = prevLeftKnee;  val pRK = prevRightKnee
+        val pLA = prevLeftAnkle; val pRA = prevRightAnkle
+
+        // 첫 프레임: 이전 값 초기화 후 통과.
+        if (pLK == null || pRK == null || pLA == null || pRA == null) {
+            prevLeftKnee = curLK;   prevRightKnee = curRK
+            prevLeftAnkle = curLA;  prevRightAnkle = curRA
+            lastTimestampMs = timestampMs
             return if (isSwapped) swapLowerBody(pts) else pts
         }
 
-        val dt = computeDt(timestampMs).coerceAtMost(MAX_DT)
-        if (timestampMs >= 0L) lastTimestampMs = timestampMs
-
-        val mpLeft  = ObsLeg(pts[SKEL_L_HIP],  pts[SKEL_L_KNEE],  pts[SKEL_L_ANKLE])
-        val mpRight = ObsLeg(pts[SKEL_R_HIP], pts[SKEL_R_KNEE], pts[SKEL_R_ANKLE])
-
-        // First frame: initialize both tracks, no correction applied.
-        if (!trackA.initialized) {
-            initTrack(trackA, mpLeft.knee, mpLeft.ankle)
-            initTrack(trackB, mpRight.knee, mpRight.ankle)
-            return pts
+        // Confidence validation: 다리 평균 visibility 가 낮으면 swap 평가 보류.
+        val avgVis = (pts[SKEL_L_KNEE].v + pts[SKEL_R_KNEE].v +
+                      pts[SKEL_L_ANKLE].v + pts[SKEL_R_ANKLE].v) / 4f
+        if (avgVis < MIN_LEG_VISIBILITY) {
+            // 이전 상태 유지: pendingSwapVotes/prev 갱신하지 않는다.
+            lastTimestampMs = timestampMs
+            return if (isSwapped) swapLowerBody(pts) else pts
         }
 
-        // Velocity-based prediction for each track's knee and ankle.
-        val (pAKx, pAKy) = trackA.run { Pair(kneeX + kneeVx * dt, kneeY + kneeVy * dt) }
-        val (pAAx, pAAy) = trackA.run { Pair(ankleX + ankleVx * dt, ankleY + ankleVy * dt) }
-        val (pBKx, pBKy) = trackB.run { Pair(kneeX + kneeVx * dt, kneeY + kneeVy * dt) }
-        val (pBAx, pBAy) = trackB.run { Pair(ankleX + ankleVx * dt, ankleY + ankleVy * dt) }
+        // 거리 기반 비용 비교.
+        val keepCost = dist(curLK, pLK) + dist(curLA, pLA) +
+                       dist(curRK, pRK) + dist(curRA, pRA)
+        val swapCost = dist(curLK, pRK) + dist(curLA, pRA) +
+                       dist(curRK, pLK) + dist(curRA, pLA)
 
-        // obsA / obsB: observations currently assigned to track A / B.
-        val (obsA, obsB) = if (!isSwapped) Pair(mpLeft, mpRight) else Pair(mpRight, mpLeft)
-
-        val keepCost =
-            dist(obsA.knee.x, obsA.knee.y,   pAKx, pAKy) +
-            dist(obsA.ankle.x, obsA.ankle.y,  pAAx, pAAy) +
-            dist(obsB.knee.x, obsB.knee.y,   pBKx, pBKy) +
-            dist(obsB.ankle.x, obsB.ankle.y,  pBAx, pBAy)
-
-        val swapCost =
-            dist(obsB.knee.x, obsB.knee.y,   pAKx, pAKy) +
-            dist(obsB.ankle.x, obsB.ankle.y,  pAAx, pAAy) +
-            dist(obsA.knee.x, obsA.knee.y,   pBKx, pBKy) +
-            dist(obsA.ankle.x, obsA.ankle.y,  pBAx, pBAy)
-
-        // Accumulate pending swap count; reset on any keep-wins frame.
         if (swapCost + HYSTERESIS_MARGIN < keepCost) {
-            pendingSwapCount++
+            pendingSwapVotes++
+            if (pendingSwapVotes >= N_CONFIRM) {
+                isSwapped = !isSwapped
+                pendingSwapVotes = 0
+            }
         } else {
-            pendingSwapCount = 0
+            pendingSwapVotes = 0
         }
 
-        if (pendingSwapCount >= N_CONFIRM) {
-            isSwapped = !isSwapped
-            pendingSwapCount = 0
-        }
+        val output = if (isSwapped) swapLowerBody(pts) else pts
 
-        // Update tracks from the (possibly newly corrected) assignment.
-        val (finalA, finalB) = if (!isSwapped) Pair(mpLeft, mpRight) else Pair(mpRight, mpLeft)
-        updateTrack(trackA, finalA.knee, finalA.ankle, dt)
-        updateTrack(trackB, finalB.knee, finalB.ankle, dt)
+        // 다음 프레임 비교를 위해 "출력된 식별" 기준으로 이전 값 갱신.
+        prevLeftKnee  = output[SKEL_L_KNEE]
+        prevRightKnee = output[SKEL_R_KNEE]
+        prevLeftAnkle = output[SKEL_L_ANKLE]
+        prevRightAnkle = output[SKEL_R_ANKLE]
+        lastTimestampMs = timestampMs
 
-        return if (isSwapped) swapLowerBody(pts) else pts
+        return output
     }
 
-    /** Reset all track state — call on seek, replay start, or new video. */
     fun reset() {
-        with(trackA) { initialized = false; kneeVx = 0f; kneeVy = 0f; ankleVx = 0f; ankleVy = 0f }
-        with(trackB) { initialized = false; kneeVx = 0f; kneeVy = 0f; ankleVx = 0f; ankleVy = 0f }
+        prevLeftKnee = null;  prevRightKnee = null
+        prevLeftAnkle = null; prevRightAnkle = null
         isSwapped = false
-        pendingSwapCount = 0
+        pendingSwapVotes = 0
         lastTimestampMs = -1L
     }
 
-    // ── Private helpers ────────────────────────────────────────────────────────
-
-    private data class ObsLeg(
-        val hip: SkeletonPoint,
-        val knee: SkeletonPoint,
-        val ankle: SkeletonPoint,
-    )
-
+    /** 좌/우 hip + knee + ankle 을 한 번에 스왑. 다리 geometry 가 분리되지 않도록 함께 처리. */
     private fun swapLowerBody(pts: List<SkeletonPoint>): List<SkeletonPoint> {
         val out = pts.toMutableList()
         out[SKEL_L_HIP]   = pts[SKEL_R_HIP];   out[SKEL_R_HIP]   = pts[SKEL_L_HIP]
@@ -160,38 +133,8 @@ class LegSwapCorrector {
         return out
     }
 
-    private fun initTrack(s: LegState, knee: SkeletonPoint, ankle: SkeletonPoint) {
-        s.kneeX = knee.x; s.kneeY = knee.y
-        s.ankleX = ankle.x; s.ankleY = ankle.y
-        s.kneeVx = 0f; s.kneeVy = 0f
-        s.ankleVx = 0f; s.ankleVy = 0f
-        s.initialized = true
-    }
-
-    private fun updateTrack(s: LegState, knee: SkeletonPoint, ankle: SkeletonPoint, dt: Float) {
-        if (knee.v >= VIS_MIN) {
-            val vx = (knee.x - s.kneeX) / dt
-            val vy = (knee.y - s.kneeY) / dt
-            s.kneeVx = ALPHA_VEL * vx + (1f - ALPHA_VEL) * s.kneeVx
-            s.kneeVy = ALPHA_VEL * vy + (1f - ALPHA_VEL) * s.kneeVy
-            s.kneeX = knee.x; s.kneeY = knee.y
-        }
-        if (ankle.v >= VIS_MIN) {
-            val vx = (ankle.x - s.ankleX) / dt
-            val vy = (ankle.y - s.ankleY) / dt
-            s.ankleVx = ALPHA_VEL * vx + (1f - ALPHA_VEL) * s.ankleVx
-            s.ankleVy = ALPHA_VEL * vy + (1f - ALPHA_VEL) * s.ankleVy
-            s.ankleX = ankle.x; s.ankleY = ankle.y
-        }
-    }
-
-    private fun dist(x1: Float, y1: Float, x2: Float, y2: Float): Float {
-        val dx = x1 - x2; val dy = y1 - y2
+    private fun dist(a: SkeletonPoint, b: SkeletonPoint): Float {
+        val dx = a.x - b.x; val dy = a.y - b.y
         return sqrt(dx * dx + dy * dy)
-    }
-
-    private fun computeDt(timestampMs: Long): Float {
-        if (timestampMs < 0L || lastTimestampMs < 0L) return 1f / 10f
-        return ((timestampMs - lastTimestampMs) / 1000f).coerceIn(0.001f, 0.5f)
     }
 }
