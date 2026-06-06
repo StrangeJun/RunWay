@@ -1,8 +1,6 @@
 package com.runway.android.ui.posture
 
 import android.net.Uri
-import android.graphics.Paint
-import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +28,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,12 +36,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -50,9 +54,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.runway.android.core.posture.PostureSkeletonSmoother
-import com.runway.android.core.posture.SKELETON_EDGES_BILATERAL
-import com.runway.android.core.posture.SKELETON_EDGES_LEFT
-import com.runway.android.core.posture.SKELETON_EDGES_RIGHT
+import com.runway.android.core.posture.RunningFormStrikeDetector
 import com.runway.android.core.posture.SKEL_L_ANKLE
 import com.runway.android.core.posture.SKEL_L_ELBOW
 import com.runway.android.core.posture.SKEL_L_HIP
@@ -71,7 +73,17 @@ import com.runway.android.core.posture.SkeletonPoint
 import com.runway.android.core.posture.interpolateFrame
 import kotlinx.coroutines.delay
 import java.io.File
+import kotlin.math.abs
+import kotlin.math.acos
 import kotlin.math.sqrt
+
+// ── GaitKeeper colors ──────────────────────────────────────────────────────────
+private val C_TORSO     = Color(0xFF3B82F6)  // blue
+private val C_ARM       = Color(0xFF10B981)  // green
+private val C_LEFT_LEG  = Color(0xFFF59E0B)  // amber
+private val C_RIGHT_LEG = Color(0xFFEF4444)  // red
+private val C_JOINT_BG  = Color(0xFF111827)  // dark fill
+private const val SCORE_THRESH = 0.3f
 
 @Composable
 fun PostureVideoPlayerCard(
@@ -92,19 +104,14 @@ fun PostureVideoPlayerCard(
             playWhenReady = false
         }
     }
-    DisposableEffect(exoPlayer) {
-        onDispose { exoPlayer.release() }
-    }
+    DisposableEffect(exoPlayer) { onDispose { exoPlayer.release() } }
 
-    // Pre-sort frames once. Both sortedBy and the smoother are keyed to videoFrames
-    // so they reset automatically if the data source changes.
     val sortedFrames = remember(videoFrames) { videoFrames.sortedBy { it.t } }
-    val preferredSide = remember(sortedFrames) { sortedFrames.preferredVisibleSide() }
-    // Smoother keyed to videoFrames: if a different recording is loaded, prev state is cleared.
     val smoother = remember(videoFrames) { PostureSkeletonSmoother() }
-    val legTracker = remember(videoFrames, preferredSide) {
-        LockedLegTracker(trackLeftSide = preferredSide == VisibleSide.Left)
-    }
+
+    // running-form-analyzer FootStrikeDetector — one per ankle
+    val strikeDetectorL = remember(videoFrames) { RunningFormStrikeDetector() }
+    val strikeDetectorR = remember(videoFrames) { RunningFormStrikeDetector() }
 
     var currentPosition by remember { mutableLongStateOf(0L) }
     var duration        by remember { mutableStateOf(1L) }
@@ -112,11 +119,11 @@ fun PostureVideoPlayerCard(
     var isEnded         by remember { mutableStateOf(false) }
     var playbackSpeed   by remember { mutableFloatStateOf(1f) }
 
-    // currentFrame is updated as a side-effect (LaunchedEffect), NOT during composition,
-    // so smoother.smooth() mutation and the interpolation are both Compose-safe.
-    var currentFrame by remember { mutableStateOf<PostureVideoFrame?>(null) }
+    var currentFrame    by remember { mutableStateOf<PostureVideoFrame?>(null) }
+    var overlayAngles   by remember { mutableStateOf<OverlayAngles?>(null) }
+    var strikeAgeL      by remember { mutableIntStateOf(Int.MAX_VALUE) }
+    var strikeAgeR      by remember { mutableIntStateOf(Int.MAX_VALUE) }
 
-    // 80ms polling loop for playback position
     LaunchedEffect(exoPlayer) {
         while (true) {
             val pos = exoPlayer.currentPosition.coerceAtLeast(0L)
@@ -129,19 +136,28 @@ fun PostureVideoPlayerCard(
         }
     }
 
-    // Update skeleton frame whenever playback position changes.
-    // Binary search interpolation + EMA smoothing happen here, outside composition.
     LaunchedEffect(currentPosition) {
         val interpolated = interpolateFrame(sortedFrames, currentPosition)
         currentFrame = interpolated?.let {
-            val smoothed = smoother.smooth(it.pts)
-            it.copy(pts = legTracker.track(smoothed))
+            val smoothed = smoother.smooth(it.pts, it.t)
+
+            // running-form-analyzer FootStrikeDetector on both ankles
+            val lAnkle = smoothed.getOrNull(SKEL_L_ANKLE)
+            val rAnkle = smoothed.getOrNull(SKEL_R_ANKLE)
+            if (lAnkle != null && strikeDetectorL.update(lAnkle, it.t)) strikeAgeL = 0
+            if (rAnkle != null && strikeDetectorR.update(rAnkle, it.t)) strikeAgeR = 0
+            strikeAgeL++; strikeAgeR++
+
+            // Compute running-form-analyzer angles from current smoothed skeleton
+            overlayAngles = computeOverlayAngles(smoothed)
+
+            it.copy(pts = smoothed)
         }
     }
 
-    LaunchedEffect(playbackSpeed) {
-        exoPlayer.setPlaybackSpeed(playbackSpeed)
-    }
+    LaunchedEffect(playbackSpeed) { exoPlayer.setPlaybackSpeed(playbackSpeed) }
+
+    val textMeasurer = rememberTextMeasurer()
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -170,7 +186,10 @@ fun PostureVideoPlayerCard(
                         frame = frame,
                         videoWidth = videoWidth,
                         videoHeight = videoHeight,
-                        useLeftSide = preferredSide == VisibleSide.Left,
+                        overlayAngles = overlayAngles,
+                        strikeAgeL = strikeAgeL,
+                        strikeAgeR = strikeAgeR,
+                        textMeasurer = textMeasurer,
                         modifier = Modifier.matchParentSize(),
                     )
                 }
@@ -185,8 +204,9 @@ fun PostureVideoPlayerCard(
                     value = if (duration > 0) currentPosition.toFloat() / duration else 0f,
                     onValueChange = { frac ->
                         exoPlayer.seekTo((frac * duration).toLong())
-                        smoother.reset()   // clear EMA state so no bleed across seek
-                        legTracker.reset()
+                        smoother.reset()
+                        strikeDetectorL.reset(); strikeDetectorR.reset()
+                        strikeAgeL = Int.MAX_VALUE; strikeAgeR = Int.MAX_VALUE
                         isEnded = false
                     },
                     modifier = Modifier.fillMaxWidth().height(24.dp),
@@ -208,7 +228,8 @@ fun PostureVideoPlayerCard(
                                 isEnded -> {
                                     exoPlayer.seekTo(0)
                                     smoother.reset()
-                                    legTracker.reset()
+                                    strikeDetectorL.reset(); strikeDetectorR.reset()
+                                    strikeAgeL = Int.MAX_VALUE; strikeAgeR = Int.MAX_VALUE
                                     exoPlayer.play()
                                     isEnded = false
                                 }
@@ -252,6 +273,221 @@ fun PostureVideoPlayerCard(
     }
 }
 
+// ── Overlay angles computed from smoothed skeleton (running-form-analyzer port) ─
+
+private data class OverlayAngles(
+    val trunkAngle: Float?,
+    val kneeAngleL: Float?,
+    val kneeAngleR: Float?,
+    val shankAngleL: Float?,
+    val shankAngleR: Float?,
+    val elbowAngle: Float?,
+)
+
+private fun computeOverlayAngles(pts: List<SkeletonPoint>): OverlayAngles {
+    fun ok(idx: Int) = idx < pts.size && pts[idx].v >= SCORE_THRESH
+
+    fun angle3(aIdx: Int, bIdx: Int, cIdx: Int): Float? {
+        if (!ok(aIdx) || !ok(bIdx) || !ok(cIdx)) return null
+        val a = pts[aIdx]; val b = pts[bIdx]; val c = pts[cIdx]
+        val ax = a.x - b.x; val ay = a.y - b.y
+        val cx = c.x - b.x; val cy = c.y - b.y
+        val dot = ax * cx + ay * cy
+        val mag = sqrt((ax*ax+ay*ay) * (cx*cx+cy*cy))
+        if (mag < 1e-6f) return null
+        return Math.toDegrees(acos((dot/mag).coerceIn(-1f, 1f)).toDouble()).toFloat()
+    }
+
+    // Shank angle from vertical: shin vector = ankle - knee, dot with [0,1]
+    fun shank(kneeIdx: Int, ankleIdx: Int): Float? {
+        if (!ok(kneeIdx) || !ok(ankleIdx)) return null
+        val k = pts[kneeIdx]; val a = pts[ankleIdx]
+        val shinY = a.y - k.y
+        val mag = sqrt((a.x-k.x).let{it*it} + shinY*shinY)
+        if (mag < 1e-6f) return null
+        return Math.toDegrees(acos((shinY/mag).coerceIn(-1f, 1f)).toDouble()).toFloat()
+    }
+
+    // Trunk angle: shoulder-mid to hip-mid vs vertical
+    val trunkAngle = run {
+        if (!ok(SKEL_L_SHOULDER)||!ok(SKEL_R_SHOULDER)||!ok(SKEL_L_HIP)||!ok(SKEL_R_HIP)) null
+        else {
+            val sx = (pts[SKEL_L_SHOULDER].x + pts[SKEL_R_SHOULDER].x)/2f
+            val sy = (pts[SKEL_L_SHOULDER].y + pts[SKEL_R_SHOULDER].y)/2f
+            val hx = (pts[SKEL_L_HIP].x + pts[SKEL_R_HIP].x)/2f
+            val hy = (pts[SKEL_L_HIP].y + pts[SKEL_R_HIP].y)/2f
+            val dx = sx - hx; val dy = hy - sy  // up = positive dy
+            val mag = sqrt(dx*dx + dy*dy)
+            if (mag < 1e-6f) null
+            else Math.toDegrees(Math.atan2(dx.toDouble(), dy.toDouble())).toFloat()
+        }
+    }
+
+    return OverlayAngles(
+        trunkAngle = trunkAngle,
+        kneeAngleL = angle3(SKEL_L_HIP, SKEL_L_KNEE, SKEL_L_ANKLE),
+        kneeAngleR = angle3(SKEL_R_HIP, SKEL_R_KNEE, SKEL_R_ANKLE),
+        shankAngleL = shank(SKEL_L_KNEE, SKEL_L_ANKLE),
+        shankAngleR = shank(SKEL_R_KNEE, SKEL_R_ANKLE),
+        elbowAngle = run {
+            // prefer the side with better visibility
+            val lv = if (pts.size > SKEL_L_ELBOW) pts[SKEL_L_ELBOW].v else 0f
+            val rv = if (pts.size > SKEL_R_ELBOW) pts[SKEL_R_ELBOW].v else 0f
+            if (lv >= rv) angle3(SKEL_L_SHOULDER, SKEL_L_ELBOW, SKEL_L_WRIST)
+            else angle3(SKEL_R_SHOULDER, SKEL_R_ELBOW, SKEL_R_WRIST)
+        },
+    )
+}
+
+// ── Skeleton overlay (GaitKeeper visual + running-form-analyzer angles) ────────
+
+@Composable
+private fun SkeletonOverlay(
+    frame: PostureVideoFrame,
+    videoWidth: Int,
+    videoHeight: Int,
+    overlayAngles: OverlayAngles?,
+    strikeAgeL: Int,
+    strikeAgeR: Int,
+    textMeasurer: androidx.compose.ui.text.TextMeasurer,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier) {
+        val vAspect = videoWidth.toFloat() / videoHeight
+        val cAspect = size.width / size.height
+        val scale: Float; val dx: Float; val dy: Float
+        if (vAspect > cAspect) {
+            scale = size.width / videoWidth; dx = 0f
+            dy = (size.height - videoHeight * scale) / 2f
+        } else {
+            scale = size.height / videoHeight; dy = 0f
+            dx = (size.width - videoWidth * scale) / 2f
+        }
+
+        val pts = frame.pts
+        if (pts.isEmpty()) return@Canvas
+
+        fun toOff(idx: Int): Offset {
+            val p = pts[idx]
+            return Offset(p.x * videoWidth * scale + dx, p.y * videoHeight * scale + dy)
+        }
+        fun vis(idx: Int) = idx < pts.size && pts[idx].v >= SCORE_THRESH
+
+        // ── Skeleton edges (GaitKeeper colors) ────────────────────────────────
+
+        fun edge(a: Int, b: Int, color: Color, thick: Float = 3f) {
+            if (!vis(a) || !vis(b)) return
+            val oA = toOff(a); val oB = toOff(b)
+            drawLine(Color.Black, oA, oB, thick + 3f, cap = StrokeCap.Round)
+            drawLine(color,       oA, oB, thick,      cap = StrokeCap.Round)
+        }
+
+        fun joint(idx: Int, color: Color, r: Float = 6f) {
+            if (!vis(idx)) return
+            drawCircle(C_JOINT_BG, r,     toOff(idx))
+            drawCircle(Color.White, r,    toOff(idx), style = Stroke(1.5f))
+            drawCircle(color,      r-2f,  toOff(idx))
+        }
+
+        // Torso (blue)
+        edge(SKEL_L_SHOULDER, SKEL_R_SHOULDER, C_TORSO)
+        edge(SKEL_L_SHOULDER, SKEL_L_HIP, C_TORSO)
+        edge(SKEL_R_SHOULDER, SKEL_R_HIP, C_TORSO)
+        edge(SKEL_L_HIP,      SKEL_R_HIP, C_TORSO)
+
+        // Arms (green)
+        edge(SKEL_L_SHOULDER, SKEL_L_ELBOW, C_ARM)
+        edge(SKEL_L_ELBOW,    SKEL_L_WRIST, C_ARM)
+        edge(SKEL_R_SHOULDER, SKEL_R_ELBOW, C_ARM)
+        edge(SKEL_R_ELBOW,    SKEL_R_WRIST, C_ARM)
+
+        // Left leg (amber)
+        edge(SKEL_L_HIP, SKEL_L_KNEE, C_LEFT_LEG, 4f)
+        edge(SKEL_L_KNEE, SKEL_L_ANKLE, C_LEFT_LEG, 4f)
+
+        // Right leg (red)
+        edge(SKEL_R_HIP, SKEL_R_KNEE, C_RIGHT_LEG, 4f)
+        edge(SKEL_R_KNEE, SKEL_R_ANKLE, C_RIGHT_LEG, 4f)
+
+        // Joints
+        listOf(SKEL_NOSE, SKEL_L_SHOULDER, SKEL_R_SHOULDER).forEach { joint(it, C_TORSO) }
+        listOf(SKEL_L_ELBOW, SKEL_L_WRIST, SKEL_R_ELBOW, SKEL_R_WRIST).forEach { joint(it, C_ARM) }
+        listOf(SKEL_L_HIP, SKEL_L_KNEE, SKEL_L_ANKLE).forEach { joint(it, C_LEFT_LEG) }
+        listOf(SKEL_R_HIP, SKEL_R_KNEE, SKEL_R_ANKLE).forEach { joint(it, C_RIGHT_LEG) }
+
+        // ── GaitKeeper-style strike arrows (running-form-analyzer triggers) ──
+        val maxAge = 8
+        if (vis(SKEL_L_ANKLE) && strikeAgeL < maxAge) {
+            drawStrikeArrow(toOff(SKEL_L_ANKLE), C_LEFT_LEG, strikeAgeL.toFloat() / maxAge)
+        }
+        if (vis(SKEL_R_ANKLE) && strikeAgeR < maxAge) {
+            drawStrikeArrow(toOff(SKEL_R_ANKLE), C_RIGHT_LEG, strikeAgeR.toFloat() / maxAge)
+        }
+
+        // ── running-form-analyzer angle overlay panel ─────────────────────────
+        val angles = overlayAngles ?: return@Canvas
+        drawAnglePanel(angles, textMeasurer)
+    }
+}
+
+private fun DrawScope.drawStrikeArrow(ankle: Offset, color: Color, ageFraction: Float) {
+    val alpha = (1f - ageFraction).coerceIn(0f, 1f)
+    val arrowH = 36f; val arrowW = 18f
+    val tipY = ankle.y - 8f
+    // Shaft
+    drawLine(
+        color.copy(alpha = alpha),
+        start = Offset(ankle.x, tipY - arrowH),
+        end   = Offset(ankle.x, tipY - 10f),
+        strokeWidth = 4f, cap = StrokeCap.Round,
+    )
+    // Downward triangle
+    val path = Path().apply {
+        moveTo(ankle.x, tipY)
+        lineTo(ankle.x - arrowW / 2f, tipY - 14f)
+        lineTo(ankle.x + arrowW / 2f, tipY - 14f)
+        close()
+    }
+    drawPath(path, color.copy(alpha = alpha))
+}
+
+private fun DrawScope.drawAnglePanel(
+    angles: OverlayAngles,
+    textMeasurer: androidx.compose.ui.text.TextMeasurer,
+) {
+    val lines = buildList {
+        angles.trunkAngle?.let { add("Trunk  ${it.fmt()}°") }
+        angles.kneeAngleL?.let { add("Knee L  ${it.fmt()}°") }
+        angles.kneeAngleR?.let { add("Knee R  ${it.fmt()}°") }
+        angles.shankAngleL?.let { add("Shank L  ${it.fmt()}°") }
+        angles.shankAngleR?.let { add("Shank R  ${it.fmt()}°") }
+        angles.elbowAngle?.let { add("Elbow  ${it.fmt()}°") }
+    }
+    if (lines.isEmpty()) return
+
+    val style = TextStyle(fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Medium)
+    val lineH = 14f
+    val padX = 8f; val padY = 6f
+    val panelW = 110f
+    val panelH = lines.size * lineH + padY * 2
+
+    // Semi-transparent background
+    drawRect(
+        Color.Black.copy(alpha = 0.55f),
+        topLeft = Offset(6f, 6f),
+        size = Size(panelW, panelH),
+    )
+
+    lines.forEachIndexed { i, text ->
+        val measured = textMeasurer.measure(text, style)
+        drawText(measured, topLeft = Offset(6f + padX, 6f + padY + i * lineH))
+    }
+}
+
+private fun Float.fmt() = "%.0f".format(this)
+
+// ── Speed chip ────────────────────────────────────────────────────────────────
+
 @Composable
 private fun SpeedChip(label: String, selected: Boolean, onClick: () -> Unit) {
     Surface(
@@ -271,319 +507,7 @@ private fun SpeedChip(label: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
-@Composable
-private fun SkeletonOverlay(
-    frame: PostureVideoFrame,
-    videoWidth: Int,
-    videoHeight: Int,
-    useLeftSide: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    Canvas(modifier = modifier) {
-        val vAspect = videoWidth.toFloat() / videoHeight
-        val cAspect = size.width / size.height
-
-        val scale: Float; val dx: Float; val dy: Float
-        if (vAspect > cAspect) {
-            scale = size.width / videoWidth;  dx = 0f
-            dy = (size.height - videoHeight * scale) / 2f
-        } else {
-            scale = size.height / videoHeight; dy = 0f
-            dx = (size.width - videoWidth * scale) / 2f
-        }
-
-        val pts = frame.pts
-        if (pts.isEmpty()) return@Canvas
-
-        val hipMidX = if (pts.size > SKEL_R_HIP) {
-            (pts[SKEL_L_HIP].x + pts[SKEL_R_HIP].x) / 2f
-        } else {
-            0.5f
-        }
-        val facingRight = pts.getOrNull(SKEL_NOSE)?.let { it.x > hipMidX } ?: true
-
-        fun displayPoint(index: Int): Offset {
-            val p = pts[index]
-            val backwards = if (facingRight) -1f else 1f
-            val correctionX = when (index) {
-                SKEL_L_KNEE, SKEL_R_KNEE -> 0.026f * backwards
-                SKEL_L_ANKLE, SKEL_R_ANKLE -> 0.038f * backwards
-                else -> 0f
-            }
-            val x = (p.x + correctionX).coerceIn(0f, 1f)
-            return Offset(x * videoWidth * scale + dx, p.y * videoHeight * scale + dy)
-        }
-        fun vis(p: SkeletonPoint) = p.v > 0.45f
-
-        val leftColor = Color(0xFFFFB020)
-        val rightColor = Color(0xFF00E676)
-        val leftJoints = listOf(SKEL_L_SHOULDER, SKEL_L_ELBOW, SKEL_L_WRIST, SKEL_L_HIP, SKEL_L_KNEE, SKEL_L_ANKLE)
-        val rightJoints = listOf(SKEL_R_SHOULDER, SKEL_R_ELBOW, SKEL_R_WRIST, SKEL_R_HIP, SKEL_R_KNEE, SKEL_R_ANKLE)
-
-        fun drawEdges(edges: List<Pair<Int, Int>>, color: Color, highlighted: Boolean) {
-            for ((a, b) in edges) {
-                if (a >= pts.size || b >= pts.size) continue
-                val pa = pts[a]; val pb = pts[b]
-                if (!vis(pa) || !vis(pb)) continue
-                drawLine(
-                    color = Color(0xCC000000),
-                    start = displayPoint(a),
-                    end = displayPoint(b),
-                    strokeWidth = if (highlighted) 6f else 4f,
-                    cap = StrokeCap.Round,
-                )
-                drawLine(
-                    color = color.copy(alpha = if (highlighted) 0.95f else 0.68f),
-                    start = displayPoint(a),
-                    end = displayPoint(b),
-                    strokeWidth = if (highlighted) 3.6f else 2.6f,
-                    cap = StrokeCap.Round,
-                )
-            }
-        }
-
-        fun drawJoints(indices: List<Int>, color: Color, highlighted: Boolean) {
-            for (idx in indices) {
-                if (idx >= pts.size) continue
-                val p = pts[idx]
-                if (!vis(p)) continue
-                drawCircle(
-                    color = Color.White.copy(alpha = if (highlighted) 0.95f else 0.72f),
-                    radius = if (highlighted) 6f else 5f,
-                    center = displayPoint(idx),
-                )
-                drawCircle(
-                    color = color,
-                    radius = if (highlighted) 4f else 3.2f,
-                    center = displayPoint(idx),
-                )
-            }
-        }
-
-        fun drawLegLabel(label: String, position: Offset?, color: Color) {
-            if (position == null) return
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                this.color = android.graphics.Color.WHITE
-                textSize = 13.dp.toPx()
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                textAlign = Paint.Align.CENTER
-            }
-            val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                this.color = color.toArgb()
-            }
-            drawContext.canvas.nativeCanvas.apply {
-                drawCircle(position.x + 14.dp.toPx(), position.y - 14.dp.toPx(), 10.dp.toPx(), bgPaint)
-                drawText(label, position.x + 14.dp.toPx(), position.y - 9.dp.toPx(), paint)
-            }
-        }
-
-        for ((a, b) in SKELETON_EDGES_BILATERAL) {
-            if (a >= pts.size || b >= pts.size) continue
-            val pa = pts[a]; val pb = pts[b]
-            if (!vis(pa) || !vis(pb)) continue
-            drawLine(
-                color = Color.White.copy(alpha = 0.55f),
-                start = displayPoint(a),
-                end = displayPoint(b),
-                strokeWidth = 2.2f,
-                cap = StrokeCap.Round,
-            )
-        }
-
-        drawEdges(SKELETON_EDGES_LEFT, leftColor, highlighted = useLeftSide)
-        drawEdges(SKELETON_EDGES_RIGHT, rightColor, highlighted = !useLeftSide)
-        drawJoints(leftJoints, leftColor, highlighted = useLeftSide)
-        drawJoints(rightJoints, rightColor, highlighted = !useLeftSide)
-        if (SKEL_NOSE < pts.size && vis(pts[SKEL_NOSE])) {
-            drawCircle(color = Color.White.copy(alpha = 0.85f), radius = 5f, center = displayPoint(SKEL_NOSE))
-            drawCircle(color = Color(0xFFA4E168), radius = 3.2f, center = displayPoint(SKEL_NOSE))
-        }
-
-        drawLegLabel("L", pts.getOrNull(SKEL_L_ANKLE)?.takeIf(::vis)?.let { displayPoint(SKEL_L_ANKLE) }, leftColor)
-        drawLegLabel("R", pts.getOrNull(SKEL_R_ANKLE)?.takeIf(::vis)?.let { displayPoint(SKEL_R_ANKLE) }, rightColor)
-    }
-}
-
 private fun formatMs(ms: Long): String {
     val s = (ms / 1000).coerceAtLeast(0)
     return "%d:%02d".format(s / 60, s % 60)
-}
-
-private enum class VisibleSide { Left, Right }
-
-private fun List<PostureVideoFrame>.preferredVisibleSide(): VisibleSide {
-    var leftScore = 0f
-    var rightScore = 0f
-    var counted = 0
-
-    for (frame in this) {
-        val pts = frame.pts
-        if (pts.size <= SKEL_R_ANKLE) continue
-        leftScore += (
-            pts[SKEL_L_SHOULDER].v +
-                pts[SKEL_L_HIP].v +
-                pts[SKEL_L_KNEE].v +
-                pts[SKEL_L_ANKLE].v
-            ) / 4f
-        rightScore += (
-            pts[SKEL_R_SHOULDER].v +
-                pts[SKEL_R_HIP].v +
-                pts[SKEL_R_KNEE].v +
-                pts[SKEL_R_ANKLE].v
-            ) / 4f
-        counted++
-    }
-
-    if (counted == 0) return VisibleSide.Right
-    return if (leftScore >= rightScore) VisibleSide.Left else VisibleSide.Right
-}
-
-private class LockedLegTracker(
-    private val trackLeftSide: Boolean,
-) {
-    private var previousKnee: SkeletonPoint? = null
-    private var previousAnkle: SkeletonPoint? = null
-    private var kneeVelocityX = 0f
-    private var kneeVelocityY = 0f
-    private var ankleVelocityX = 0f
-    private var ankleVelocityY = 0f
-
-    fun track(points: List<SkeletonPoint>): List<SkeletonPoint> {
-        if (points.size <= SKEL_R_ANKLE) return points
-
-        val targetKneeIndex = if (trackLeftSide) SKEL_L_KNEE else SKEL_R_KNEE
-        val targetAnkleIndex = if (trackLeftSide) SKEL_L_ANKLE else SKEL_R_ANKLE
-        val targetHipIndex = if (trackLeftSide) SKEL_L_HIP else SKEL_R_HIP
-        val targetShoulderIndex = if (trackLeftSide) SKEL_L_SHOULDER else SKEL_R_SHOULDER
-        val hipMidX = (points[SKEL_L_HIP].x + points[SKEL_R_HIP].x) / 2f
-        val facingRight = points[SKEL_NOSE].x > hipMidX
-
-        val prevKnee = previousKnee
-        val prevAnkle = previousAnkle
-        if (prevKnee == null || prevAnkle == null) {
-            previousKnee = points[targetKneeIndex]
-            previousAnkle = points[targetAnkleIndex]
-            return points
-        }
-
-        val predictedKnee = SkeletonPoint(
-            x = (prevKnee.x + kneeVelocityX).coerceIn(0f, 1f),
-            y = (prevKnee.y + kneeVelocityY).coerceIn(0f, 1f),
-            v = prevKnee.v,
-        )
-        val predictedAnkle = SkeletonPoint(
-            x = (prevAnkle.x + ankleVelocityX).coerceIn(0f, 1f),
-            y = (prevAnkle.y + ankleVelocityY).coerceIn(0f, 1f),
-            v = prevAnkle.v,
-        )
-
-        val selected = LegCandidate(
-            knee = points[targetKneeIndex],
-            ankle = points[targetAnkleIndex],
-            hip = points[targetHipIndex],
-        )
-            .takeIf {
-                it.isUsable(
-                    predictedKnee = predictedKnee,
-                    predictedAnkle = predictedAnkle,
-                    previousAnkle = prevAnkle,
-                    ankleVelocityX = ankleVelocityX,
-                    facingRight = facingRight,
-                )
-            }
-            ?: LegCandidate(predictedKnee, predictedAnkle, points[targetHipIndex])
-
-        val stableKnee = blendTrackedPoint(prevKnee, selected.knee, alpha = 0.42f, maxStep = 0.16f)
-        val stableAnkle = blendTrackedPoint(prevAnkle, selected.ankle, alpha = 0.68f, maxStep = 0.24f)
-
-        kneeVelocityX = (stableKnee.x - prevKnee.x).coerceIn(-0.08f, 0.08f)
-        kneeVelocityY = (stableKnee.y - prevKnee.y).coerceIn(-0.08f, 0.08f)
-        ankleVelocityX = (stableAnkle.x - prevAnkle.x).coerceIn(-0.14f, 0.14f)
-        ankleVelocityY = (stableAnkle.y - prevAnkle.y).coerceIn(-0.14f, 0.14f)
-
-        previousKnee = stableKnee
-        previousAnkle = stableAnkle
-
-        return points.toMutableList().apply {
-            this[targetKneeIndex] = stableKnee
-            this[targetAnkleIndex] = stableAnkle
-            this[targetHipIndex] = points[targetHipIndex]
-            this[targetShoulderIndex] = points[targetShoulderIndex]
-        }
-    }
-
-    fun reset() {
-        previousKnee = null
-        previousAnkle = null
-        kneeVelocityX = 0f
-        kneeVelocityY = 0f
-        ankleVelocityX = 0f
-        ankleVelocityY = 0f
-    }
-
-    private fun blendTrackedPoint(
-        previous: SkeletonPoint,
-        current: SkeletonPoint,
-        alpha: Float,
-        maxStep: Float,
-    ): SkeletonPoint =
-        SkeletonPoint(
-            x = previous.x + (current.x - previous.x).coerceIn(-maxStep, maxStep) * alpha,
-            y = previous.y + (current.y - previous.y).coerceIn(-maxStep, maxStep) * alpha,
-            v = previous.v + (current.v - previous.v) * 0.4f,
-        )
-}
-
-private data class LegCandidate(
-    val knee: SkeletonPoint,
-    val ankle: SkeletonPoint,
-    val hip: SkeletonPoint,
-) {
-    fun isUsable(
-        predictedKnee: SkeletonPoint,
-        predictedAnkle: SkeletonPoint,
-        previousAnkle: SkeletonPoint,
-        ankleVelocityX: Float,
-        facingRight: Boolean,
-    ): Boolean {
-        if (knee.v < 0.58f || ankle.v < 0.58f) return false
-        if (distance(knee, predictedKnee) > 0.34f) return false
-        if (distance(ankle, predictedAnkle) > 0.46f) return false
-        if (movesAgainstBackwardStride(
-                current = ankle,
-                previous = previousAnkle,
-                predicted = predictedAnkle,
-                velocityX = ankleVelocityX,
-                facingRight = facingRight,
-            )
-        ) {
-            return false
-        }
-        val thigh = distance(hip, knee).coerceAtLeast(0.04f)
-        val lowerLeg = distance(knee, ankle)
-        return lowerLeg <= thigh * 2.35f
-    }
-
-    private fun movesAgainstBackwardStride(
-        current: SkeletonPoint,
-        previous: SkeletonPoint,
-        predicted: SkeletonPoint,
-        velocityX: Float,
-        facingRight: Boolean,
-    ): Boolean {
-        val backwardSign = if (facingRight) -1f else 1f
-        val velocityBackward = velocityX * backwardSign
-        val predictedBackward = (predicted.x - previous.x) * backwardSign
-        val currentBackward = (current.x - previous.x) * backwardSign
-
-        return velocityBackward > 0.015f &&
-            predictedBackward > 0f &&
-            currentBackward < -0.07f
-    }
-}
-
-private fun distance(a: SkeletonPoint, b: SkeletonPoint): Float {
-    val dx = a.x - b.x
-    val dy = a.y - b.y
-    return sqrt(dx * dx + dy * dy)
 }

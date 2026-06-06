@@ -63,6 +63,30 @@ object PostureAngleCalculator {
 
         val nearAnkleY = landmarks[A].y()
 
+        // Shank angle: angle between shin (knee→ankle) and vertical [0,1]
+        // running-form-analyzer: horizontal_vector=[0,1], shin_vector=ankle-knee
+        val shankAngle = run {
+            val kx = landmarks[K].x(); val ky = landmarks[K].y()
+            val ax = landmarks[A].x(); val ay = landmarks[A].y()
+            val shinX = ax - kx; val shinY = ay - ky
+            val mag = sqrt(shinX * shinX + shinY * shinY)
+            if (mag < 1e-6f) 0f
+            else Math.toDegrees(acos((shinY / mag).coerceIn(-1f, 1f)).toDouble()).toFloat()
+        }
+
+        // Arm swing angle: angle between torso vector (shoulder→hip) and upper-arm (shoulder→elbow)
+        val armSwingAngle = run {
+            val sx = landmarks[S].x(); val sy = landmarks[S].y()
+            val hx = landmarks[H].x(); val hy = landmarks[H].y()
+            val ex = landmarks[E].x(); val ey = landmarks[E].y()
+            val torsoX = hx - sx; val torsoY = hy - sy
+            val armX = ex - sx;  val armY = ey - sy
+            val dot = torsoX * armX + torsoY * armY
+            val mag = sqrt((torsoX*torsoX+torsoY*torsoY) * (armX*armX+armY*armY))
+            if (mag < 1e-6f) 0f
+            else Math.toDegrees(acos((dot / mag).coerceIn(-1f, 1f)).toDouble()).toFloat()
+        }
+
         return PostureFrameAngles(
             kneeFlexAngle = kneeAngle,
             trunkLeanAngle = trunkAngle,
@@ -73,6 +97,8 @@ object PostureAngleCalculator {
             visibility = bestVis,
             hipMidY = hipMidY,
             nearAnkleY = nearAnkleY,
+            shankAngle = shankAngle,
+            armSwingAngle = armSwingAngle,
         )
     }
 
