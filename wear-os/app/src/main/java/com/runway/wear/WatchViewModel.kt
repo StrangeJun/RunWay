@@ -1,13 +1,19 @@
 package com.runway.wear
 
 import android.app.Application
+import android.content.Intent
+import android.net.Uri
+import androidx.concurrent.futures.await
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.wear.remote.interactions.RemoteActivityHelper
 import com.runway.wear.data.WatchDataLayerClient
+import com.runway.wear.data.PhoneAuthStateRepository
 import com.runway.wear.data.PhoneRunStateRepository
 import com.runway.wear.health.HealthServicesManager
 import com.runway.wear.model.GoalCompletionAction
 import com.runway.wear.model.IntervalTarget
+import com.runway.wear.model.PhoneAuthState
 import com.runway.wear.model.RunGoal
 import com.runway.wear.model.WatchRunState
 import com.runway.wear.model.WatchScreen
@@ -18,27 +24,82 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.concurrent.Executors
 
 class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private val dataLayer = WatchDataLayerClient(application)
     private val healthServices = HealthServicesManager(application)
+    private val remoteActivityExecutor = Executors.newSingleThreadExecutor()
+    private val remoteActivityHelper = RemoteActivityHelper(
+        application,
+        remoteActivityExecutor,
+    )
 
     private val _state = MutableStateFlow(WatchRunState())
     val state: StateFlow<WatchRunState> = _state.asStateFlow()
 
     private var timerJob: Job? = null
     private var metricsJob: Job? = null
+    private var authTimeoutJob: Job? = null
     private var intervalSegmentStartSeconds = 0L
     private var intervalSegmentStartMeters = 0.0
 
     init {
         refreshConnection()
+        refreshAuthState()
         observePhoneState()
+        observePhoneAuthState()
     }
 
     fun refreshConnection() {
         viewModelScope.launch {
             _state.update { it.copy(isPhoneConnected = dataLayer.isPhoneConnected()) }
+        }
+    }
+
+    fun refreshAuthState() {
+        authTimeoutJob?.cancel()
+        _state.update { it.copy(phoneAuthState = PhoneAuthState.CHECKING, authMessage = null) }
+        viewModelScope.launch {
+            val requested = dataLayer.requestAuthState()
+            if (!requested) {
+                _state.update {
+                    it.copy(
+                        isPhoneConnected = false,
+                        phoneAuthState = PhoneAuthState.LOGGED_OUT,
+                        authMessage = "휴대폰 연결을 확인해 주세요",
+                    )
+                }
+            } else {
+                authTimeoutJob = viewModelScope.launch {
+                    delay(4_000)
+                    _state.update {
+                        if (it.phoneAuthState == PhoneAuthState.CHECKING) {
+                            it.copy(
+                                phoneAuthState = PhoneAuthState.LOGGED_OUT,
+                                authMessage = "휴대폰 앱을 열고 다시 확인해 주세요",
+                            )
+                        } else {
+                            it
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fun openPhoneLogin() {
+        viewModelScope.launch {
+            val intent = Intent(Intent.ACTION_VIEW)
+                .setData(Uri.parse(PHONE_LOGIN_URI))
+                .addCategory(Intent.CATEGORY_BROWSABLE)
+            runCatching {
+                remoteActivityHelper.startRemoteActivity(intent, null).await()
+            }.onSuccess {
+                _state.update { it.copy(authMessage = "휴대폰에서 로그인해 주세요") }
+            }.onFailure {
+                _state.update { it.copy(authMessage = "휴대폰 앱을 열지 못했습니다") }
+            }
         }
     }
 
@@ -54,6 +115,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
                 screen = WatchScreen.TRACKING,
                 goal = goal,
                 isPhoneConnected = it.isPhoneConnected,
+                phoneAuthState = it.phoneAuthState,
                 isRunning = true,
             )
         }
@@ -97,12 +159,12 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
             dataLayer.abandon()
             runCatching { healthServices.finish() }
         }
-        _state.value = WatchRunState(isPhoneConnected = _state.value.isPhoneConnected)
+        _state.value = freshAuthenticatedState()
     }
 
     fun returnHome() {
         metricsJob?.cancel()
-        _state.value = WatchRunState(isPhoneConnected = _state.value.isPhoneConnected)
+        _state.value = freshAuthenticatedState()
     }
 
     private fun startTimer() {
@@ -244,6 +306,36 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun observePhoneAuthState() {
+        viewModelScope.launch {
+            PhoneAuthStateRepository.state.collect { snapshot ->
+                snapshot ?: return@collect
+                authTimeoutJob?.cancel()
+                _state.update {
+                    it.copy(
+                        isPhoneConnected = true,
+                        phoneAuthState = if (snapshot.isLoggedIn) {
+                            PhoneAuthState.LOGGED_IN
+                        } else {
+                            PhoneAuthState.LOGGED_OUT
+                        },
+                        authMessage = null,
+                    )
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        remoteActivityExecutor.shutdown()
+        super.onCleared()
+    }
+
+    private fun freshAuthenticatedState(): WatchRunState = WatchRunState(
+        isPhoneConnected = _state.value.isPhoneConnected,
+        phoneAuthState = _state.value.phoneAuthState,
+    )
+
     private fun phoneErrorMessage(error: String?): String = when (error) {
         "RUN_ALREADY_ACTIVE" -> "폰에서 이미 러닝 중입니다"
         "PHONE_PERMISSION_REQUIRED" -> "폰 앱에서 위치 권한을 허용하세요"
@@ -254,5 +346,9 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         "FINISH_FAILED" -> "폰 기록 저장을 다시 시도해 주세요"
         "NO_ACTIVE_RUN" -> "폰에 진행 중인 기록이 없습니다"
         else -> "폰 동기화에 실패했습니다"
+    }
+
+    private companion object {
+        const val PHONE_LOGIN_URI = "pathfinder://auth/login"
     }
 }

@@ -12,6 +12,8 @@ object WatchPaths {
     const val COMMAND = "/runway/watch/command"
     const val STATE = "/runway/watch/state"
     const val COURSE_START = "/runway/watch/course-start"
+    const val AUTH_REQUEST = "/runway/watch/auth/request"
+    const val AUTH_STATE = "/runway/watch/auth/state"
 }
 
 class WatchDataLayerClient(context: Context) {
@@ -22,6 +24,11 @@ class WatchDataLayerClient(context: Context) {
     suspend fun isPhoneConnected(): Boolean = runCatching {
         nodeClient.connectedNodes.await().isNotEmpty()
     }.getOrDefault(false)
+
+    suspend fun requestAuthState(): Boolean = sendMessage(
+        path = WatchPaths.AUTH_REQUEST,
+        payload = ByteArray(0),
+    )
 
     suspend fun sendStart(goal: RunGoal): Boolean = sendCommand(
         when (goal) {
@@ -48,14 +55,17 @@ class WatchDataLayerClient(context: Context) {
     suspend fun finish(): Boolean = sendCommand(JSONObject().put("type", "FINISH_RUN"))
     suspend fun abandon(): Boolean = sendCommand(JSONObject().put("type", "ABANDON_RUN"))
 
-    private suspend fun sendCommand(payload: JSONObject): Boolean = runCatching {
+    private suspend fun sendCommand(payload: JSONObject): Boolean =
+        sendMessage(WatchPaths.COMMAND, payload.toString().encodeToByteArray())
+
+    private suspend fun sendMessage(path: String, payload: ByteArray): Boolean = runCatching {
         val nodes = nodeClient.connectedNodes.await()
         if (nodes.isEmpty()) return false
         nodes.forEach { node ->
             messageClient.sendMessage(
                 node.id,
-                WatchPaths.COMMAND,
-                payload.toString().encodeToByteArray(),
+                path,
+                payload,
             ).await()
         }
         true

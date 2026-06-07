@@ -27,9 +27,25 @@ object PhoneRunStateRepository {
     }
 }
 
+object PhoneAuthStateRepository {
+    data class Snapshot(val isLoggedIn: Boolean, val receivedAtNanos: Long)
+
+    private val _state = MutableStateFlow<Snapshot?>(null)
+    val state = _state.asStateFlow()
+
+    fun update(payload: ByteArray) {
+        val loggedIn = runCatching {
+            JSONObject(payload.decodeToString()).getBoolean("isLoggedIn")
+        }.getOrNull() ?: return
+        _state.value = Snapshot(loggedIn, System.nanoTime())
+    }
+}
+
 class PhoneStateListenerService : WearableListenerService() {
     override fun onMessageReceived(messageEvent: MessageEvent) {
-        if (messageEvent.path != WatchPaths.STATE) return
-        PhoneRunStateRepository.update(messageEvent.data)
+        when (messageEvent.path) {
+            WatchPaths.STATE -> PhoneRunStateRepository.update(messageEvent.data)
+            WatchPaths.AUTH_STATE -> PhoneAuthStateRepository.update(messageEvent.data)
+        }
     }
 }

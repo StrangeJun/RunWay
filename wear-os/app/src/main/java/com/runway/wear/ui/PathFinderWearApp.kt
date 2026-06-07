@@ -30,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -69,6 +70,7 @@ import com.runway.wear.R
 import com.runway.wear.WatchViewModel
 import com.runway.wear.model.GoalCompletionAction
 import com.runway.wear.model.IntervalTarget
+import com.runway.wear.model.PhoneAuthState
 import com.runway.wear.model.RunGoal
 import com.runway.wear.model.WatchRunState
 import com.runway.wear.model.WatchScreen
@@ -95,7 +97,15 @@ fun PathFinderWearApp(viewModel: WatchViewModel = viewModel()) {
         ),
     ) {
         Surface(modifier = Modifier.fillMaxSize(), color = Background) {
-            when (state.screen) {
+            when (state.phoneAuthState) {
+                PhoneAuthState.CHECKING -> AuthCheckingScreen()
+                PhoneAuthState.LOGGED_OUT -> PhoneLoginScreen(
+                    isPhoneConnected = state.isPhoneConnected,
+                    message = state.authMessage,
+                    onOpenPhone = viewModel::openPhoneLogin,
+                    onRetry = viewModel::refreshAuthState,
+                )
+                PhoneAuthState.LOGGED_IN -> when (state.screen) {
                 WatchScreen.HOME -> HomeScreen(state, viewModel::start) {
                     viewModel.navigate(WatchScreen.GOAL_TYPE)
                 }
@@ -106,8 +116,62 @@ fun PathFinderWearApp(viewModel: WatchViewModel = viewModel()) {
                 WatchScreen.TRACKING -> TrackingScreen(state, viewModel)
                 WatchScreen.PAUSED -> PausedScreen(state, viewModel)
                 WatchScreen.SUMMARY -> SummaryScreen(state, viewModel::returnHome)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun AuthCheckingScreen() {
+    WatchPage(scrollable = false) {
+        Image(
+            painter = painterResource(R.drawable.app_logo_mark),
+            contentDescription = "PathFinder",
+            modifier = Modifier.size(if (compact) 42.dp else 56.dp),
+        )
+        Text("로그인 확인 중", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        Text("휴대폰과 연결하고 있습니다", color = Muted, fontSize = 10.sp)
+    }
+}
+
+@Composable
+private fun PhoneLoginScreen(
+    isPhoneConnected: Boolean,
+    message: String?,
+    onOpenPhone: () -> Unit,
+    onRetry: () -> Unit,
+) {
+    WatchPage(scrollable = true) {
+        Image(
+            painter = painterResource(R.drawable.app_logo_mark),
+            contentDescription = "PathFinder",
+            modifier = Modifier.size(if (compact) 38.dp else 52.dp),
+        )
+        Text("휴대폰 로그인이 필요해요", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        Text(
+            if (isPhoneConnected) {
+                "휴대폰 앱에서 로그인하면 워치에서 바로 시작할 수 있습니다"
+            } else {
+                "휴대폰과 워치의 연결을 확인해 주세요"
+            },
+            color = Muted,
+            fontSize = 10.sp,
+            textAlign = TextAlign.Center,
+        )
+        PrimaryAction(
+            label = "휴대폰에서 로그인",
+            icon = Icons.Filled.PhoneAndroid,
+            onClick = onOpenPhone,
+            compact = compact,
+        )
+        message?.let { StatusText(it) }
+        Text(
+            text = "로그인 확인",
+            color = Accent,
+            fontSize = 11.sp,
+            modifier = Modifier.clickable(onClick = onRetry).padding(6.dp),
+        )
     }
 }
 

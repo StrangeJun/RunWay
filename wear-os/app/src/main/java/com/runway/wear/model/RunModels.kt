@@ -46,10 +46,18 @@ enum class WatchScreen {
     SUMMARY,
 }
 
+enum class PhoneAuthState {
+    CHECKING,
+    LOGGED_OUT,
+    LOGGED_IN,
+}
+
 data class WatchRunState(
     val screen: WatchScreen = WatchScreen.HOME,
     val goal: RunGoal = RunGoal.Free,
     val isPhoneConnected: Boolean = false,
+    val phoneAuthState: PhoneAuthState = PhoneAuthState.CHECKING,
+    val authMessage: String? = null,
     val isRunning: Boolean = false,
     val isPaused: Boolean = false,
     val elapsedSeconds: Long = 0,

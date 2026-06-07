@@ -15,6 +15,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 import com.runway.android.ui.MainViewModel
 import com.runway.android.ui.achievements.AchievementsScreen
 import com.runway.android.ui.home.HomeViewModel
@@ -83,7 +84,10 @@ fun RunwayNavGraph() {
 
         // ─── Auth ───
 
-        composable(RunwayRoutes.LOGIN) {
+        composable(
+            route = RunwayRoutes.LOGIN,
+            deepLinks = listOf(navDeepLink { uriPattern = "pathfinder://auth/login" }),
+        ) {
             LoginScreen(
                 onNavigateToSignup = { navController.navigate(RunwayRoutes.SIGNUP) },
                 onLoginSuccess = {

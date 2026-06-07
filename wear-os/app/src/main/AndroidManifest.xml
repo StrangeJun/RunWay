@@ -37,7 +37,7 @@
                 <data
                     android:scheme="wear"
                     android:host="*"
-                    android:pathPrefix="/runway/watch/state" />
+                    android:pathPrefix="/runway/watch" />
             </intent-filter>
         </service>
     </application>

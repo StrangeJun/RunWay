@@ -60,6 +60,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 
     implementation("androidx.wear:wear:1.3.0")
+    implementation("androidx.wear:wear-remote-interactions:1.1.0")
     implementation("androidx.wear.compose:compose-material3:1.6.2")
     implementation("androidx.health:health-services-client:1.1.0-rc01")
     implementation("com.google.android.gms:play-services-wearable:19.0.0")

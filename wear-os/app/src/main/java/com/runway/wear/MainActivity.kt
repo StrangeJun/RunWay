@@ -7,12 +7,19 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.runway.wear.WatchViewModel
 import com.runway.wear.ui.PathFinderWearApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
+            val watchViewModel: WatchViewModel = viewModel()
+            val lifecycleState = LocalLifecycleOwner.current.lifecycle.currentStateAsState()
             val permissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions(),
             ) { }
@@ -25,7 +32,13 @@ class MainActivity : ComponentActivity() {
                     ),
                 )
             }
-            PathFinderWearApp()
+            LaunchedEffect(lifecycleState.value) {
+                if (lifecycleState.value == Lifecycle.State.RESUMED) {
+                    watchViewModel.refreshConnection()
+                    watchViewModel.refreshAuthState()
+                }
+            }
+            PathFinderWearApp(watchViewModel)
         }
     }
 }
