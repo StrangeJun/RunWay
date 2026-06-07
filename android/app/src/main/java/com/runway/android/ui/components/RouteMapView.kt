@@ -7,6 +7,10 @@ import android.graphics.Paint as AndroidPaint
 import android.location.Location
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toArgb
 import com.runway.android.ui.theme.LocalIsDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +54,8 @@ fun RouteMapView(
     currentLocation: MapPoint? = null,
     gesturesEnabled: Boolean = false,
     showKilometerMarkers: Boolean = false,
+    /** true 이면 GPS 위치 변경마다 현재 위치 중심 zoom 17로 카메라를 따라감 */
+    followCurrentLocation: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
     if (points.size >= 2) {
@@ -59,6 +65,7 @@ fun RouteMapView(
             modifier = modifier,
             gesturesEnabled = gesturesEnabled,
             showKilometerMarkers = showKilometerMarkers,
+            followCurrentLocation = followCurrentLocation,
             onClick = onClick,
         )
     } else {
@@ -73,6 +80,7 @@ private fun RouteGoogleMap(
     modifier: Modifier,
     gesturesEnabled: Boolean,
     showKilometerMarkers: Boolean,
+    followCurrentLocation: Boolean,
     onClick: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -93,6 +101,18 @@ private fun RouteGoogleMap(
         runCatching { MapStyleOptions.loadRawResourceStyle(context, styleRes) }.getOrNull()
     }
 
+    // 현재 위치 추적 카메라 — GPS 위치 변경마다 zoom 17로 따라감
+    var hasSetInitialLocation by remember { mutableStateOf(false) }
+    LaunchedEffect(currentLatLng) {
+        if (!followCurrentLocation || currentLatLng == null) return@LaunchedEffect
+        if (!hasSetInitialLocation) {
+            cameraPositionState.move(CameraUpdateFactory.newLatLngZoom(currentLatLng, 17f))
+            hasSetInitialLocation = true
+        } else {
+            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(currentLatLng, 17f), 800)
+        }
+    }
+
     GoogleMap(
         modifier = modifier,
         cameraPositionState = cameraPositionState,
@@ -108,7 +128,12 @@ private fun RouteGoogleMap(
         ),
         onMapClick = { onClick?.invoke() },
         onMapLoaded = {
-            cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 48))
+            // 위치 추적 모드일 때는 첫 GPS 수신 전까지만 전체 코스 bounds로 표시
+            if (!followCurrentLocation) {
+                cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 48))
+            } else if (currentLatLng == null) {
+                cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 48))
+            }
         },
     ) {
         Polyline(

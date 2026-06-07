@@ -50,7 +50,11 @@ public class CourseAttemptService {
         Course course = courseRepository.findByIdAndDeletedAtIsNull(courseId)
                 .orElseThrow(() -> new RunwayException(ErrorCode.COURSE_NOT_FOUND));
 
-        if (course.getStatus() != CourseStatus.PUBLISHED) {
+        // published 코스는 누구나 도전 가능
+        // draft 코스는 창작자 본인만 도전 가능 (연습 목적)
+        boolean canAttempt = course.getStatus() == CourseStatus.PUBLISHED
+                || (course.getStatus() == CourseStatus.DRAFT && course.getCreatorId().equals(userId));
+        if (!canAttempt) {
             throw new RunwayException(ErrorCode.INVALID_COURSE_STATUS);
         }
 

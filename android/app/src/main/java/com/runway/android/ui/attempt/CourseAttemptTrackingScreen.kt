@@ -590,6 +590,7 @@ private fun CourseMapPanel(
         RouteMapView(
             points = points,
             currentLocation = currentLocation,
+            followCurrentLocation = true,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
