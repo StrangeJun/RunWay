@@ -1,6 +1,6 @@
 # PathFinder (RunWay) 프로젝트 종합 설명서
 
-> 작성일: 2026-06-07  
+> 작성일: 2026-06-08  
 > 기준 버전: main 브랜치 최신 상태  
 > 대상 독자: 개발자, 기획자, 팀원
 
@@ -12,12 +12,13 @@
 2. [전체 아키텍처](#2-전체-아키텍처)
 3. [백엔드 상세](#3-백엔드-상세)
 4. [Android 앱 상세](#4-android-앱-상세)
-5. [핵심 기능 상세](#5-핵심-기능-상세)
-6. [부가 기능](#6-부가-기능)
-7. [데이터베이스 설계](#7-데이터베이스-설계)
-8. [인프라 및 배포](#8-인프라-및-배포)
-9. [보안 설계](#9-보안-설계)
-10. [전문 용어 해설](#10-전문-용어-해설)
+5. [Wear OS 앱 상세](#5-wear-os-앱-상세)
+6. [핵심 기능 상세](#6-핵심-기능-상세)
+7. [부가 기능](#7-부가-기능)
+8. [데이터베이스 설계](#8-데이터베이스-설계)
+9. [인프라 및 배포](#9-인프라-및-배포)
+10. [보안 설계](#10-보안-설계)
+11. [전문 용어 해설](#11-전문-용어-해설)
 
 ---
 
@@ -25,7 +26,7 @@
 
 ### 서비스 정의
 
-**PathFinder(RunWay)**는 GPS 기반 러닝 경로 공유 및 경쟁 플랫폼이다. 사용자는 직접 뛴 경로를 코스로 등록해 공개하고, 다른 러너들은 그 코스에 도전하여 리더보드에서 기록을 경쟁한다. 여기에 더해 스마트폰 카메라와 인공지능(AI)을 이용한 러닝 자세 분석 기능을 제공한다.
+**PathFinder(RunWay)**는 GPS 기반 러닝 경로 공유 및 경쟁 플랫폼이다. 사용자는 직접 뛴 경로를 코스로 등록해 공개하고, 다른 러너들은 그 코스에 도전하여 리더보드에서 기록을 경쟁한다. AI 러닝 자세 분석과 Galaxy Watch 연동 기능도 제공한다.
 
 ### 핵심 가치
 
@@ -34,6 +35,7 @@
 | **Social & Discovery** | 코스를 공유하고 함께 뛰는 커뮤니티 경험 |
 | **Precision Tracking** | PostGIS 공간 DB 기반의 정밀한 GPS 경로 관리 |
 | **Health & AI** | MediaPipe + 오토인코더 기반 러닝 자세 분석 |
+| **Wearable Integration** | Galaxy Watch 6 독립 실행 Wear OS 앱으로 코스 도전 가능 |
 | **Reliability** | ForegroundService + 크래시 복구 시스템으로 달리는 도중 데이터 손실 방지 |
 
 ### 사용 흐름 (User Journey)
@@ -42,6 +44,8 @@
 런 시작 → GPS 수집 → 런 완료 → 코스 생성 → 코스 탐색 → 코스 도전 → 리더보드
                         ↓
                AI 자세 분석 (영상 촬영 후 별도 진행)
+
+워치 앱: 코스 동기화 → GPS 준비 → 카운트다운 → 코스 도전 → 경로 이탈 감지 → 완주
 ```
 
 ### 레포지토리 구조
@@ -50,6 +54,7 @@
 RunWay/
 ├── android/          # Kotlin Android 클라이언트 (Jetpack Compose)
 ├── backend/          # Java Spring Boot REST API 서버
+├── wear-os/          # Kotlin Wear OS 클라이언트 (Galaxy Watch 6)
 ├── docs/             # 기술 명세서, 로드맵 문서
 ├── design/           # Lovable 기반 UI 프로토타입
 └── sample/           # 테스트용 Samsung Health GPX 파일 (17개)
@@ -62,29 +67,23 @@ RunWay/
 ### 시스템 구성도
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Android 클라이언트                         │
-│                                                                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌───────────────┐  │
-│  │ Compose  │  │ViewModel │  │Repository│  │ Local Storage │  │
-│  │   UI     │◄─│(State)   │◄─│(Domain)  │◄─│ Room / DS     │  │
-│  └──────────┘  └──────────┘  └──────────┘  └───────────────┘  │
-│                                     │                           │
-│                              Retrofit2 + OkHttp                 │
-└─────────────────────────────────────┼───────────────────────────┘
-                                      │ HTTPS / REST API
-                                      │
-┌─────────────────────────────────────▼───────────────────────────┐
-│                     Spring Boot API 서버 (OCI)                   │
-│                                                                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌───────────────┐  │
-│  │Controller│  │ Service  │  │Repository│  │  PostGIS DB   │  │
-│  │  (REST)  │─►│(Business │─►│  (JPA)   │─►│ PostgreSQL 15 │  │
-│  │          │  │  Logic)  │  │          │  │ + PostGIS 3.4 │  │
-│  └──────────┘  └──────────┘  └──────────┘  └───────────────┘  │
-│                                                                 │
-│  Spring Security (JWT) + Flyway (DB Migration)                  │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────┐     Wearable DataLayer      ┌──────────────────────────┐
+│    Galaxy Watch 6         │◄──────────────────────────►│    Android 클라이언트     │
+│                          │                             │                          │
+│  HealthServices (GPS)     │                             │  Compose UI + ViewModel  │
+│  FusedLocationProvider   │                             │  RunTrackingService      │
+│  Offline Course Store    │                             │  WatchCommandListener    │
+│  Foreground Service      │                             │                          │
+└──────────────────────────┘                             └────────────┬─────────────┘
+                                                                       │ HTTPS / REST
+                                                         ┌─────────────▼─────────────┐
+                                                         │   Spring Boot API (OCI)    │
+                                                         │                           │
+                                                         │  Controller → Service      │
+                                                         │  → Repository → PostGIS   │
+                                                         │                           │
+                                                         │  Spring Security + JWT    │
+                                                         └───────────────────────────┘
 ```
 
 ### 아키텍처 패턴
@@ -99,6 +98,10 @@ RunWay/
 - UI Layer: Composable 화면 + ViewModel (상태 관리)
 - Domain Layer: Repository 인터페이스 (비즈니스 규칙 독립)
 - Data Layer: Repository 구현체 + Retrofit API + Room DB
+
+**Wear OS**: MVI-like 패턴
+- `WatchViewModel` 단일 StateFlow로 전체 앱 상태 관리
+- HealthServices (운동 메트릭) + FusedLocationProvider (GPS 위치) 듀얼 소스
 
 ---
 
@@ -117,17 +120,19 @@ RunWay/
 | 빌드 도구 | Gradle | - |
 | API 문서 | SpringDoc OpenAPI (Swagger) | - |
 | 컨테이너화 | Docker + Docker Compose | - |
+| 파일 스토리지 | 서버 로컬 파일시스템 (`/opt/runway/uploads/`) | - |
 
 ### 패키지 구조
 
 ```
 com.runway/
 ├── common/               # 공통 유틸리티
+│   ├── config/           # WebConfig (정적 파일 서빙 /uploads/**)
 │   ├── exception/        # 전역 예외 처리 (RunwayException, ErrorCode)
 │   ├── response/         # API 응답 형식 (ApiResponse, PageResponse)
 │   └── security/         # JWT 필터, 인증 설정 (SecurityConfig)
 ├── auth/                 # 회원가입 / 로그인 / 토큰 재발급
-├── user/                 # 프로필 관리 / 통계 / 업적
+├── user/                 # 프로필 관리 / 이미지 업로드 / 통계 / 업적
 ├── run/                  # 러닝 기록 추적 / GPS 포인트 저장
 ├── course/               # 코스 CRUD / 탐색 / 평점 / 신고 / 즐겨찾기
 └── attempt/              # 코스 도전 / 완주 / 리더보드
@@ -149,7 +154,8 @@ com.runway/
 | 메서드 | 경로 | 기능 |
 |--------|------|------|
 | GET | `/me` | 내 프로필 조회 |
-| PUT | `/me` | 프로필 수정 (닉네임, 소개) |
+| PUT | `/me` | 프로필 수정 (닉네임, 소개, 프로필 이미지 URL) |
+| POST | `/me/profile-image` | 프로필 이미지 업로드 (multipart/form-data → URL 반환) |
 | DELETE | `/me` | 회원 탈퇴 (Soft Delete) |
 | GET | `/me/achievements` | 업적 조회 |
 
@@ -182,12 +188,14 @@ com.runway/
 | GET | `/{courseId}` | 코스 상세 정보 |
 | GET | `/{courseId}/points` | 코스 경로 좌표 목록 |
 | PUT | `/{courseId}` | 코스 기본 정보 수정 |
-| PATCH | `/{courseId}/publish` | 코스 공개 (메타데이터 필수) |
-| PATCH | `/{courseId}/archive` | 코스 보관 처리 |
+| PATCH | `/{courseId}/publish` | 코스 공개 (10회 완주 + 메타데이터 필수) |
+| DELETE | `/{courseId}` | 초안(draft) 코스 삭제 — 공개 코스는 삭제 불가 |
 | POST | `/{courseId}/reports` | 코스 신고 |
 | POST | `/{courseId}/ratings` | 코스 평점 등록/수정 |
 | POST | `/{courseId}/favorite` | 즐겨찾기 추가 |
 | DELETE | `/{courseId}/favorite` | 즐겨찾기 제거 |
+
+> **정책**: 한번 공개된 코스(`published`)는 보관/삭제 불가. 공개 코스는 영구적으로 다른 사용자에게 유지됨.
 
 #### 코스 도전 (`/api/courses`, `/api/course-attempts`)
 
@@ -204,31 +212,10 @@ com.runway/
 
 ```json
 // 성공 응답
-{
-  "success": true,
-  "message": "요청이 성공했습니다.",
-  "data": { ... }
-}
+{ "success": true, "message": "요청이 성공했습니다.", "data": { ... } }
 
 // 오류 응답
-{
-  "success": false,
-  "message": "에러 메시지",
-  "errorCode": "ERROR_CODE"
-}
-
-// 페이지네이션 응답
-{
-  "success": true,
-  "data": {
-    "content": [...],
-    "page": 0,
-    "size": 20,
-    "totalElements": 100,
-    "totalPages": 5,
-    "hasNext": true
-  }
-}
+{ "success": false, "message": "에러 메시지", "errorCode": "ERROR_CODE" }
 ```
 
 ### 백엔드 핵심 설계 결정
@@ -237,36 +224,34 @@ com.runway/
 
 반경 내 코스 탐색, 거리 계산에 PostgreSQL의 지리정보 확장인 PostGIS를 사용한다. 일반 SQL로는 불가능한 "내 위치에서 5km 반경 내 코스 찾기"를 단일 쿼리로 처리한다.
 
-```sql
--- 예시: 현재 위치에서 반경 3km 내 공개된 코스 탐색
-SELECT c.* FROM courses c
-WHERE ST_DWithin(
-  c.start_location,
-  ST_SetSRID(ST_MakePoint(127.8675, 36.9674), 4326)::geography,
-  3000  -- 미터 단위
-)
-AND c.status = 'published'
-AND c.deleted_at IS NULL
-ORDER BY ST_Distance(c.start_location, ...) ASC;
-```
-
 #### 2. GPS 경로 저장 전략
 
-- **러닝 중**: GPS 포인트를 `running_points` 테이블에 개별 저장 (상세 기록용, 1초 간격)
-- **런 완료 시**: 전체 포인트를 `ST_MakeLine()`으로 하나의 LineString으로 압축해 `running_records.path`에 저장 (지도 표시용)
-- **코스 생성 시**: RDP(Ramer-Douglas-Peucker) 알고리즘으로 핵심 좌표만 추출해 `course_points`에 저장 (전송 효율화)
+- **러닝 중**: GPS 포인트를 `running_points` 테이블에 개별 저장 (1초 간격)
+- **런 완료 시**: `ST_MakeLine()`으로 LineString 압축 → `running_records.path` 저장
+- **코스 생성 시**: RDP 알고리즘으로 핵심 좌표 추출 → `course_points` 저장
 
-#### 3. 리더보드 설계
+#### 3. 프로필 이미지 저장
 
-별도 랭킹 테이블 없이 `course_attempts` 테이블에서 `RANK() OVER` 윈도우 함수로 실시간 집계. 완주 시 동일 트랜잭션에서 `verification_status = 'verified'`를 자동 설정 (Phase 1 단순화).
+- `POST /api/users/me/profile-image`로 multipart 이미지 업로드
+- 서버 로컬 파일시스템 `/opt/runway/uploads/profiles/` 저장
+- Spring Boot `WebMvcConfigurer`로 `/uploads/**` 정적 파일 서빙
+- URL 형식: `https://pathfinder.run/uploads/profiles/profile_{userId}.jpg`
 
-#### 4. Privacy Zone (프라이버시 보호)
+#### 4. 코스 공개 불변 정책
 
-코스 소유자가 아닌 사람이 코스 경로를 조회할 때, `CoursePrivacyUtils`가 시작점에서 150m ~ 1.1km 구간을 자동으로 마스킹한다. 자택 등 민감한 위치 노출을 방지한다.
+공개된 코스는 보관/삭제 불가. 다른 사용자가 이용 중인 코스가 사라지면 데이터 무결성이 깨지기 때문. 초안(draft) 상태 코스만 삭제 가능.
 
-#### 5. Soft Delete (소프트 삭제)
+#### 5. 리더보드 설계
 
-사용자 탈퇴, 코스 삭제 시 실제 DB 행을 삭제하지 않고 `deleted_at` 타임스탬프만 기록한다. 연결된 데이터(코스 도전 기록 등)가 고아 상태가 되는 것을 방지하고, 데이터 복구 가능성을 유지한다.
+별도 랭킹 테이블 없이 `course_attempts`에서 `RANK() OVER` 윈도우 함수로 실시간 집계.
+
+#### 6. Privacy Zone (프라이버시 보호)
+
+코스 소유자가 아닌 사람이 코스 경로 조회 시, 시작점에서 150m~1.1km 구간 자동 마스킹.
+
+#### 7. Soft Delete (소프트 삭제)
+
+사용자 탈퇴, 코스 삭제 시 `deleted_at` 타임스탬프만 기록. 연결 데이터 무결성 유지, 복구 가능성 보존.
 
 ---
 
@@ -291,176 +276,173 @@ ORDER BY ST_Distance(c.start_location, ...) ASC;
 | 이미지 로딩 | Coil | 2.7.0 |
 | Wear OS | Play Services Wearable | 19.0.0 |
 
-### 앱 화면 구성 (28개 화면)
+### 앱 화면 구성
 
 #### 인증 플로우
-- **RunwaySplashScreen**: 앱 시작 시 짧은 스플래시 (로그인 상태 판별)
+- **RunwaySplashScreen**: 로그인 상태 판별
 - **OnboardingScreen**: 최초 실행 시 서비스 소개
-- **PermissionScreen**: GPS, 알림 권한 요청 안내
-- **LoginScreen**: 이메일/비밀번호 로그인
-- **SignupScreen**: 회원가입
+- **LoginScreen** / **SignupScreen**: 이메일 인증
 
 #### 메인 탭 (BottomNav 5개)
-
 ```
 홈(Home) | 탐색(Discover) | 코스(Courses) | 자세(Posture) | 프로필(Profile)
 ```
 
-- **HomeScreen**: 오늘의 날씨 + 최근 런 요약 + 주변 코스 미리보기 + 러닝 시작 버튼
-- **DiscoverScreen**: 지도 뷰(마커 클러스터링) + 목록 뷰 + 거리/루프 필터
-- **CoursesLibraryScreen**: 내가 만든 코스 / 즐겨찾기 / 참여한 코스 탭
-- **PostureHomeScreen**: 자세 분석 이력 목록 + 새 분석 시작
-- **ProfileScreen**: 프로필 정보 + 통계 + 업적 + 설정
+- **HomeScreen**: 날씨 + 최근 런 요약 + 주변 코스 미리보기
+- **DiscoverScreen**: 지도 뷰(마커 클러스터링) + 목록 뷰 + 필터
+- **CoursesLibraryScreen**: 내 코스 / 즐겨찾기 / 참여한 코스
+- **PostureHomeScreen**: 자세 분석 이력 + 새 분석 시작 + AI 면책 경고 배너
+- **ProfileScreen**: 프로필(이미지 변경 포함) + 통계 + 업적 + 설정
 
 #### 러닝 플로우
-- **RunningTrackingScreen**: 실시간 GPS 추적 + 페이스/거리/시간 + 지도
-- **RunResultScreen**: 런 완료 후 결과 (코스 저장, 공유 이미지 생성 진입)
-- **RunShareImageScreen**: 결과 카드 템플릿 선택 및 공유
-- **MyRunsScreen**: 내 모든 러닝 기록 목록
-- **RunDetailScreen**: 특정 런 상세 (GPS 경로 지도 + km 스플릿)
+- **RunningTrackingScreen**: 실시간 GPS 추적 + 카운트다운(탭으로 건너뛰기)
+- **RunResultScreen**: 런 완료 후 결과
+- **MyRunsScreen** / **RunDetailScreen**: 기록 목록 + 상세 (하단 "코스 만들기" 버튼)
 
 #### 코스 플로우
-- **CourseDetailScreen**: 코스 정보 + 경로 지도 + 리더보드 미리보기 + 도전 시작
-- **CourseMapDetailScreen**: 코스 경로 전체 지도 (클러스터 마커 + 1km 표시)
-- **CourseAttemptTrackingScreen**: 코스 도전 중 실시간 추적 + 이탈 경고
-- **CourseLeaderboardScreen**: 코스 완주 기록 순위표
-- **MyCoursesScreen**: 내가 만든 코스 관리
+- **CourseDetailScreen**: 코스 정보 + 평점(최초 1회) + 도전 시작 + 초안 삭제
+- **CourseMapDetailScreen**: 코스 경로 전체 지도 (줌 시 경로 유지 고정)
+- **CourseAttemptTrackingScreen**: 코스 도전 실시간 추적 + 이탈 경고 + 완주 테두리 효과
+- **CourseLeaderboardScreen**: 완주 기록 순위표
 
 #### 자세 분석 플로우
-- **PostureCaptureScreen**: CameraX로 영상 촬영
-- **PostureAnalyzingScreen**: MediaPipe 분석 진행 중 (로딩)
-- **PostureResultScreen**: 분석 결과 (점수 + 카테고리별 피드백 + 경고 문구)
+- **PostureCaptureScreen**: CameraX 촬영
+- **PostureAnalyzingScreen**: MediaPipe 분석 중
+- **PostureResultScreen**: 분석 결과 + 동영상 오버레이 + 면책 경고
 
-#### 기타 화면
-- **StatsScreen**: 주간/월간/연간 러닝 통계 차트
-- **AchievementsScreen**: 달성 업적 목록
-- **ReminderScreen**: 러닝 알림 시간 설정
-- **SettingsScreen**: 테마, 계정 설정
-
-### Clean Architecture 레이어 구조
+### Wear OS ↔ Android 연동
 
 ```
-android/app/src/main/java/com/runway/android/
-│
-├── ui/                          # UI Layer (Compose + ViewModel)
-│   ├── auth/                    # 로그인, 회원가입
-│   ├── home/                    # 홈 화면
-│   ├── running/                 # 러닝 추적, 결과, 기록
-│   ├── course/                  # 코스 상세, 라이브러리
-│   ├── discover/                # 코스 탐색 지도/목록
-│   ├── attempt/                 # 코스 도전 추적
-│   ├── posture/                 # 자세 분석
-│   ├── profile/                 # 프로필
-│   ├── leaderboard/             # 리더보드
-│   ├── share/                   # 공유 이미지
-│   ├── stats/                   # 통계
-│   ├── achievements/            # 업적
-│   ├── components/              # 재사용 컴포넌트 (RouteMapView 등)
-│   ├── navigation/              # NavGraph, MainScaffold
-│   └── theme/                   # 색상, 타이포그래피
-│
-├── domain/                      # Domain Layer (인터페이스만)
-│   ├── auth/AuthRepository.kt
-│   ├── course/CourseRepository.kt
-│   ├── running/RunningRepository.kt
-│   ├── user/UserRepository.kt
-│   └── attempt/CourseAttemptRepository.kt
-│
-├── data/                        # Data Layer (구현체)
-│   ├── auth/                    # AuthRepositoryImpl + AuthApi
-│   ├── course/                  # CourseRepositoryImpl + CourseApi
-│   ├── running/                 # RunningRepositoryImpl + RunningApi
-│   ├── user/                    # UserRepositoryImpl + UserApi
-│   └── attempt/                 # CourseAttemptRepositoryImpl + CourseAttemptApi
-│
-├── core/                        # 핵심 인프라 (도메인 무관)
-│   ├── tracking/                # GPS 추적 ForegroundService
-│   ├── posture/                 # MediaPipe 자세 분석
-│   ├── location/                # GPS 위치 추적
-│   ├── cadence/                 # 케이던스(걸음수) 추적
-│   ├── running/                 # 스플릿, 차트 계산
-│   ├── share/                   # 이미지 공유
-│   ├── network/                 # Interceptor, TokenAuthenticator
-│   ├── datastore/               # TokenDataStore, ThemeDataStore
-│   ├── notification/            # 알림 채널, 리마인더
-│   ├── map/                     # MapPoint, 지도 유틸
-│   ├── wear/                    # Wear OS 연동 (WearRunSessionCoordinator)
-│   ├── voice/                   # 음성 안내 (RunningVoiceGuide — TTS)
-│   └── model/                   # ApiResponse, NetworkResult
-│
-└── di/                          # Hilt 의존성 주입 모듈
-    ├── NetworkModule.kt
-    ├── RepositoryModule.kt
-    ├── LocationModule.kt
-    └── PostureModule.kt
+┌─────────────────────────────────────────────────────┐
+│                  WatchCommandListenerService          │
+│  (WearableListenerService — 워치 메시지 수신)         │
+├─────────────────────────────────────────────────────┤
+│ 처리 경로                                             │
+│ /runway/watch/command    → WearRunSessionCoordinator │
+│ /runway/watch/run-upload → WatchRunUploadCoordinator │
+│ /runway/watch/course-req → WatchCourseSyncCoordinator│
+│ /runway/watch/open-course→ WatchNavRepository        │
+│ /runway/watch/open-run   → WatchNavRepository        │
+│ /runway/watch/open-app   → MainActivity 포그라운드   │
+│ /runway/watch/auth/req   → sendAuthState(토큰 유무)  │
+└─────────────────────────────────────────────────────┘
 ```
+
+**워치 런 업로드 플로우 (`WatchRunUploadCoordinator`):**
+1. 워치가 DataItem으로 런 데이터 전송
+2. 폰이 서버에 `startRun` → `savePoints` → `finishRun` 순서로 업로드
+3. 업로드 완료 ACK에 서버 `runId` 포함하여 워치로 전송
+4. 워치 요약 화면에서 "📱 에서 코스로 등록" 버튼 활성화
 
 ---
 
-## 5. 핵심 기능 상세
+## 5. Wear OS 앱 상세
 
-### 5.1 GPS 러닝 추적 시스템
+### 개요
 
-**배경**: 러닝 중 앱이 백그라운드로 이동하거나 화면이 꺼져도 GPS 기록이 끊기면 안 된다. 또한 네트워크가 불안정하거나 앱이 강제 종료되어도 달린 거리와 시간이 유실되면 안 된다.
+Galaxy Watch 6 Classic(minSdk 30, Wear OS 4)에서 독립 실행되는 러닝 앱. 폰 앱과 DataLayer로 통신하되, **오프라인(폰 미연결)에서도 런닝 기록 가능**.
 
-**구현:**
+### 기술 스택
+
+| 항목 | 기술 |
+|------|------|
+| 언어 | Kotlin |
+| UI | Jetpack Compose Wear Material 3 |
+| 운동 추적 | Wear OS HealthServices (`ExerciseClient`) |
+| GPS | HealthServices + FusedLocationProvider (듀얼) |
+| 음성 | Android TextToSpeech (오프라인 한국어 여성 음성) |
+| 데이터 동기화 | Wearable DataLayer (MessageClient + DataClient) |
+| 화면 유지 | `FLAG_KEEP_SCREEN_ON` (앱 포그라운드 전 구간) |
+| AOD | `AmbientLifecycleObserver` (런닝 중 화면 dim 표시) |
+| 서비스 | `RunForegroundService` (FOREGROUND_SERVICE_TYPE_LOCATION) |
+
+### 화면 구성 (`WatchScreen` enum)
+
+```
+HOME → PREPARING → COUNTDOWN → TRACKING ↔ PAUSED → SUMMARY
+         ↓
+     COURSE_LIST → COURSE_DETAIL
+         ↓
+     GOAL_TYPE → TIME_GOAL / DISTANCE_GOAL / INTERVAL_GOAL
+```
+
+### 코스 도전 로직 (핵심)
+
+**핸드폰 앱과 동일한 동작 보장:**
+
+1. **코스 동기화**: 폰 앱에서 주변 코스를 DataLayer로 워치에 오프라인 저장
+2. **GPS 준비 화면**: 30m 이내 정확도 확인 후에만 시작 가능
+3. **출발 위치 즉시 확인**: `startTracking()` 시 `lastReadyLocation`으로 경로 이탈 체크 → 이탈 시 0.3초 내 자동 정지
+4. **경로 이탈 감지 (20m 기준)**:
+   - HealthServices GPS 업데이트 → `courseProximity()` 계산
+   - 20m 초과 시: 음성 "코스를 이탈했습니다" + 자동 일시정지 + FLP 복귀 모니터 시작
+5. **복귀 감지**: 일시정지 중 FLP로 2초마다 위치 확인 → 20m 이내 복귀 시 자동 재개
+6. **수동 재개 차단**: 경로 이탈로 정지 중 재생 버튼 무시
+7. **완주 조건**: 코스 진행도 100%(경로 투영 거리 기반) **AND** 종착점 30m 이내
+
+**경로 투영 거리 (`courseProximity`):**
+
+단순 이동 거리 대신 코스 경로 위에 투영한 호 길이(arc length)로 진행도 계산. 경로 이탈 중 달린 거리는 완주 진행도에 반영되지 않음. 되돌아가도 감소하지 않음(최대값 유지).
+
+```
+현재 위치 X를 경로 선분 AB에 수선을 내려 P를 구함
+진행도 = 코스 시작부터 P까지의 거리 / 코스 전체 거리
+```
+
+### Ambient Mode (AOD)
+
+런닝 화면에서 손목을 내리면(ambient 진입):
+- 검은 배경 + 흰색 시간/거리/페이스만 표시 (저전력)
+- 손목을 들면(interactive 복귀) 전체 UI 표시
+- `AmbientLifecycleObserver` + `AmbientTrackingScreen` composable
+
+### 오프라인 런 동기화
+
+폰 미연결 시:
+- 런 데이터를 `PendingWatchRunStore`(로컬 파일)에 저장
+- 폰 연결 감지 시 `WatchDataLayerClient.syncPendingRuns()` 자동 전송
+
+---
+
+## 6. 핵심 기능 상세
+
+### 6.1 GPS 러닝 추적 시스템 (Android)
 
 ```
 ForegroundService (RunTrackingService)
-    │
     └─► RunTrackingManager (Singleton, appScope)
-            │
             ├─► FusedLocationProvider (3초 간격 GPS)
-            │       └─► GpsPointValidator (12m/s 속도, 200m 거리, 1m 필터)
-            │
-            ├─► CadenceTracker (폰 가속도계 기반 케이던스)
-            │
-            ├─► Auto-pause (속도 < 0.5m/s × 10회 → 자동 일시정지)
-            │   Auto-resume (속도 > 1.0m/s × 3회 → 자동 재개)
-            │
-            ├─► PendingPointQueue (Room DB, 크래시 안전 GPS 큐)
-            │       └─► 5초마다 배치 전송 → 실패 시 큐 보관 → 재전송
-            │
-            └─► TrackingSessionStore (DataStore, 런 상태 지속 저장)
-                    └─► 앱 재시작 시 TrackingRecoveryDialog로 복구 안내
+            │       └─► GpsPointValidator (12m/s 속도, 200m 거리 필터)
+            ├─► CadenceTracker (가속도계 기반 케이던스)
+            ├─► Auto-pause (< 0.5m/s × 10회 → 정지, > 1.0m/s × 3회 → 재개)
+            ├─► PendingPointQueue (Room DB 크래시 안전 큐)
+            │       └─► 5초마다 배치 전송 → 실패 시 재전송
+            └─► TrackingSessionStore (DataStore 런 상태 지속 저장)
 ```
 
-**핵심 특징:**
-- 앱 강제 종료 → 재실행 시 `"달리던 런을 이어하시겠습니까?"` 팝업 표시
-- GPS 이상치(순간 이동 등) 자동 필터링 (12m/s 초과 속도)
-- 네트워크 오류 시 로컬 Room DB에 포인트 보관, 복구 후 자동 재전송
-- `START_NOT_STICKY` 설정으로 시스템이 서비스를 재시작하지 않음 (불완전 런 방지)
+**크래시 복구**: 앱 강제 종료 후 재실행 시 `TrackingRecoveryDialog`로 이어달리기 제안.
 
 ---
 
-### 5.2 코스 생성 및 공개 시스템
+### 6.2 코스 생성 및 공개 시스템
 
-**개인 코스 생성 (즉시 가능)**
-1. 러닝 완료 후 "코스 저장" 버튼 탭
-2. 코스 이름 + 루프 여부만 입력
-3. 서버에서 GPS 경로 기반 `course_points` 자동 생성
-4. `status = 'draft'` (개인 코스, 탐색에 미노출)
+**개인 코스 생성**: 런 완료 후 하단 "코스 만들기" 버튼 → `status = 'draft'`
 
-**공개 코스 등록 (10회 완주 조건)**
-1. 코스 상세 화면에서 "공개하기" 탭
-2. `completionCount < 10` → 잠금 팝업 (현재 N/10회 표시)
-3. `completionCount >= 10` → 공개 메타데이터 입력 다이얼로그:
-   - 난이도 (쉬움/보통/어려움)
-   - 경사도 (평탄/완만/가파름)
-   - 위험도 (낮음/보통/높음)
-   - 노면 유형 (도로/공원/트레일/혼합)
-   - 추천 시간대 + 주의사항
-4. `status = 'published'` → 코스 탐색에 노출
+**공개 코스 등록 (10회 완주 조건)**:
+1. 코스 상세에서 "공개하기" 탭
+2. 10회 미만 → 잠금 팝업
+3. 10회 이상 → 메타데이터 입력 (난이도/경사도/위험도/노면/추천 시간대)
+4. `status = 'published'` → 탐색 노출, 이후 영구 공개 (보관/삭제 불가)
 
-**설계 의도**: 직접 여러 번 뛰어본 코스만 공개하도록 강제해 데이터 품질을 유지한다.
+**초안 코스 삭제**: 공개 전 draft 코스는 삭제 가능 (`DELETE /api/courses/{courseId}`).
 
 ---
 
-### 5.3 음성 안내 시스템
+### 6.3 음성 안내 시스템
 
-`RunningVoiceGuide` — Android 내장 TTS(TextToSpeech) 기반 Singleton. 한국어 여성 음성 자동 선택(오프라인 우선).
+`RunningVoiceGuide` — Android 내장 TTS, 오프라인 한국어 여성 음성 자동 선택.
 
-**자유 런 · 워치 시작 런 공통 안내:**
+**적용 범위**: 폰 자유 런 / 폰 코스 도전 / 워치 자유 런 / 워치 코스 도전
 
 | 시점 | 안내 문구 |
 |------|----------|
@@ -468,221 +450,102 @@ ForegroundService (RunTrackingService)
 | 1km마다 | "N킬로미터 완료. 시간 X분 Y초. 평균 페이스 A분 B초." |
 | 자동 일시정지 | "속도가 줄어 자동으로 일시정지합니다." |
 | 자동 재개 | "다시 달리기 시작했습니다." |
-| 런 완료 | "러닝을 종료합니다. 수고하셨습니다." |
-
-**코스 도전 추가 안내:**
-
-| 시점 | 안내 문구 |
-|------|----------|
 | 코스 이탈 | "코스를 이탈했습니다. 안전하게 코스로 돌아와 주세요." |
 | 코스 복귀 | "코스로 복귀했습니다. 러닝을 계속합니다." |
-| 90% 완주 | "코스의 90퍼센트를 완주했습니다. 조금만 더 힘내세요." |
-
-**음성 적용 범위:**
-- 폰 앱 자유 런 (`RunningTrackingViewModel`)
-- 폰 앱 코스 도전 (`CourseAttemptTrackingViewModel`)
-- 워치에서 시작한 런 (`WearRunSessionCoordinator`)
+| 90% 완주 | "거의 다 왔어요! 조금만 더 달려요!" |
+| 코스 완주 | "코스를 완주했습니다! 수고하셨습니다." |
+| 런 완료 | "러닝을 종료합니다. 수고하셨습니다." |
 
 ---
 
-### 5.4 Wear OS 연동
+### 6.4 코스 도전 완주 효과 (Android)
 
-폰 앱 안에 Wear OS 연동 레이어가 구현되어 있다. 별도 Wear OS 앱 모듈은 개발 계획 단계(`docs/wear-os-development-plan.md`).
+완주(100%) 달성 시:
+- 음성 "코스를 완주했습니다! 수고하셨습니다."
+- 강한 진동 3회
+- 테마 색상 테두리 박동 애니메이션
+- 컨피티 이펙트
+- 1.5초 후 리더보드 팝업 자동 표시
 
-**현재 구현된 구성 요소:**
+---
 
-| 파일 | 역할 |
+### 6.5 주변 코스 탐색 (Discover)
+
+**지도 뷰**: 줌 레벨 기반 그리드 클러스터링. 클러스터 탭 → 하단 카드 목록.
+
+**목록 뷰**: GPS 기반 반경 1/3/5km 선택, 거리/루프 필터, 키워드 검색, 정렬.
+
+---
+
+### 6.6 코스 평점
+
+- 한 코스에 최초 1회만 평가 가능 (로컬 SharedPreferences로 추적)
+- 이미 평가한 코스: "평가 완료" 표시로 대체
+
+---
+
+### 6.7 AI 러닝 자세 분석
+
+영상 → MediaPipe BlazePose → 12개 각도 계산 → 점수/등급 → 오토인코더 이상치 감지
+
+모든 처리가 기기 내(On-Device)에서 이루어져 개인 영상 서버 전송 없음.
+
+**분석 결과**: 동영상 스켈레톤 오버레이 재생 + 카테고리별 피드백 + 면책 경고문(3줄, 의료적 판단 근거 사용 금지).
+
+---
+
+## 7. 부가 기능
+
+### 7.1 러닝 통계
+- 주간/월간/연간/전체 통계 차트
+- 개인 최고 기록 (5km, 10km, 하프, 풀)
+
+### 7.2 업적(Achievements) 시스템
+- 누적 거리, 런 횟수, 코스 완주 수 기준 업적
+
+### 7.3 공유 이미지 생성
+- 런 완료 후 결과 카드 → 템플릿 선택 → SNS 공유
+
+### 7.4 1km 스플릿
+- `SplitCalculator`로 각 1km 구간 페이스 계산
+
+### 7.5 러닝 리마인더 알림
+- `AlarmManager.setExact()` + `BootReceiver` 재부팅 복구
+
+### 7.6 프로필 이미지 변경
+- 갤러리 선택 → multipart 업로드 → 서버 저장 → 프로필에 즉시 반영
+
+### 7.7 공식 코스 데이터
+
+실제 GPS 기반 공개 코스 7개:
+
+| 코스 | 거리 |
 |------|------|
-| `WatchCommandListenerService` | `WearableListenerService` — 워치로부터 명령 수신 |
-| `WearRunSessionCoordinator` | 워치 명령을 폰 런 세션으로 변환 (GPS, 배치 업로드, 음성 안내) |
-| `WatchStateSender` | 폰 런 상태를 워치로 실시간 전송 (DataClient) |
-| `WatchCommand` | 명령 타입 (StartFreeRun, StartTimeGoalRun, StartDistanceGoalRun, StartIntervalRun, PauseRun, ResumeRun, FinishRun, AbandonRun) |
-| `WatchRunGoal` | 워치에서 설정한 목표 (Free, Time, Distance, Interval) |
-
-**워치 → 폰 → 서버 데이터 흐름:**
-```
-워치 명령 (MessageClient)
-    └─► WatchCommandListenerService
-            └─► WearRunSessionCoordinator
-                    ├─ ForegroundService 시작 (GPS 수집)
-                    ├─ POST /api/runs/start
-                    ├─ 5초마다 배치 GPS 업로드
-                    ├─ RunningVoiceGuide (음성 안내)
-                    └─ WatchStateSender → 워치로 상태 전송
-```
+| 서울 청계천 | 8.7km |
+| 서울 남산 순환도로 | 7.5km |
+| 서울 반포 한강공원 | 5.0km |
+| 서울 양재천 | 9.5km |
+| 부산 해운대 해변 | 2.5km |
+| 충주 강변 코스 10K | 9.96km |
+| 충주 강변 코스 20K | 19.84km |
 
 ---
 
-### 5.5 주변 코스 탐색 (Discover)
+## 8. 데이터베이스 설계
 
-**지도 뷰 (Cluster Map)**
-
-줌 레벨에 따른 그리드 기반 클러스터링:
-- 가까운 마커들을 하나의 클러스터 마커로 묶음
-- 클러스터 마커: 기존 핀 스타일 + 우하단 숫자 뱃지 (코스 수)
-- 클러스터 탭 → 하단 패널에 해당 코스 카드 가로 스크롤
-- 단일 마커 탭 → 기존 말풍선 (코스명, 거리, 완주 수)
-- 줌 변경 시 클러스터 자동 재계산
+### ERD 개요
 
 ```
-줌 6 (전국 뷰)        줌 12 (도시 뷰)       줌 15 (동네 뷰)
-   [3]  [7]              [A] [B]              [A]  [B]  [C]
-   (클러스터)           (개별 마커)          (모두 분리)
-```
-
-**목록 뷰 (List)**
-- GPS 기반 현재 위치 반경 1km / 3km / 5km 선택
-- 거리 필터 (5km 이하 / 5~10km / 10km 이상)
-- 루프코스 / 일반코스 필터
-- 정렬 (가까운 순 / 인기 순 / 완주율 순)
-- 키워드 검색
-
----
-
-### 5.6 코스 도전 및 리더보드
-
-**도전 플로우:**
-1. 코스 상세에서 "도전 시작" 탭
-2. 서버에서 `running_record` + `course_attempt` 동시 생성
-3. 코스 경로를 배경으로 현재 위치 실시간 표시
-4. 코스 이탈 감지 → 진동 + 경고 메시지
-5. 완주 → 리더보드 화면으로 자동 이동
-
-**리더보드 구조:**
-- `RANK() OVER (ORDER BY duration_seconds ASC)` 윈도우 함수로 실시간 순위
-- `verification_status = 'verified'`이고 `status = 'completed'`인 기록만 집계
-- 자신의 PR(개인 최고 기록) 달성 시 별도 표시
-
----
-
-### 5.7 AI 러닝 자세 분석
-
-러닝 자세 분석은 **스마트폰 카메라로 촬영한 영상**을 오프라인으로 분석하는 기능이다. 서버 없이 기기 내에서 모든 처리가 이루어진다.
-
-**분석 파이프라인:**
-
-```
-영상 파일 (촬영 or 갤러리)
-    │
-    ▼
-MediaMetadataRetriever
-    ├─ 초당 15프레임 추출 (최대 300프레임 / 50초 제한)
-    └─ 해상도 자동 조정 (최대 640px, 비율 유지)
-    │
-    ▼
-MediaPipe PoseLandmarker (VIDEO 모드)
-    ├─ BlazePose 33개 관절 랜드마크 추출
-    ├─ VIDEO 모드: 프레임 간 칼만 필터로 시간축 추적
-    └─ 가시성(visibility) 0.30 미만 랜드마크 제외
-    │
-    ▼
-PostureAngleCalculator
-    ├─ 좌우 독립 계산 (running-form-analyzer 방식)
-    ├─ Aspect Ratio 보정 (세로 영상 왜곡 교정)
-    ├─ 12개 각도 계산:
-    │   무릎 굴곡(L/R), 팔꿈치(L/R), 고관절 스윙(L/R)
-    │   힙-발목 수직각(L/R), 정강이 각도(L/R), 팔 스윙(L/R)
-    └─ 신뢰도 높은 쪽(left/right) 자동 선택
-    │
-    ▼
-RunningFormMetricsPipeline
-    ├─ 케이던스(SPM): 발목 Y좌표 진동 주기 분석
-    ├─ 수직 진폭: 골반 Y좌표 최고-최저점 차이
-    └─ One Euro Filter: 실시간 스무딩
-    │
-    ▼
-PostureEvaluator + PostureRuleEngine
-    ├─ 각 지표를 기준값과 비교해 점수 산출
-    ├─ 카테고리별 피드백 생성 (무릎/상체/팔꿈치/고관절)
-    └─ 종합 점수 + 등급 (A/B/C/D) + 전반 피드백
-    │
-    ▼
-PostureAutoencoderInference (TensorFlow Lite)
-    └─ 오토인코더 모델로 정상 자세와 비교 (MSE 이상치 감지)
-```
-
-**핵심 기술 선택 이유:**
-- `RunningMode.VIDEO`: 프레임 간 칼만 필터로 관절 추적 안정성 향상
-- Aspect Ratio 보정: 세로 영상(9:16)에서 각도 계산 시 X축 왜곡 보정
-- 좌우 독립 계산: 두 다리를 별도 추적해 교차 혼동 방지
-- On-Device 처리: 개인 영상을 서버에 전송하지 않아 프라이버시 보호
-
-**분석 결과 화면:**
-- 동영상 오버레이 재생 (스켈레톤 선 + 각도 수치 표시)
-- 종합 점수 원형 뱃지 (등급 A~D)
-- 카테고리별 카드 (무릎 굴곡 / 상체 기울기 / 팔꿈치 / 고관절)
-- 케이던스(SPM), 수직 진폭 참고 지표
-- 면책 경고문 (의료적 판단 근거 사용 금지)
-
----
-
-## 6. 부가 기능
-
-### 6.1 러닝 통계
-
-- **주간 통계**: 요일별 거리 막대 그래프
-- **월간 통계**: 주차별 누적 거리
-- **연간 통계**: 월별 총 거리/횟수
-- **전체 통계**: 총 거리, 총 시간, 평균 페이스
-- **Personal Records**: 5km, 10km, 하프마라톤(21.1km), 풀마라톤(42.2km) 개인 최고 기록
-
-### 6.2 업적(Achievements) 시스템
-
-서버에서 정의된 업적 기준(누적 거리, 런 횟수, 코스 완주 수 등)에 따라 달성 여부를 계산해 표시한다.
-
-### 6.3 공유 이미지 생성
-
-런 완료 후 결과 카드를 이미지로 생성해 SNS에 공유한다.
-- 여러 가지 템플릿 중 선택
-- 거리, 시간, 페이스, 날짜 자동 포함
-- `ImageCaptureUtil`로 Composable을 Bitmap으로 변환
-- 시스템 공유 시트로 공유
-
-### 6.4 1km 스플릿
-
-런 완료 후 상세 화면에서 1km 구간마다 페이스를 계산해 표시한다. `SplitCalculator`가 GPS 포인트 시퀀스를 분석해 각 1km 통과 시각을 역산한다.
-
-### 6.5 러닝 리마인더 알림
-
-사용자가 설정한 요일/시간에 정확한 알림을 보낸다.
-- `AlarmManager.setExact()`로 정시 알림
-- `BootReceiver`로 기기 재부팅 후에도 알림 복구
-- `NotificationChannel` 분리 (러닝 추적용 / 리마인더용)
-
-### 6.6 공식 코스 데이터
-
-실제 GPS 기반 공식 코스 7개 (V14, V15 마이그레이션):
-
-| 코스 | 출처 | 거리 |
-|------|------|------|
-| 서울 청계천 | OSM Way 368276771 | 8.7km |
-| 서울 남산 순환도로 | OSM Way 357958296 | 7.5km |
-| 서울 반포 한강공원 | OSM Way 418249072 | 5.0km |
-| 서울 양재천 | OSM Way 26505520 | 9.5km |
-| 부산 해운대 해변 | OSM Way 107531972 | 2.5km |
-| 충주 강변 코스 10K | Samsung Health GPS 실측 | 9.96km |
-| 충주 강변 코스 20K | Samsung Health GPS 실측 | 19.84km |
-
----
-
-## 7. 데이터베이스 설계
-
-### ERD (Entity-Relationship Diagram) 개요
-
-```
-users (사용자)
-  │
-  ├──< running_records (러닝 기록)
-  │         └──< running_points (GPS 포인트)
-  │
-  ├──< courses (코스)
-  │         ├──< course_points (코스 경로 포인트)
-  │         ├──< course_ratings (평점)
-  │         ├──< course_reports (신고)
-  │         └──< course_favorites (즐겨찾기)
-  │
-  └──< course_attempts (코스 도전 기록)
-            └── running_record (도전 시 생성된 런)
+users
+  ├──< running_records
+  │         └──< running_points
+  ├──< courses
+  │         ├──< course_points
+  │         ├──< course_ratings
+  │         ├──< course_reports
+  │         └──< course_favorites
+  └──< course_attempts
+            └── running_record
 ```
 
 ### 주요 테이블
@@ -694,45 +557,29 @@ users (사용자)
 | email | VARCHAR(255) UNIQUE | 이메일 |
 | password_hash | VARCHAR(255) | BCrypt 해시 |
 | nickname | VARCHAR(50) UNIQUE | 닉네임 |
+| profile_image_url | TEXT | 프로필 이미지 URL |
 | bio | TEXT | 소개글 |
 | refresh_token_hash | VARCHAR(512) | Refresh Token 해시만 저장 |
-| deleted_at | TIMESTAMPTZ | Soft Delete 타임스탬프 |
-
-#### running_records
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| id | UUID (PK) | 런 ID |
-| user_id | UUID (FK) | 사용자 |
-| status | VARCHAR(30) | in_progress / paused / completed / abandoned |
-| started_at | TIMESTAMPTZ | 시작 시각 |
-| distance_meters | FLOAT | 총 거리 (미터) |
-| duration_seconds | INT | 순 운동 시간 (초) |
-| avg_pace_seconds_per_km | INT | 평균 페이스 |
-| path | geography(LineString,4326) | 전체 GPS 경로 |
+| deleted_at | TIMESTAMPTZ | Soft Delete |
 
 #### courses
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
 | id | UUID (PK) | 코스 ID |
 | creator_id | UUID (FK) | 생성자 |
-| status | VARCHAR(30) | draft / published / archived |
+| status | VARCHAR(30) | draft / published (archived 정책 폐지) |
 | distance_meters | FLOAT | 코스 거리 |
 | is_loop | BOOLEAN | 루프 코스 여부 |
 | start_location | geography(Point,4326) | 시작 좌표 |
 | path | geography(LineString,4326) | 코스 경로 |
-| difficulty | VARCHAR(20) | 난이도 (EASY/NORMAL/HARD) |
-| slope_level | VARCHAR(20) | 경사도 |
-| risk_level | VARCHAR(20) | 위험도 |
-| attempt_count | INT | 도전 횟수 (캐시) |
-| completion_count | INT | 완주 횟수 (캐시) |
+| attempt_count / completion_count | INT | 도전/완주 횟수 캐시 |
+| deleted_at | TIMESTAMPTZ | draft 코스 소프트 삭제 |
 
 #### course_attempts
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
 | id | UUID (PK) | 도전 ID |
-| course_id | UUID (FK) | 코스 |
-| user_id | UUID (FK) | 도전자 |
-| running_record_id | UUID (FK) | 연결된 런 기록 |
+| course_id / user_id / running_record_id | UUID (FK) | 연결 키 |
 | status | VARCHAR(30) | in_progress / completed / abandoned |
 | verification_status | VARCHAR(30) | pending / verified / rejected |
 | duration_seconds | INT | 완주 소요 시간 (리더보드 기준) |
@@ -741,21 +588,25 @@ users (사용자)
 
 | 테이블 | 인덱스 | 목적 |
 |--------|--------|------|
-| courses | GiST(start_location) | ST_DWithin() 반경 탐색 O(log N) |
-| course_attempts | B-tree(course_id, duration_seconds) WHERE status='completed' | 리더보드 정렬 |
+| courses | GiST(start_location) | ST_DWithin() 반경 탐색 |
+| course_attempts | B-tree(course_id, duration_seconds) WHERE status='completed' | 리더보드 |
 | running_records | B-tree(user_id, started_at DESC) | 내 러닝 목록 |
-| running_points | B-tree(running_record_id, sequence) | 경로 순서 조회 |
+| running_points | B-tree(running_record_id, sequence) | 경로 순서 |
 
-### 좌표 시스템
+### Flyway 마이그레이션 이력
 
-모든 GPS 좌표는 **WGS84 (EPSG:4326)** 기준을 사용한다.
-- 단위: 경도(longitude), 위도(latitude) — 십진수 도(degree)
-- PostGIS 타입: `geography(Point, 4326)`, `geography(LineString, 4326)`
-- geography 타입 사용 이유: 구면 좌표계로 미터 단위 거리 계산 정확도 보장
+| 버전 | 설명 |
+|------|------|
+| V1 | PostGIS, pgcrypto 확장 초기화 |
+| V2~V7 | 핵심 테이블 생성 |
+| V8~V10 | 보조 테이블 (신고, 평점, 즐겨찾기) |
+| V11 | 코스 공개 메타데이터 컬럼 추가 |
+| V14 | OSM 실측 GPS 코스 5개 (서울, 부산) |
+| V15 | 충주 Samsung Health GPS 기록 코스 2개 |
 
 ---
 
-## 8. 인프라 및 배포
+## 9. 인프라 및 배포
 
 ### 서버 환경
 
@@ -764,175 +615,121 @@ users (사용자)
 | 클라우드 | Oracle Cloud Infrastructure (OCI) |
 | IP | 40.233.98.156 |
 | OS | Ubuntu |
-| 런타임 | Java 17 (JVM) |
-| DB | Docker 컨테이너 (postgis/postgis:15-3.4) |
+| 런타임 | Java 17 |
+| DB | Docker (postgis/postgis:15-3.4) |
+| 파일 스토리지 | `/opt/runway/uploads/` (Spring 정적 서빙) |
 
 ### 배포 구성
 
 ```
 GitHub (main 브랜치 push)
-    │
     └─► GitHub Actions (CI/CD)
-            ├─ ./gradlew build (JAR 빌드)
-            ├─ SCP → 서버로 JAR 전송
+            ├─ ./gradlew bootJar (로컬 빌드 후 SCP로 JAR 업로드)
             └─ systemctl restart runway-api
-                    │
-                    └─► Spring Boot JAR
-                             ├─ 포트 8080 (HTTP)
-                             └─ Flyway 자동 마이그레이션 실행
-                                    │
-                                    └─► Docker: runway-db (PostgreSQL + PostGIS)
-                                                포트 5432
+
+또는 수동 배포:
+  로컬에서 bootJar 빌드 → SCP 업로드 → SSH systemctl restart
 ```
 
-### 로컬 개발 환경
-
-```bash
-# 1. DB 실행
-cd backend
-docker-compose up -d
-
-# 2. 서버 실행
-export JWT_SECRET=local-development-secret
-./gradlew bootRun --args='--spring.profiles.active=local'
-
-# 3. API 문서 확인
-open http://localhost:8080/swagger-ui.html
-```
-
-### Flyway 마이그레이션 이력
-
-| 버전 | 설명 |
-|------|------|
-| V1 | PostGIS, pgcrypto 확장 초기화 |
-| V2~V7 | 핵심 테이블 생성 (users, running_records/points, courses/points, course_attempts) |
-| V8~V10 | 보조 테이블 (신고, 평점, 즐겨찾기) |
-| V11 | 코스 공개 메타데이터 컬럼 추가 |
-| V12~V13 | 데모 코스 시딩 (임의 좌표 → 삭제됨) |
-| V14 | OSM 실측 GPS 코스 5개 등록 (서울, 부산) |
-| V15 | 충주 Samsung Health GPS 기록 기반 코스 2개 등록 |
+> CI/CD는 Gradle 다운로드 네트워크 이슈로 실패할 수 있음. 이 경우 로컬 빌드 후 SCP 직접 업로드.
 
 ---
 
-## 9. 보안 설계
+## 10. 보안 설계
 
 ### 인증 방식 (JWT)
 
 ```
 로그인 성공
-    └─► Access Token (1시간, Bearer 헤더)
-    └─► Refresh Token (2주, 서버 DB에 해시만 저장)
+    └─► Access Token (1시간) + Refresh Token (2주, DB에 해시만 저장)
 
-Access Token 만료 시 (Android 자동 처리)
-    └─► OkHttp TokenAuthenticator가 가로챔
-    └─► POST /api/auth/reissue 자동 호출
-    └─► 새 Access Token 발급 후 원래 요청 재시도
+Android OkHttp TokenAuthenticator:
+    └─► Access Token 만료 시 자동 reissue → 원래 요청 재시도
 
-Refresh Token 탈취 대비
-    └─► DB에 평문 저장 금지 (BCrypt 해시만 저장)
-    └─► 로그아웃 시 DB에서 해시 삭제
-    └─► 재발급 성공 시 Refresh Token도 갱신 (Rotation)
+Refresh Token Rotation:
+    └─► 재발급 성공 시 Refresh Token도 갱신
 ```
 
 ### 데이터 보호
 
-- **비밀번호**: BCrypt (cost factor 10) 해싱
-- **Refresh Token**: BCrypt 해싱 후 저장 (탈취 시 사용 불가)
-- **Privacy Zone**: 코스 시작/종료 지점 자동 마스킹 (150m~1.1km)
-- **Soft Delete**: 사용자 탈퇴 시 즉각 삭제가 아닌 논리 삭제 (복구 가능)
+- **비밀번호**: BCrypt 해싱
+- **Refresh Token**: BCrypt 해싱 후 저장
+- **Privacy Zone**: 코스 시작/종료 지점 150m~1.1km 자동 마스킹
+- **프로필 이미지**: 서버 로컬 저장, HTTPS로만 서빙
+- **자세 분석 영상**: 기기 내 처리, 서버 전송 없음
 
 ### API 인증 정책
 
-- 공개 엔드포인트: `/api/auth/**` (로그인, 회원가입, 토큰 재발급)
-- 인증 필수: 나머지 모든 `/api/**` 엔드포인트
-- 소유자 확인: `course.isOwnedBy(userId)` 등 서비스 레이어에서 재검증
+- 공개: `/api/auth/**`, `/uploads/**` (이미지 파일)
+- 인증 필수: 나머지 모든 `/api/**`
+- 소유자 확인: 서비스 레이어에서 재검증
 
 ---
 
-## 10. 전문 용어 해설
+## 11. 전문 용어 해설
 
 ### 아키텍처 용어
 
 | 용어 | 설명 |
 |------|------|
-| **Clean Architecture** | UI, 비즈니스 로직, 데이터 접근을 계층으로 분리하는 설계 패턴. 각 계층은 안쪽 계층만 알고 바깥을 모른다. 테스트 용이성과 변경 유연성이 핵심 목적. |
-| **MVVM** | Model-View-ViewModel. UI(View)는 상태만 표시하고, ViewModel이 비즈니스 로직과 상태를 관리하며, Model이 데이터를 제공하는 패턴. |
-| **Repository 패턴** | 데이터 소스(서버 API, 로컬 DB)를 추상화하는 계층. ViewModel은 데이터가 어디서 오는지 몰라도 된다. |
-| **DI (Dependency Injection)** | 의존성 주입. 객체가 필요로 하는 다른 객체를 직접 생성하지 않고 외부에서 제공받는 패턴. Hilt가 담당. |
-| **DTO (Data Transfer Object)** | 계층 간 데이터 전달용 순수 데이터 클래스. 비즈니스 로직 없음. |
-| **Soft Delete** | 데이터를 실제로 삭제하지 않고 `deleted_at` 타임스탬프만 기록하는 방식. 데이터 복구 가능, 연결된 데이터 무결성 유지. |
-| **Layered Architecture** | 프레젠테이션 → 비즈니스 → 데이터 접근 순서로 단방향 호출만 허용하는 백엔드 구조. |
+| **Clean Architecture** | UI, 비즈니스 로직, 데이터 접근을 계층으로 분리하는 설계 패턴 |
+| **MVVM** | Model-View-ViewModel. ViewModel이 상태와 비즈니스 로직 관리 |
+| **Repository 패턴** | 데이터 소스를 추상화하는 계층 |
+| **DI** | 의존성 주입. Hilt가 담당 |
+| **Soft Delete** | `deleted_at` 타임스탬프만 기록하는 논리 삭제 |
+| **MVI** | Model-View-Intent. 단방향 데이터 흐름 패턴 (Wear OS 앱에서 유사 적용) |
 
-### Android 기술 용어
+### Android/Wear OS 기술 용어
 
 | 용어 | 설명 |
 |------|------|
-| **Jetpack Compose** | 코드로 UI를 선언적으로 작성하는 Android 공식 UI 프레임워크. XML 레이아웃 파일 없이 Kotlin 함수로 UI를 구성. |
-| **Composable** | Jetpack Compose에서 UI를 구성하는 함수 단위. `@Composable` 어노테이션이 붙은 함수. |
-| **ViewModel** | UI 상태(State)를 보관하고 비즈니스 로직을 처리하는 클래스. 화면 회전 등 구성 변경에도 데이터가 유지됨. |
-| **StateFlow** | Kotlin 코루틴 기반 상태 홀더. 현재 값을 항상 가지며, 값 변경 시 구독자에게 자동 통지. |
-| **ForegroundService** | 사용자에게 알림을 보여주며 백그라운드에서 지속적으로 실행되는 Android 서비스. GPS 추적에 필수. |
-| **Room** | Android 공식 로컬 데이터베이스 라이브러리. SQLite 위에 ORM 계층 제공. |
-| **DataStore** | SharedPreferences를 대체하는 Android 키-값 저장소. 코루틴/Flow 기반, 타입 안전. |
-| **Hilt** | Google이 만든 Android 의존성 주입 프레임워크. Dagger 기반, 보일러플레이트 최소화. |
-| **Retrofit** | HTTP API 호출을 인터페이스로 정의하는 Android 네트워크 라이브러리. |
-| **OkHttp Interceptor** | HTTP 요청/응답을 가로채 처리하는 미들웨어. JWT 토큰 자동 첨부, 자동 갱신에 사용. |
-| **Navigation Compose** | Jetpack Compose용 화면 전환(네비게이션) 라이브러리. BackStack, DeepLink 관리. |
-| **BackStack** | 화면 전환 이력 스택. 뒤로 가기 버튼 동작의 기반. |
-| **Coil** | Kotlin 코루틴 기반 Android 이미지 로딩 라이브러리. |
+| **Jetpack Compose** | 선언형 Android UI 프레임워크 |
+| **HealthServices** | Wear OS 운동 추적 API. 심박, GPS, 케이던스 등 운동 데이터 제공 |
+| **ExerciseClient** | HealthServices의 운동 세션 관리 클라이언트 |
+| **AmbientLifecycleObserver** | Wear OS AOD(Always-On Display) 생명주기 관리 |
+| **DataLayer** | 폰-워치 간 통신 API. MessageClient(단방향 명령) + DataClient(동기화) |
+| **ForegroundService** | 알림을 보여주며 백그라운드 실행되는 Android 서비스. GPS 추적 필수 |
+| **FusedLocationProvider** | GPS + 네트워크 + 가속도계 융합 위치 제공자 |
+| **StateFlow** | Kotlin 코루틴 기반 상태 홀더 |
+| **Room** | Android 로컬 SQLite ORM |
+| **Hilt** | Android 의존성 주입 프레임워크 |
 
 ### 백엔드/DB 기술 용어
 
 | 용어 | 설명 |
 |------|------|
-| **Spring Boot** | Java 기반 웹 애플리케이션 프레임워크. 자동 설정과 내장 서버로 빠른 개발 가능. |
-| **JPA (Java Persistence API)** | Java 객체와 DB 테이블을 매핑하는 표준 인터페이스. Hibernate가 구현체. |
-| **Spring Security** | Spring 기반 인증/인가 프레임워크. JWT 필터, 접근 권한 설정 담당. |
-| **JWT (JSON Web Token)** | 서버가 발급하는 자가 검증 가능한 토큰. 세션 없이도 인증 상태 유지 가능. |
-| **Access Token** | 짧은 유효 기간(1시간)의 API 접근 토큰. 매 요청 헤더에 포함. |
-| **Refresh Token** | 긴 유효 기간(2주)의 토큰 갱신 전용 토큰. Access Token 만료 시 재발급에 사용. |
-| **BCrypt** | 비밀번호 해싱 알고리즘. 느린 해싱으로 무차별 대입 공격 방어. |
-| **Flyway** | DB 스키마 버전 관리 도구. SQL 마이그레이션 파일을 순서대로 자동 실행. |
-| **PostGIS** | PostgreSQL의 지리정보 확장. 좌표, 경로, 공간 연산(거리, 반경 검색) 지원. |
-| **geography 타입** | PostGIS의 WGS84 기반 지리 타입. 구면 좌표계로 실제 지구 거리 계산 정확. |
-| **ST_DWithin** | PostGIS 함수. 두 지점이 지정된 거리 이내인지 판별. 반경 탐색의 핵심. |
-| **ST_MakeLine** | 여러 Point 좌표를 하나의 LineString으로 연결하는 PostGIS 함수. |
-| **LineString** | 순서가 있는 좌표의 연속으로 구성된 선. GPS 경로 저장에 사용. |
-| **WGS84 (EPSG:4326)** | 전 세계 표준 좌표계. GPS가 사용하는 경위도 시스템. |
-| **HikariCP** | Java의 고성능 DB 커넥션 풀 라이브러리. Spring Boot 기본 내장. |
-| **RANK() OVER** | SQL 윈도우 함수. 전체 결과에서 각 행의 순위를 계산. 리더보드에 사용. |
-| **Swagger / OpenAPI** | REST API 명세를 자동으로 문서화하고 테스트 UI를 제공하는 도구. |
-
-### AI/ML 기술 용어
-
-| 용어 | 설명 |
-|------|------|
-| **MediaPipe** | Google의 ML 파이프라인 프레임워크. 실시간 포즈 인식, 손 추적 등 제공. |
-| **BlazePose** | MediaPipe의 인체 포즈 감지 모델. 33개 관절(랜드마크) 3D 좌표 추출. |
-| **Landmark** | 관절 포인트. 무릎, 팔꿈치, 골반 등 신체 핵심 지점의 좌표. |
-| **Kalman Filter** | 잡음이 있는 측정값을 기반으로 실제 상태를 추정하는 수학적 필터. 관절 좌표 안정화에 사용. |
-| **One Euro Filter** | 실시간 데이터 스무딩 필터. 느린 움직임은 더 많이 스무딩, 빠른 움직임은 덜 스무딩. |
-| **Autoencoder** | 비지도학습 신경망. 입력을 압축 후 복원하며 정상 패턴 학습. 이상 자세 감지에 활용. |
-| **MSE (Mean Squared Error)** | 평균 제곱 오차. 예측값과 실제값 차이의 제곱 평균. 오토인코더의 이상치 판별 기준. |
-| **TensorFlow Lite** | 모바일 기기에서 실행 가능한 경량 ML 모델 런타임. |
-| **Aspect Ratio 보정** | 세로 촬영 영상에서 X/Y 축 스케일 차이로 인한 각도 왜곡을 수학적으로 보정하는 처리. |
-| **RDP (Ramer-Douglas-Peucker)** | 수많은 좌표 포인트에서 핵심 포인트만 남기는 경로 단순화 알고리즘. GPS 저장 효율화에 사용. |
+| **PostGIS** | PostgreSQL 지리정보 확장. 반경 탐색, 거리 계산 지원 |
+| **ST_DWithin** | 반경 내 지점 탐색 PostGIS 함수 |
+| **geography 타입** | WGS84 구면 좌표계. 실제 지구 거리 계산 정확 |
+| **RANK() OVER** | 리더보드 순위 계산 SQL 윈도우 함수 |
+| **Flyway** | DB 스키마 버전 관리 도구 |
+| **BCrypt** | 비밀번호 해싱 알고리즘 |
+| **JWT** | 서버 발급 자가 검증 토큰 |
+| **RDP 알고리즘** | GPS 경로 좌표 단순화 (Ramer-Douglas-Peucker) |
 
 ### GPS/지도 용어
 
 | 용어 | 설명 |
 |------|------|
-| **FusedLocationProvider** | Google Play Services의 GPS + 네트워크 + 가속도계를 융합한 위치 제공자. 배터리 효율 최적화. |
-| **GPX (GPS Exchange Format)** | GPS 궤적 데이터를 저장하는 XML 기반 파일 형식. 러닝 앱 간 경로 공유에 사용. |
-| **케이던스 (Cadence, SPM)** | 러닝 중 분당 걸음 수(Steps Per Minute). 엘리트 러너는 보통 170~190 SPM. |
-| **페이스 (Pace)** | 1km를 달리는 데 걸리는 시간 (분/km). 낮을수록 빠름. |
-| **수직 진폭 (Vertical Oscillation)** | 러닝 중 상하 바운싱 크기(cm). 적을수록 에너지 효율이 좋다. |
-| **루프 코스** | 시작점과 종료점이 같은 원형 코스. |
-| **Privacy Zone** | 코스 시작/종료 지점 주변을 마스킹하는 개인정보 보호 구간. |
-| **Cluster (마커 클러스터링)** | 지도에서 가까운 마커들을 그룹화해 하나로 표시하는 기법. 줌아웃 시 가독성 향상. |
-| **ST_Segmentize** | PostGIS 함수. LineString을 지정 거리 간격으로 분할해 좌표 밀도를 높임. |
-| **OpenStreetMap (OSM)** | 오픈소스 세계 지도 프로젝트. 전 세계 도로, 경로 데이터를 무료로 제공. |
+| **Course Proximity** | 현재 위치에서 코스 경로까지의 최단 거리 + 경로상 투영 거리 |
+| **Arc Length (호 길이)** | 코스 경로 선분을 따라 측정한 실제 진행 거리. 직선 거리와 다름 |
+| **경로 투영** | 현재 위치를 코스 선분에 수선을 내려 가장 가까운 경로상 지점 계산 |
+| **케이던스 (SPM)** | 분당 걸음 수 (Steps Per Minute) |
+| **페이스** | 1km 소요 시간 (분/km) |
+| **Privacy Zone** | 코스 시작/종료 지점 주변 마스킹 구간 |
+| **WGS84 (EPSG:4326)** | 전 세계 표준 GPS 좌표계 |
+
+### AI/ML 기술 용어
+
+| 용어 | 설명 |
+|------|------|
+| **MediaPipe** | Google ML 파이프라인. BlazePose 33개 관절 추출 |
+| **Kalman Filter** | 관절 좌표 노이즈 제거 필터 |
+| **One Euro Filter** | 실시간 스무딩 필터 |
+| **Autoencoder** | 정상 자세 패턴 학습으로 이상 자세 감지 |
+| **TensorFlow Lite** | 모바일 경량 ML 런타임 |
+| **Aspect Ratio 보정** | 세로 영상에서 X/Y 축 왜곡 교정 |
 
 ---
 
-*이 문서는 프로젝트의 현재 상태(2026-06-07)를 기준으로 작성됐습니다. 기능 추가/변경 시 업데이트가 필요합니다.*
+*이 문서는 2026-06-08 기준 main 브랜치 최신 상태를 반영합니다.*

@@ -53,5 +53,5 @@ docker-data/
 !**/gradle/wrapper/gradle-wrapper.jar
 !**/gradle/wrapper/gradle-wrapper.properties
 
-# ─── Docs (로컬 전용, 커밋 제외) ─────────────────────────
-docs/
+# ─── Docs ────────────────────────────────────────────────
+# docs/ 는 커밋 대상 (project-overview.md 등)
