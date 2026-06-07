@@ -1,0 +1,244 @@
+<mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="1">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <!-- ══════════════════════════════════════════════════════════
+         BACKGROUND
+    ══════════════════════════════════════════════════════════ -->
+    <mxCell id="bg" value="" style="rounded=0;fillColor=#0d1117;strokeColor=none;" vertex="1" parent="1">
+      <mxGeometry x="0" y="0" width="1560" height="1060" as="geometry" />
+    </mxCell>
+
+    <!-- ══════════════════════════════════════════════════════════
+         CONTAINER : 클라이언트 레이어
+    ══════════════════════════════════════════════════════════ -->
+    <mxCell id="client_c" value="📱  클라이언트 레이어" style="rounded=1;arcSize=3;fillColor=#0f172a;strokeColor=#38bdf8;strokeWidth=2;fontColor=#38bdf8;fontSize=14;fontStyle=1;verticalAlign=top;spacingTop=10;align=left;spacingLeft=20;" vertex="1" parent="1">
+      <mxGeometry x="30" y="30" width="1160" height="285" as="geometry" />
+    </mxCell>
+
+    <!-- Android 앱 -->
+    <mxCell id="android" value="🤖&#xa;&#xa;Android 앱&#xa;Kotlin 2.0 · Compose" style="rounded=1;arcSize=15;fillColor=#1D4ED8;strokeColor=none;fontColor=#ffffff;fontSize=12;fontStyle=1;align=center;" vertex="1" parent="1">
+      <mxGeometry x="60" y="100" width="155" height="165" as="geometry" />
+    </mxCell>
+
+    <!-- Compose UI -->
+    <mxCell id="compose_ui" value="🖼️  Compose UI&#xa;28개 화면" style="rounded=1;arcSize=10;fillColor=#1e3a8a;strokeColor=#60a5fa;strokeWidth=1;fontColor=#bfdbfe;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="240" y="100" width="145" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- ViewModel -->
+    <mxCell id="viewmodel" value="🔄  ViewModel&#xa;StateFlow" style="rounded=1;arcSize=10;fillColor=#1e3a8a;strokeColor=#60a5fa;strokeWidth=1;fontColor=#bfdbfe;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="400" y="100" width="145" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- Repository Interface -->
+    <mxCell id="repo_if" value="🔌  Repository&#xa;Interface" style="rounded=1;arcSize=10;fillColor=#1e3a8a;strokeColor=#60a5fa;strokeWidth=1;fontColor=#bfdbfe;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="240" y="190" width="145" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- Room DB -->
+    <mxCell id="room_db" value="🗄️  Room DB&#xa;Pending Queue" style="rounded=1;arcSize=10;fillColor=#134e4a;strokeColor=#34d399;strokeWidth=1;fontColor=#a7f3d0;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="400" y="190" width="145" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- DataStore -->
+    <mxCell id="datastore" value="🔑  DataStore&#xa;JWT Token" style="rounded=1;arcSize=10;fillColor=#134e4a;strokeColor=#34d399;strokeWidth=1;fontColor=#a7f3d0;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="560" y="190" width="145" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- ──────────── Wear OS 내부 컨테이너 ──────────── -->
+    <mxCell id="wear_c" value="⌚  Wear OS 연동" style="rounded=1;arcSize=5;fillColor=#1e1b4b;strokeColor=#a78bfa;strokeWidth=2;fontColor=#c4b5fd;fontSize=13;fontStyle=1;verticalAlign=top;spacingTop=8;align=left;spacingLeft=16;" vertex="1" parent="1">
+      <mxGeometry x="730" y="65" width="440" height="220" as="geometry" />
+    </mxCell>
+
+    <!-- WatchCommandListenerService -->
+    <mxCell id="cmd_listener" value="📡&#xa;&#xa;WatchCommand&#xa;ListenerService" style="rounded=1;arcSize=12;fillColor=#4c1d95;strokeColor=none;fontColor=#ffffff;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1">
+      <mxGeometry x="750" y="115" width="120" height="135" as="geometry" />
+    </mxCell>
+
+    <!-- WearRunSessionCoordinator -->
+    <mxCell id="coordinator" value="⚙️&#xa;&#xa;WearRunSession&#xa;Coordinator" style="rounded=1;arcSize=12;fillColor=#5b21b6;strokeColor=none;fontColor=#ffffff;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1">
+      <mxGeometry x="890" y="115" width="130" height="135" as="geometry" />
+    </mxCell>
+
+    <!-- WatchStateSender -->
+    <mxCell id="state_sender" value="📶&#xa;&#xa;WatchState&#xa;Sender" style="rounded=1;arcSize=12;fillColor=#6d28d9;strokeColor=none;fontColor=#ffffff;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1">
+      <mxGeometry x="1040" y="115" width="120" height="135" as="geometry" />
+    </mxCell>
+
+    <!-- Galaxy Watch (외부) -->
+    <mxCell id="galaxy_watch" value="⌚&#xa;Galaxy Watch" style="rounded=1;arcSize=15;fillColor=#1e1b4b;strokeColor=#a78bfa;strokeWidth=2;fontColor=#c4b5fd;fontSize=12;fontStyle=1;align=center;" vertex="1" parent="1">
+      <mxGeometry x="1290" y="110" width="155" height="120" as="geometry" />
+    </mxCell>
+
+    <!-- ══════════════════════════════════════════════════════════
+         CONTAINER : 핵심 인프라 Core
+    ══════════════════════════════════════════════════════════ -->
+    <mxCell id="core_c" value="⚙️  핵심 인프라 Core" style="rounded=1;arcSize=3;fillColor=#0f2e1a;strokeColor=#4ade80;strokeWidth=2;fontColor=#4ade80;fontSize=14;fontStyle=1;verticalAlign=top;spacingTop=10;align=left;spacingLeft=20;" vertex="1" parent="1">
+      <mxGeometry x="30" y="365" width="890" height="200" as="geometry" />
+    </mxCell>
+
+    <!-- RunTrackingService -->
+    <mxCell id="tracking_svc" value="📍&#xa;&#xa;RunTracking&#xa;Service&#xa;ForegroundService" style="rounded=1;arcSize=12;fillColor=#065f46;strokeColor=none;fontColor=#ffffff;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1">
+      <mxGeometry x="55" y="415" width="140" height="130" as="geometry" />
+    </mxCell>
+
+    <!-- RunTrackingManager -->
+    <mxCell id="tracking_mgr" value="🗺️&#xa;&#xa;RunTracking&#xa;Manager&#xa;GPS · Auto-pause" style="rounded=1;arcSize=12;fillColor=#065f46;strokeColor=none;fontColor=#ffffff;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1">
+      <mxGeometry x="215" y="415" width="140" height="130" as="geometry" />
+    </mxCell>
+
+    <!-- RunningVoiceGuide -->
+    <mxCell id="voice_guide" value="🔊&#xa;&#xa;VoiceGuide&#xa;TTS&#xa;음성 안내" style="rounded=1;arcSize=12;fillColor=#92400e;strokeColor=none;fontColor=#ffffff;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1">
+      <mxGeometry x="375" y="415" width="140" height="130" as="geometry" />
+    </mxCell>
+
+    <!-- MediaPipe -->
+    <mxCell id="mediapipe" value="🧠&#xa;&#xa;MediaPipe&#xa;자세 분석&#xa;On-Device AI" style="rounded=1;arcSize=12;fillColor=#701a75;strokeColor=none;fontColor=#ffffff;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1">
+      <mxGeometry x="535" y="415" width="140" height="130" as="geometry" />
+    </mxCell>
+
+    <!-- PendingPointQueue -->
+    <mxCell id="pending_q" value="🗄️  PendingPointQueue&#xa;Room DB  크래시 안전 큐" style="rounded=1;arcSize=10;fillColor=#134e4a;strokeColor=#34d399;strokeWidth=1;fontColor=#a7f3d0;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="700" y="445" width="200" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- ══════════════════════════════════════════════════════════
+         CONTAINER : Spring Boot API Server
+    ══════════════════════════════════════════════════════════ -->
+    <mxCell id="server_c" value="🌐  Spring Boot API Server  ·  Oracle Cloud  40.233.98.156" style="rounded=1;arcSize=3;fillColor=#1c0a00;strokeColor=#fb923c;strokeWidth=2;fontColor=#fb923c;fontSize=14;fontStyle=1;verticalAlign=top;spacingTop=10;align=left;spacingLeft=20;" vertex="1" parent="1">
+      <mxGeometry x="30" y="620" width="890" height="195" as="geometry" />
+    </mxCell>
+
+    <!-- JWT Filter -->
+    <mxCell id="jwt_filter" value="🛡️&#xa;&#xa;JWT Filter&#xa;Spring Security" style="rounded=1;arcSize=12;fillColor=#7f1d1d;strokeColor=none;fontColor=#ffffff;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1">
+      <mxGeometry x="55" y="672" width="140" height="115" as="geometry" />
+    </mxCell>
+
+    <!-- Controller -->
+    <mxCell id="ctrl" value="🔀&#xa;&#xa;Controller&#xa;REST Endpoints" style="rounded=1;arcSize=12;fillColor=#9a3412;strokeColor=none;fontColor=#ffffff;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1">
+      <mxGeometry x="215" y="672" width="140" height="115" as="geometry" />
+    </mxCell>
+
+    <!-- Service -->
+    <mxCell id="svc_layer" value="💼&#xa;&#xa;Service&#xa;Business Logic" style="rounded=1;arcSize=12;fillColor=#9a3412;strokeColor=none;fontColor=#ffffff;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1">
+      <mxGeometry x="375" y="672" width="140" height="115" as="geometry" />
+    </mxCell>
+
+    <!-- Repository JPA -->
+    <mxCell id="repo_layer" value="📋&#xa;&#xa;Repository&#xa;JPA + PostGIS" style="rounded=1;arcSize=12;fillColor=#9a3412;strokeColor=none;fontColor=#ffffff;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1">
+      <mxGeometry x="535" y="672" width="140" height="115" as="geometry" />
+    </mxCell>
+
+    <!-- Flyway -->
+    <mxCell id="flyway" value="🔧  Flyway&#xa;DB Migration&#xa;V1 ~ V15" style="rounded=1;arcSize=10;fillColor=#431407;strokeColor=#fb923c;strokeWidth=1;fontColor=#fed7aa;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="700" y="685" width="190" height="90" as="geometry" />
+    </mxCell>
+
+    <!-- ══════════════════════════════════════════════════════════
+         DATABASE
+    ══════════════════════════════════════════════════════════ -->
+    <mxCell id="postgres" value="🗄️  PostgreSQL 15 + PostGIS 3.4&#xa;Docker Container" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=18;fillColor=#134e4a;strokeColor=#34d399;strokeWidth=2;fontColor=#a7f3d0;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="55" y="875" width="290" height="130" as="geometry" />
+    </mxCell>
+
+    <!-- ══════════════════════════════════════════════════════════
+         CI/CD
+    ══════════════════════════════════════════════════════════ -->
+    <mxCell id="cicd" value="🔄&#xa;&#xa;GitHub Actions&#xa;CI/CD Pipeline&#xa;build → SCP → restart" style="rounded=1;arcSize=12;fillColor=#1f2937;strokeColor=#6b7280;strokeWidth=2;fontColor=#d1d5db;fontSize=12;fontStyle=1;align=center;" vertex="1" parent="1">
+      <mxGeometry x="1000" y="620" width="200" height="195" as="geometry" />
+    </mxCell>
+
+    <!-- ══════════════════════════════════════════════════════════
+         ARROWS
+    ══════════════════════════════════════════════════════════ -->
+
+    <!-- Android → Controller : HTTPS REST API -->
+    <mxCell id="e_android_ctrl" value="HTTPS REST API&#xa;Bearer {accessToken}" style="rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#60a5fa;strokeWidth=2;fontColor=#60a5fa;fontSize=11;fontStyle=1;" edge="1" parent="1" source="android" target="ctrl">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- Galaxy Watch → CommandListener -->
+    <mxCell id="e_watch_cmd" value="MessageClient&#xa;WatchCommand" style="rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#a78bfa;strokeWidth=2;fontColor=#a78bfa;fontSize=11;" edge="1" parent="1" source="galaxy_watch" target="cmd_listener">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- StateSender → Galaxy Watch : DataClient -->
+    <mxCell id="e_sender_watch" value="DataClient&#xa;런 상태 전송" style="rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;strokeColor=#c4b5fd;strokeWidth=2;fontColor=#c4b5fd;fontSize=11;dashed=1;endArrow=open;" edge="1" parent="1" source="state_sender" target="galaxy_watch">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- CommandListener → Coordinator -->
+    <mxCell id="e_cmd_coord" value="" style="rounded=1;orthogonalLoop=1;jettySize=auto;strokeColor=#a78bfa;strokeWidth=2;" edge="1" parent="1" source="cmd_listener" target="coordinator">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- Coordinator → StateSender -->
+    <mxCell id="e_coord_sender" value="" style="rounded=1;orthogonalLoop=1;jettySize=auto;strokeColor=#a78bfa;strokeWidth=2;" edge="1" parent="1" source="coordinator" target="state_sender">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- Coordinator → TrackingManager : GPS 추적 제어 -->
+    <mxCell id="e_coord_mgr" value="GPS 추적 제어" style="rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#4ade80;strokeWidth=2;fontColor=#4ade80;fontSize=11;" edge="1" parent="1" source="coordinator" target="tracking_mgr">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- Coordinator → VoiceGuide : 음성 안내 호출 -->
+    <mxCell id="e_coord_voice" value="음성 안내 호출" style="rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#fbbf24;strokeWidth=2;fontColor=#fbbf24;fontSize=11;" edge="1" parent="1" source="coordinator" target="voice_guide">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- TrackingService → TrackingManager -->
+    <mxCell id="e_svc_mgr" value="수명 주기 관리" style="rounded=1;orthogonalLoop=1;jettySize=auto;strokeColor=#4ade80;strokeWidth=2;fontColor=#4ade80;fontSize=11;" edge="1" parent="1" source="tracking_svc" target="tracking_mgr">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- TrackingManager → PendingQueue -->
+    <mxCell id="e_mgr_queue" value="GPS 포인트 버퍼" style="rounded=1;orthogonalLoop=1;jettySize=auto;strokeColor=#34d399;strokeWidth=2;fontColor=#34d399;fontSize=11;" edge="1" parent="1" source="tracking_mgr" target="pending_q">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- PendingQueue → Controller : 5초 배치 업로드 -->
+    <mxCell id="e_queue_ctrl" value="5초 배치 업로드&#xa;POST /api/runs/{id}/points" style="rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#fb923c;strokeWidth=2;fontColor=#fb923c;fontSize=11;dashed=1;" edge="1" parent="1" source="pending_q" target="ctrl">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- JWT Filter → Controller -->
+    <mxCell id="e_jwt_ctrl" value="모든 요청 JWT 검증" style="rounded=1;orthogonalLoop=1;jettySize=auto;strokeColor=#f87171;strokeWidth=2;fontColor=#f87171;fontSize=11;dashed=1;endArrow=open;" edge="1" parent="1" source="jwt_filter" target="ctrl">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- Controller → Service -->
+    <mxCell id="e_ctrl_svc" value="" style="rounded=1;orthogonalLoop=1;jettySize=auto;strokeColor=#fb923c;strokeWidth=2;" edge="1" parent="1" source="ctrl" target="svc_layer">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- Service → Repository -->
+    <mxCell id="e_svc_repo" value="" style="rounded=1;orthogonalLoop=1;jettySize=auto;strokeColor=#fb923c;strokeWidth=2;" edge="1" parent="1" source="svc_layer" target="repo_layer">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- Repository → PostgreSQL -->
+    <mxCell id="e_repo_pg" value="JPA / JDBC&#xa;HikariCP" style="rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#34d399;strokeWidth=2;fontColor=#34d399;fontSize=11;" edge="1" parent="1" source="repo_layer" target="postgres">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- CI/CD → Server -->
+    <mxCell id="e_cicd_server" value="main push → 자동 배포" style="rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#9ca3af;strokeWidth=2;fontColor=#9ca3af;fontSize=11;dashed=1;" edge="1" parent="1" source="cicd" target="server_c">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- Android → Compose / ViewModel / Repo (internal) -->
+    <mxCell id="e_a_ui" value="" style="rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#3b82f6;strokeWidth=1;" edge="1" parent="1" source="android" target="compose_ui">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_a_vm" value="" style="rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#3b82f6;strokeWidth=1;" edge="1" parent="1" source="android" target="viewmodel">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_a_repo" value="" style="rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#3b82f6;strokeWidth=1;" edge="1" parent="1" source="android" target="repo_if">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+  </root>
+</mxGraphModel>
