@@ -18,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -282,6 +283,9 @@ private fun PostureResultContent(
         ) {
             Text("이력 보기")
         }
+
+        Spacer(Modifier.height(20.dp))
+        PostureDisclaimerCard()
         Spacer(Modifier.height(16.dp))
     }
 }
@@ -400,5 +404,38 @@ private fun PostureResultPreview() {
             onRetake = {},
             onBack = {},
         )
+    }
+}
+
+@Composable
+private fun PostureDisclaimerCard() {
+    val warningColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Info,
+                contentDescription = null,
+                tint = warningColor,
+                modifier = Modifier
+                    .size(16.dp)
+                    .padding(top = 1.dp),
+            )
+            Text(
+                text = "본 분석은 러닝 자세를 이해하기 위한 참고 자료입니다. " +
+                    "촬영 환경, 카메라 각도, 의류, 조명 등에 따라 정확도가 달라질 수 있으며, " +
+                    "의료적 판단의 근거로 사용해서는 안 됩니다.",
+                style = MaterialTheme.typography.labelSmall,
+                color = warningColor,
+                lineHeight = MaterialTheme.typography.labelSmall.lineHeight,
+            )
+        }
     }
 }
