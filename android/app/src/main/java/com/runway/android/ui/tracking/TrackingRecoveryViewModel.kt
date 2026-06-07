@@ -70,16 +70,19 @@ class TrackingRecoveryViewModel @Inject constructor(
                 }
             }
 
-            val distKm = snap.distanceMeters / 1000.0
+            // elapsedSeconds == 0인데 distanceMeters > 0이면 IMPOSSIBLE_SPEED 에러 방지
+            val safeDistance = if (snap.elapsedSeconds == 0) 0.0 else snap.distanceMeters
+            val safeDistKm = safeDistance / 1000.0
+
             val result = if (snap.courseAttemptId != null) {
                 courseAttemptRepository.finishAttempt(
                     attemptId = snap.courseAttemptId,
                     request = FinishAttemptRequest(
                         endedAt = Instant.now().toString(),
-                        distanceMeters = snap.distanceMeters,
+                        distanceMeters = safeDistance,
                         durationSeconds = snap.elapsedSeconds,
-                        avgPaceSecondsPerKm = if (distKm > 0.001) (snap.elapsedSeconds / distKm).toInt() else 0,
-                        caloriesBurned = (distKm * 72).toInt(),
+                        avgPaceSecondsPerKm = if (safeDistKm > 0.001) (snap.elapsedSeconds / safeDistKm).toInt() else 0,
+                        caloriesBurned = (safeDistKm * 72).toInt(),
                     ),
                 )
             } else {
@@ -87,19 +90,24 @@ class TrackingRecoveryViewModel @Inject constructor(
                     runId = snap.runningRecordId,
                     request = FinishRunRequest(
                         endedAt = Instant.now().toString(),
-                        distanceMeters = snap.distanceMeters,
+                        distanceMeters = safeDistance,
                         durationSeconds = snap.elapsedSeconds,
-                        avgPaceSecondsPerKm = if (distKm > 0.001) (snap.elapsedSeconds / distKm).toInt() else 0,
-                        caloriesBurned = (distKm * 72).toInt(),
+                        avgPaceSecondsPerKm = if (safeDistKm > 0.001) (snap.elapsedSeconds / safeDistKm).toInt() else 0,
+                        caloriesBurned = (safeDistKm * 72).toInt(),
                     ),
                 )
             }
 
-            if (result is NetworkResult.Success) {
-                cleanUp(snap.runningRecordId)
-            } else {
-                recoveryError = "완료 처리에 실패했습니다. 다시 시도해 주세요."
-                isRecovering = false
+            when {
+                result is NetworkResult.Success -> cleanUp(snap.runningRecordId)
+                // 서버에서 이미 완료/포기 처리됐거나 레코드가 없는 경우:
+                // 네트워크 응답을 못 받은 상태에서 재시도한 케이스이므로 로컬 세션만 정리
+                result is NetworkResult.ApiError && result.errorCode in ALREADY_TERMINAL_ERRORS ->
+                    cleanUp(snap.runningRecordId)
+                else -> {
+                    recoveryError = "완료 처리에 실패했습니다. 다시 시도하거나 세션을 닫아주세요."
+                    isRecovering = false
+                }
             }
         }
     }
@@ -120,12 +128,23 @@ class TrackingRecoveryViewModel @Inject constructor(
                 runningRepository.abandonRun(snap.runningRecordId)
             }
 
-            if (result is NetworkResult.Success) {
-                cleanUp(snap.runningRecordId)
-            } else {
-                recoveryError = "포기 처리에 실패했습니다. 다시 시도해 주세요."
-                isRecovering = false
+            when {
+                result is NetworkResult.Success -> cleanUp(snap.runningRecordId)
+                result is NetworkResult.ApiError && result.errorCode in ALREADY_TERMINAL_ERRORS ->
+                    cleanUp(snap.runningRecordId)
+                else -> {
+                    recoveryError = "포기 처리에 실패했습니다. 다시 시도하거나 세션을 닫아주세요."
+                    isRecovering = false
+                }
             }
+        }
+    }
+
+    /** 서버 오류가 지속될 때 사용자가 로컬 세션을 강제로 폐기하는 탈출구 */
+    fun forceClose() {
+        val snap = snapshot ?: return
+        viewModelScope.launch {
+            cleanUp(snap.runningRecordId)
         }
     }
 
@@ -134,5 +153,14 @@ class TrackingRecoveryViewModel @Inject constructor(
         pendingPointQueue.deleteByRunningRecordId(runningRecordId)
         isRecovering = false
         isVisible = false
+    }
+
+    companion object {
+        private val ALREADY_TERMINAL_ERRORS = setOf(
+            "INVALID_ATTEMPT_STATUS",   // 이미 완료/포기된 코스 시도
+            "INVALID_RUN_STATUS",       // 이미 완료/포기된 런 기록
+            "COURSE_ATTEMPT_NOT_FOUND", // 서버에서 삭제된 코스 시도
+            "RUN_NOT_FOUND",            // 서버에서 삭제된 런 기록
+        )
     }
 }

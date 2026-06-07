@@ -48,11 +48,18 @@ fun TrackingRecoveryDialog(viewModel: TrackingRecoveryViewModel) {
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = viewModel::abandon,
-                enabled = !viewModel.isRecovering,
-            ) {
-                Text("포기")
+            if (viewModel.recoveryError != null) {
+                // 오류 상태에서는 포기 대신 세션 강제 닫기 버튼 제공
+                TextButton(onClick = viewModel::forceClose) {
+                    Text("세션 닫기", color = MaterialTheme.colorScheme.error)
+                }
+            } else {
+                TextButton(
+                    onClick = viewModel::abandon,
+                    enabled = !viewModel.isRecovering,
+                ) {
+                    Text("포기")
+                }
             }
         },
     )
