@@ -266,6 +266,28 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         observeMetrics()
         viewModelScope.launch {
             runCatching { healthServices.start(_state.value.autoPauseEnabled) }
+            // 코스 도전 시: 출발 위치가 경로 밖이면 exercise 시작 직후 즉시 일시정지
+            val course = activeCourse
+            val loc = lastReadyLocation
+            if (course != null && loc != null) {
+                val proximity = courseProximity(loc.latitude, loc.longitude, course)
+                if (proximity != null && proximity.nearestMeters > COURSE_OFF_THRESHOLD_METERS) {
+                    delay(300) // exercise 초기화 대기
+                    lastCourseWarning = true
+                    pausedByCourseDeviation = true
+                    _state.update {
+                        it.copy(
+                            screen = WatchScreen.PAUSED,
+                            isPaused = true,
+                            isOffCourse = true,
+                            distanceToCourseMeters = proximity.nearestMeters,
+                        )
+                    }
+                    speakIfEnabled { offCourse() }
+                    runCatching { healthServices.pause() }
+                    startDeviationMonitor()
+                }
+            }
         }
         speakIfEnabled { start() }
         startTimer()
@@ -281,6 +303,8 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun resume() {
+        // 경로 이탈로 정지된 경우 수동 재개 불가 — deviation monitor가 자동으로 재개
+        if (pausedByCourseDeviation) return
         pausedByGpsInactivity = false
         resetGpsAutoPause()
         _state.update { it.copy(screen = WatchScreen.TRACKING, isPaused = false) }

@@ -699,17 +699,27 @@ private fun TrackingControls(state: WatchRunState, viewModel: WatchViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
         ) {
-            Text(
-                "${formatDuration(state.elapsedSeconds)} · %.2fkm".format(state.distanceMeters / 1000.0),
-                color = if (state.isPaused) Accent else Muted,
-                fontSize = 11.sp,
-                fontWeight = if (state.isPaused) FontWeight.Bold else FontWeight.Normal,
-            )
+            if (state.isOffCourse && state.isPaused) {
+                Text(
+                    "경로 복귀 시 자동 재개",
+                    color = Danger,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                )
+            } else {
+                Text(
+                    "${formatDuration(state.elapsedSeconds)} · %.2fkm".format(state.distanceMeters / 1000.0),
+                    color = if (state.isPaused) Accent else Muted,
+                    fontSize = 11.sp,
+                    fontWeight = if (state.isPaused) FontWeight.Bold else FontWeight.Normal,
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
                 CompactControlButton(
                     label = if (state.isPaused) "재생" else "일시정지",
                     icon = if (state.isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
-                    color = Accent,
+                    color = if (state.isOffCourse && state.isPaused) Muted else Accent,
                     size = btnSize,
                     iconSize = iconSize,
                     onClick = if (state.isPaused) viewModel::resume else viewModel::pause,
