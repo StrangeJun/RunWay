@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -487,51 +488,48 @@ private fun TrackingMetrics(state: WatchRunState) {
 @Composable
 private fun TrackingControls(state: WatchRunState, viewModel: WatchViewModel) {
     WatchPage {
-        Text("러닝 제어", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Text(
+            if (state.isPaused) "일시정지됨" else "러닝 제어",
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+        )
         Text(
             "${formatDuration(state.elapsedSeconds)} · %.2fkm".format(state.distanceMeters / 1000.0),
             color = Muted,
             fontSize = 12.sp,
         )
-        PrimaryAction(
-            if (state.isPaused) "계속하기" else "일시정지",
-            if (state.isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
-            compact = compact,
-            onClick = if (state.isPaused) viewModel::resume else viewModel::pause,
-        )
-        SecondaryAction(
-            "런 완료",
-            Icons.Filled.Check,
-            viewModel::finish,
-            compact = compact,
-        )
-        SecondaryAction(
-            "기록 취소",
-            Icons.Filled.Close,
-            viewModel::abandon,
-            Danger,
-            compact = compact,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            RunControlButton(
+                label = if (state.isPaused) "재생" else "일시정지",
+                icon = if (state.isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                color = Accent,
+                onClick = if (state.isPaused) viewModel::resume else viewModel::pause,
+                compact = compact,
+            )
+            RunControlButton(
+                label = "종료",
+                icon = Icons.Filled.Stop,
+                color = Color.White,
+                onClick = viewModel::finish,
+                compact = compact,
+            )
+            RunControlButton(
+                label = "취소",
+                icon = Icons.Filled.Close,
+                color = Danger,
+                onClick = viewModel::abandon,
+                compact = compact,
+            )
+        }
     }
 }
 
 @Composable
 private fun PausedScreen(state: WatchRunState, viewModel: WatchViewModel) {
-    WatchPage(scrollable = true) {
-        Text(
-            if (state.goalCompleted) "목표 달성" else "일시정지",
-            color = if (state.goalCompleted) Accent else Color.White,
-            fontWeight = FontWeight.Bold,
-            fontSize = 20.sp,
-        )
-        Text(
-            "${formatDuration(state.elapsedSeconds)} · %.2fkm".format(state.distanceMeters / 1000.0),
-            color = Muted,
-        )
-        PrimaryAction("계속하기", Icons.Filled.PlayArrow, onClick = viewModel::resume)
-        SecondaryAction("런 완료", Icons.Filled.Check, viewModel::finish)
-        SecondaryAction("기록 취소", Icons.Filled.Close, viewModel::abandon, Danger)
-    }
+    TrackingControls(state, viewModel)
 }
 
 @Composable
@@ -764,6 +762,48 @@ private fun SecondaryAction(
         Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(5.dp))
         Text(label, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun RunControlButton(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    color: Color,
+    onClick: () -> Unit,
+    compact: Boolean,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier
+                .size(if (compact) 62.dp else 72.dp)
+                .background(
+                    color = if (color == Accent) Accent else SurfaceColor,
+                    shape = RoundedCornerShape(12.dp),
+                )
+                .border(
+                    width = 1.dp,
+                    color = if (color == Accent) Color.Transparent else color.copy(alpha = 0.35f),
+                    shape = RoundedCornerShape(12.dp),
+                ),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (color == Accent) Color.Black else color,
+                modifier = Modifier.size(if (compact) 28.dp else 32.dp),
+            )
+        }
+        Text(
+            text = label,
+            color = if (color == Danger) Danger else Muted,
+            fontSize = 9.sp,
+            maxLines = 1,
+        )
     }
 }
 
