@@ -93,8 +93,7 @@ private val Danger = Color(0xFFFF665E)
 fun PathFinderWearApp(viewModel: WatchViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     BackHandler(
-        enabled = state.phoneAuthState == PhoneAuthState.LOGGED_IN &&
-            state.screen != WatchScreen.HOME,
+        enabled = state.screen != WatchScreen.HOME,
         onBack = viewModel::navigateBack,
     )
     MaterialTheme(
@@ -107,15 +106,7 @@ fun PathFinderWearApp(viewModel: WatchViewModel = viewModel()) {
         ),
     ) {
         Surface(modifier = Modifier.fillMaxSize(), color = Background) {
-            when (state.phoneAuthState) {
-                PhoneAuthState.CHECKING -> AuthCheckingScreen()
-                PhoneAuthState.LOGGED_OUT -> PhoneLoginScreen(
-                    isPhoneConnected = state.isPhoneConnected,
-                    message = state.authMessage,
-                    onOpenPhone = viewModel::openPhoneLogin,
-                    onRetry = viewModel::refreshAuthState,
-                )
-                PhoneAuthState.LOGGED_IN -> when (state.screen) {
+            when (state.screen) {
                 WatchScreen.HOME -> HomeScreen(state, viewModel::start) {
                     viewModel.navigate(WatchScreen.GOAL_TYPE)
                 }
@@ -127,7 +118,6 @@ fun PathFinderWearApp(viewModel: WatchViewModel = viewModel()) {
                 WatchScreen.TRACKING -> TrackingScreen(state, viewModel)
                 WatchScreen.PAUSED -> PausedScreen(state, viewModel)
                 WatchScreen.SUMMARY -> SummaryScreen(state, viewModel::returnHome)
-                }
             }
         }
     }
@@ -598,7 +588,12 @@ private fun SummaryScreen(state: WatchRunState, onDone: () -> Unit) {
         Text("%.2f km".format(state.distanceMeters / 1000.0), fontWeight = FontWeight.Bold, fontSize = 32.sp)
         Text(formatDuration(state.elapsedSeconds), fontSize = 18.sp)
         Text("평균 페이스 ${formatPace(state.paceMinPerKm)}/km", color = Muted, fontSize = 11.sp)
-        Text("상세 기록은 폰에서 확인하세요", color = Muted, fontSize = 10.sp)
+        Text(
+            state.phoneStatusMessage ?: "폰 연결 시 기록과 GPS 경로를 자동 동기화합니다",
+            color = Muted,
+            fontSize = 10.sp,
+            textAlign = TextAlign.Center,
+        )
         PrimaryAction("완료", Icons.Filled.Check, onClick = onDone)
     }
 }

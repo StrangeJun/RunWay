@@ -2,6 +2,8 @@ package com.runway.wear.data
 
 import android.content.Context
 import com.google.android.gms.wearable.Wearable
+import com.google.android.gms.wearable.Asset
+import com.google.android.gms.wearable.PutDataMapRequest
 import com.runway.wear.model.GoalCompletionAction
 import com.runway.wear.model.IntervalTarget
 import com.runway.wear.model.RunGoal
@@ -14,12 +16,15 @@ object WatchPaths {
     const val COURSE_START = "/runway/watch/course-start"
     const val AUTH_REQUEST = "/runway/watch/auth/request"
     const val AUTH_STATE = "/runway/watch/auth/state"
+    const val RUN_UPLOAD = "/runway/watch/run-upload"
+    const val RUN_UPLOAD_ACK = "/runway/watch/run-upload-ack"
 }
 
 class WatchDataLayerClient(context: Context) {
     private val applicationContext = context.applicationContext
     private val nodeClient = Wearable.getNodeClient(applicationContext)
     private val messageClient = Wearable.getMessageClient(applicationContext)
+    private val dataClient = Wearable.getDataClient(applicationContext)
 
     suspend fun isPhoneConnected(): Boolean = runCatching {
         nodeClient.connectedNodes.await().isNotEmpty()
@@ -54,6 +59,21 @@ class WatchDataLayerClient(context: Context) {
     suspend fun resume(): Boolean = sendCommand(JSONObject().put("type", "RESUME_RUN"))
     suspend fun finish(): Boolean = sendCommand(JSONObject().put("type", "FINISH_RUN"))
     suspend fun abandon(): Boolean = sendCommand(JSONObject().put("type", "ABANDON_RUN"))
+
+    suspend fun syncPendingRuns(store: PendingWatchRunStore): Int {
+        if (!isPhoneConnected()) return 0
+        var sent = 0
+        store.all().forEach { run ->
+            val request = PutDataMapRequest.create("${WatchPaths.RUN_UPLOAD}/${run.localId}").apply {
+                dataMap.putString("localId", run.localId)
+                dataMap.putAsset("run", Asset.createFromBytes(run.toJson().toString().encodeToByteArray()))
+            }.asPutDataRequest().setUrgent()
+            if (runCatching { dataClient.putDataItem(request).await() }.isSuccess) {
+                sent++
+            }
+        }
+        return sent
+    }
 
     private suspend fun sendCommand(payload: JSONObject): Boolean =
         sendMessage(WatchPaths.COMMAND, payload.toString().encodeToByteArray())

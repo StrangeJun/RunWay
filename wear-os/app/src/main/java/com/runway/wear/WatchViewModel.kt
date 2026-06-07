@@ -8,6 +8,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.wear.remote.interactions.RemoteActivityHelper
 import com.runway.wear.data.WatchDataLayerClient
+import com.runway.wear.data.PendingWatchRun
+import com.runway.wear.data.PendingWatchRunStore
+import com.runway.wear.data.WatchRunPoint
+import com.runway.wear.data.WatchRunSyncRepository
 import com.runway.wear.data.PhoneAuthStateRepository
 import com.runway.wear.data.PhoneRunStateRepository
 import com.runway.wear.data.WatchSettings
@@ -28,12 +32,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
+import java.time.Instant
 
 class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private val dataLayer = WatchDataLayerClient(application)
     private val healthServices = HealthServicesManager(application)
     private val voiceGuide = RunningVoiceGuide(application)
     private val settingsStore = WatchSettingsStore(application)
+    private val pendingRunStore = PendingWatchRunStore(application)
     private val remoteActivityExecutor = Executors.newSingleThreadExecutor()
     private val remoteActivityHelper = RemoteActivityHelper(
         application,
@@ -59,17 +65,22 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private var settingsReturnScreen = WatchScreen.HOME
     private var lastAutoPaused = false
     private var lastGpsStatus = "SEARCHING"
+    private var runStartedAt: Instant? = null
+    private val runPoints = mutableListOf<WatchRunPoint>()
 
     init {
         refreshConnection()
         refreshAuthState()
         observePhoneState()
         observePhoneAuthState()
+        observeRunSync()
     }
 
     fun refreshConnection() {
         viewModelScope.launch {
-            _state.update { it.copy(isPhoneConnected = dataLayer.isPhoneConnected()) }
+            val connected = dataLayer.isPhoneConnected()
+            _state.update { it.copy(isPhoneConnected = connected) }
+            if (connected) dataLayer.syncPendingRuns(pendingRunStore)
         }
     }
 
@@ -160,6 +171,8 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun start(goal: RunGoal) {
+        runStartedAt = Instant.now()
+        runPoints.clear()
         intervalSegmentStartSeconds = 0L
         intervalSegmentStartMeters = 0.0
         lastAnnouncedKilometer = 0
@@ -178,7 +191,6 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
         viewModelScope.launch {
-            dataLayer.sendStart(goal)
             runCatching { healthServices.start(_state.value.autoPauseEnabled) }
         }
         speakIfEnabled { start() }
@@ -189,7 +201,6 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     fun pause() {
         _state.update { it.copy(screen = WatchScreen.PAUSED, isPaused = true) }
         viewModelScope.launch {
-            dataLayer.pause()
             runCatching { healthServices.pause() }
         }
     }
@@ -197,7 +208,6 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     fun resume() {
         _state.update { it.copy(screen = WatchScreen.TRACKING, isPaused = false) }
         viewModelScope.launch {
-            dataLayer.resume()
             runCatching { healthServices.resume() }
         }
     }
@@ -205,10 +215,39 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     fun finish() {
         timerJob?.cancel()
         speakIfEnabled { finish() }
-        _state.update { it.copy(screen = WatchScreen.SUMMARY, isRunning = false, isPaused = false) }
+        val completed = _state.value
+        _state.update {
+            it.copy(
+                screen = WatchScreen.SUMMARY,
+                isRunning = false,
+                isPaused = false,
+                phoneStatusMessage = "폰 연결 시 자동으로 동기화됩니다",
+            )
+        }
         viewModelScope.launch {
-            dataLayer.finish()
             runCatching { healthServices.finish() }
+            val durationSeconds = completed.elapsedSeconds.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+            val distanceKm = completed.distanceMeters / 1000.0
+            pendingRunStore.add(
+                PendingWatchRun.create(
+                    startedAt = (runStartedAt ?: Instant.now()).toString(),
+                    endedAt = Instant.now().toString(),
+                    distanceMeters = completed.distanceMeters,
+                    durationSeconds = durationSeconds,
+                    avgPaceSecondsPerKm = if (distanceKm > 0.001) {
+                        (durationSeconds / distanceKm).toInt()
+                    } else {
+                        0
+                    },
+                    caloriesBurned = (distanceKm * 72).toInt(),
+                    avgHeartRateBpm = completed.heartRateBpm,
+                    points = runPoints.toList(),
+                ),
+            )
+            val sent = dataLayer.syncPendingRuns(pendingRunStore)
+            if (sent > 0) {
+                _state.update { it.copy(phoneStatusMessage = "폰으로 기록을 전송했습니다") }
+            }
         }
     }
 
@@ -217,7 +256,6 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         metricsJob?.cancel()
         speakIfEnabled { cancel() }
         viewModelScope.launch {
-            dataLayer.abandon()
             runCatching { healthServices.finish() }
         }
         _state.value = freshAuthenticatedState()
@@ -249,6 +287,16 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         metricsJob?.cancel()
         metricsJob = viewModelScope.launch {
             healthServices.updates.collect { update ->
+                update.locations.forEach { location ->
+                    runPoints += WatchRunPoint(
+                        sequence = runPoints.size,
+                        latitude = location.latitude,
+                        longitude = location.longitude,
+                        altitudeMeters = location.altitudeMeters,
+                        speedMps = location.speedMps,
+                        recordedAt = location.recordedAt,
+                    )
+                }
                 _state.update { current ->
                     val distance = update.distanceMeters ?: current.distanceMeters
                     val elapsedMinutes = current.elapsedSeconds / 60f
@@ -395,6 +443,16 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun observeRunSync() {
+        viewModelScope.launch {
+            WatchRunSyncRepository.lastSyncedId.collect { localId ->
+                if (localId != null) {
+                    _state.update { it.copy(phoneStatusMessage = "폰에 기록이 저장되었습니다") }
+                }
+            }
+        }
+    }
+
     override fun onCleared() {
         voiceGuide.shutdown()
         remoteActivityExecutor.shutdown()
@@ -431,9 +489,6 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
                 isPaused = isAutoPaused,
                 screen = WatchScreen.TRACKING,
             )
-        }
-        viewModelScope.launch {
-            if (isAutoPaused) dataLayer.pause() else dataLayer.resume()
         }
         speakIfEnabled {
             if (isAutoPaused) autoPaused() else autoResumed()

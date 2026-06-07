@@ -6,4 +6,5 @@ data class FinishRunRequest(
     val durationSeconds: Int,
     val avgPaceSecondsPerKm: Int,
     val caloriesBurned: Int,
+    val avgHeartRateBpm: Int? = null,
 )

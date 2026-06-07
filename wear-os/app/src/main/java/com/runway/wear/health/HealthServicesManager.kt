@@ -12,6 +12,8 @@ import androidx.health.services.client.data.ExerciseState
 import androidx.health.services.client.data.ExerciseType
 import androidx.health.services.client.data.ExerciseUpdate
 import androidx.health.services.client.data.LocationAvailability
+import android.os.SystemClock
+import java.time.Instant
 import androidx.health.services.client.endExercise
 import androidx.health.services.client.getCapabilities
 import androidx.health.services.client.pauseExercise
@@ -27,6 +29,15 @@ data class HealthMetricUpdate(
     val cadenceSpm: Int? = null,
     val gpsStatus: String? = null,
     val isAutoPaused: Boolean? = null,
+    val locations: List<HealthLocationSample> = emptyList(),
+)
+
+data class HealthLocationSample(
+    val latitude: Double,
+    val longitude: Double,
+    val altitudeMeters: Double,
+    val speedMps: Double,
+    val recordedAt: String,
 )
 
 @SuppressLint("RestrictedApi")
@@ -40,6 +51,8 @@ class HealthServicesManager(context: Context) {
             DataType.DISTANCE_TOTAL,
             DataType.HEART_RATE_BPM,
             DataType.STEPS_PER_MINUTE,
+            DataType.LOCATION,
+            DataType.SPEED,
         ).intersect(capabilities.supportedDataTypes)
 
         exerciseClient.startExercise(
@@ -60,6 +73,8 @@ class HealthServicesManager(context: Context) {
         val callback = object : ExerciseUpdateCallback {
             override fun onExerciseUpdateReceived(update: ExerciseUpdate) {
                 val metrics = update.latestMetrics
+                val bootInstant = Instant.now().minusMillis(SystemClock.elapsedRealtime())
+                val speed = metrics.getData(DataType.SPEED).lastOrNull()?.value ?: 0.0
                 trySendBlocking(
                     HealthMetricUpdate(
                         distanceMeters = metrics.getData(DataType.DISTANCE_TOTAL)?.total,
@@ -75,6 +90,17 @@ class HealthServicesManager(context: Context) {
                             ExerciseState.ACTIVE,
                             -> false
                             else -> null
+                        },
+                        locations = metrics.getData(DataType.LOCATION).map { point ->
+                            HealthLocationSample(
+                                latitude = point.value.latitude,
+                                longitude = point.value.longitude,
+                                altitudeMeters = point.value.altitude
+                                    .takeUnless { it == Double.MIN_VALUE || !it.isFinite() }
+                                    ?: 0.0,
+                                speedMps = speed,
+                                recordedAt = point.getTimeInstant(bootInstant).toString(),
+                            )
                         },
                     ),
                 )
