@@ -107,6 +107,20 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(screen = screen) }
     }
 
+    fun navigateBack() {
+        when (_state.value.screen) {
+            WatchScreen.HOME -> Unit
+            WatchScreen.GOAL_TYPE -> navigate(WatchScreen.HOME)
+            WatchScreen.TIME_GOAL,
+            WatchScreen.DISTANCE_GOAL,
+            WatchScreen.INTERVAL_GOAL,
+            -> navigate(WatchScreen.GOAL_TYPE)
+            WatchScreen.TRACKING -> pause()
+            WatchScreen.PAUSED -> navigate(WatchScreen.TRACKING)
+            WatchScreen.SUMMARY -> returnHome()
+        }
+    }
+
     fun start(goal: RunGoal) {
         intervalSegmentStartSeconds = 0L
         intervalSegmentStartMeters = 0.0

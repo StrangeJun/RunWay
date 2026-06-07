@@ -1,5 +1,6 @@
 package com.runway.wear.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -87,6 +88,11 @@ private val Danger = Color(0xFFFF665E)
 @Composable
 fun PathFinderWearApp(viewModel: WatchViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    BackHandler(
+        enabled = state.phoneAuthState == PhoneAuthState.LOGGED_IN &&
+            state.screen != WatchScreen.HOME,
+        onBack = viewModel::navigateBack,
+    )
     MaterialTheme(
         colorScheme = MaterialTheme.colorScheme.copy(
             primary = Accent,
@@ -209,7 +215,7 @@ private fun HomeScreen(
 @Composable
 private fun GoalTypeScreen(viewModel: WatchViewModel) {
     WatchPage(scrollable = true) {
-        BackTitle("목표 선택") { viewModel.navigate(WatchScreen.HOME) }
+        BackTitle("목표 선택", viewModel::navigateBack)
         SecondaryAction("시간", Icons.Filled.Timer, onClick = {
             viewModel.navigate(WatchScreen.TIME_GOAL)
         })
@@ -232,7 +238,7 @@ private fun TimeGoalScreen(viewModel: WatchViewModel) {
     RotarySettingPage(
         title = "시간 목표",
         selected = selected,
-        onBack = { viewModel.navigate(WatchScreen.GOAL_TYPE) },
+        onBack = viewModel::navigateBack,
         onRotate = { delta ->
             when (selected) {
                 "hours" -> hours = wrap(hours, delta, 0, 5)
@@ -269,7 +275,7 @@ private fun DistanceGoalScreen(viewModel: WatchViewModel) {
     RotarySettingPage(
         title = "거리 목표",
         selected = selected,
-        onBack = { viewModel.navigate(WatchScreen.GOAL_TYPE) },
+        onBack = viewModel::navigateBack,
         onRotate = { delta ->
             when (selected) {
                 "km" -> km = wrap(km, delta, 0, 50)
@@ -317,7 +323,7 @@ private fun IntervalGoalScreen(viewModel: WatchViewModel) {
     RotarySettingPage(
         title = "인터벌",
         selected = selected,
-        onBack = { viewModel.navigate(WatchScreen.GOAL_TYPE) },
+        onBack = viewModel::navigateBack,
         onRotate = { delta ->
             when (selected) {
                 "workMinutes" -> workMinutes = wrap(workMinutes, delta, 0, 60)
@@ -488,10 +494,10 @@ private fun TrackingControls(state: WatchRunState, viewModel: WatchViewModel) {
             fontSize = 12.sp,
         )
         PrimaryAction(
-            "일시정지",
-            Icons.Filled.Pause,
+            if (state.isPaused) "계속하기" else "일시정지",
+            if (state.isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
             compact = compact,
-            onClick = viewModel::pause,
+            onClick = if (state.isPaused) viewModel::resume else viewModel::pause,
         )
         SecondaryAction(
             "런 완료",
@@ -682,9 +688,19 @@ private fun ModeChip(label: String, selected: Boolean, onClick: () -> Unit) {
 @Composable
 private fun BackTitle(title: String, onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "뒤로")
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .size(44.dp)
+                .background(SurfaceColor, CircleShape),
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                contentDescription = "뒤로가기",
+                modifier = Modifier.size(28.dp),
+            )
         }
+        Spacer(Modifier.width(8.dp))
         Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
     }
 }
