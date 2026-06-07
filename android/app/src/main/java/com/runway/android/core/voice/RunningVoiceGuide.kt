@@ -52,6 +52,10 @@ class RunningVoiceGuide @Inject constructor(
         speak(RunningVoiceText.kilometer(kilometers, elapsedSeconds))
     }
 
+    fun autoPaused() = speak("속도가 줄어 자동으로 일시정지합니다.")
+
+    fun autoResumed() = speak("다시 달리기 시작했습니다.")
+
     fun offCourse() =
         speak("코스를 이탈했습니다. 안전하게 코스로 돌아와 주세요.")
 

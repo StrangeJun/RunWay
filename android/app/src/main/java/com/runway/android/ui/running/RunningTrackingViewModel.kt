@@ -114,6 +114,7 @@ class RunningTrackingViewModel @Inject constructor(
     private var runId: String? = null
     private var isFinished = false
     private var serviceStarted = false
+    private var prevAutoPaused = false
 
     private var stateObserveJob: Job? = null
     private var batchJob: Job? = null
@@ -144,6 +145,14 @@ class RunningTrackingViewModel @Inject constructor(
                 distanceKm = state.distanceMeters / 1000.0
                 lastSpeedMps = state.currentSpeedMps
                 cadenceSpm = state.cadenceSpm
+
+                // 자동 일시정지 ↔ 재개 전환 시 음성 안내
+                if (state.isAutoPaused != prevAutoPaused) {
+                    if (state.isAutoPaused) voiceGuide.autoPaused()
+                    else voiceGuide.autoResumed()
+                    prevAutoPaused = state.isAutoPaused
+                }
+
                 runningState = when {
                     state.isAutoPaused -> RunningState.AUTO_PAUSED
                     state.isPaused -> RunningState.PAUSED

@@ -384,7 +384,8 @@ android/app/src/main/java/com/runway/android/
 │   ├── datastore/               # TokenDataStore, ThemeDataStore
 │   ├── notification/            # 알림 채널, 리마인더
 │   ├── map/                     # MapPoint, 지도 유틸
-│   ├── wear/                    # Wear OS 동기화
+│   ├── wear/                    # Wear OS 연동 (WearRunSessionCoordinator)
+│   ├── voice/                   # 음성 안내 (RunningVoiceGuide — TTS)
 │   └── model/                   # ApiResponse, NetworkResult
 │
 └── di/                          # Hilt 의존성 주입 모듈
@@ -455,7 +456,64 @@ ForegroundService (RunTrackingService)
 
 ---
 
-### 5.3 주변 코스 탐색 (Discover)
+### 5.3 음성 안내 시스템
+
+`RunningVoiceGuide` — Android 내장 TTS(TextToSpeech) 기반 Singleton. 한국어 여성 음성 자동 선택(오프라인 우선).
+
+**자유 런 · 워치 시작 런 공통 안내:**
+
+| 시점 | 안내 문구 |
+|------|----------|
+| 런 시작 | "러닝을 시작합니다. 오늘도 힘차게 달려볼까요?" |
+| 1km마다 | "N킬로미터 완료. 시간 X분 Y초. 평균 페이스 A분 B초." |
+| 자동 일시정지 | "속도가 줄어 자동으로 일시정지합니다." |
+| 자동 재개 | "다시 달리기 시작했습니다." |
+| 런 완료 | "러닝을 종료합니다. 수고하셨습니다." |
+
+**코스 도전 추가 안내:**
+
+| 시점 | 안내 문구 |
+|------|----------|
+| 코스 이탈 | "코스를 이탈했습니다. 안전하게 코스로 돌아와 주세요." |
+| 코스 복귀 | "코스로 복귀했습니다. 러닝을 계속합니다." |
+| 90% 완주 | "코스의 90퍼센트를 완주했습니다. 조금만 더 힘내세요." |
+
+**음성 적용 범위:**
+- 폰 앱 자유 런 (`RunningTrackingViewModel`)
+- 폰 앱 코스 도전 (`CourseAttemptTrackingViewModel`)
+- 워치에서 시작한 런 (`WearRunSessionCoordinator`)
+
+---
+
+### 5.4 Wear OS 연동
+
+폰 앱 안에 Wear OS 연동 레이어가 구현되어 있다. 별도 Wear OS 앱 모듈은 개발 계획 단계(`docs/wear-os-development-plan.md`).
+
+**현재 구현된 구성 요소:**
+
+| 파일 | 역할 |
+|------|------|
+| `WatchCommandListenerService` | `WearableListenerService` — 워치로부터 명령 수신 |
+| `WearRunSessionCoordinator` | 워치 명령을 폰 런 세션으로 변환 (GPS, 배치 업로드, 음성 안내) |
+| `WatchStateSender` | 폰 런 상태를 워치로 실시간 전송 (DataClient) |
+| `WatchCommand` | 명령 타입 (StartFreeRun, StartTimeGoalRun, StartDistanceGoalRun, StartIntervalRun, PauseRun, ResumeRun, FinishRun, AbandonRun) |
+| `WatchRunGoal` | 워치에서 설정한 목표 (Free, Time, Distance, Interval) |
+
+**워치 → 폰 → 서버 데이터 흐름:**
+```
+워치 명령 (MessageClient)
+    └─► WatchCommandListenerService
+            └─► WearRunSessionCoordinator
+                    ├─ ForegroundService 시작 (GPS 수집)
+                    ├─ POST /api/runs/start
+                    ├─ 5초마다 배치 GPS 업로드
+                    ├─ RunningVoiceGuide (음성 안내)
+                    └─ WatchStateSender → 워치로 상태 전송
+```
+
+---
+
+### 5.5 주변 코스 탐색 (Discover)
 
 **지도 뷰 (Cluster Map)**
 
@@ -481,7 +539,7 @@ ForegroundService (RunTrackingService)
 
 ---
 
-### 5.4 코스 도전 및 리더보드
+### 5.6 코스 도전 및 리더보드
 
 **도전 플로우:**
 1. 코스 상세에서 "도전 시작" 탭
@@ -497,7 +555,7 @@ ForegroundService (RunTrackingService)
 
 ---
 
-### 5.5 AI 러닝 자세 분석
+### 5.7 AI 러닝 자세 분석
 
 러닝 자세 분석은 **스마트폰 카메라로 촬영한 영상**을 오프라인으로 분석하는 기능이다. 서버 없이 기기 내에서 모든 처리가 이루어진다.
 

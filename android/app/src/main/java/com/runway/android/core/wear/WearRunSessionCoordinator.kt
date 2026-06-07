@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.core.tracking.PendingPointQueue
+import com.runway.android.core.voice.RunningVoiceGuide
 import com.runway.android.core.tracking.RunTrackingAction
 import com.runway.android.core.tracking.RunTrackingManager
 import com.runway.android.core.tracking.RunTrackingMode
@@ -39,6 +40,7 @@ class WearRunSessionCoordinator @Inject constructor(
     private val pendingPointQueue: PendingPointQueue,
     private val sessionStore: TrackingSessionStore,
     private val stateSender: WatchStateSender,
+    private val voiceGuide: RunningVoiceGuide,
     @Named("appScope") private val appScope: CoroutineScope,
 ) {
     private val commandMutex = Mutex()
@@ -46,6 +48,8 @@ class WearRunSessionCoordinator @Inject constructor(
     private var goal: WatchRunGoal? = null
     private var batchJob: Job? = null
     private var stateJob: Job? = null
+    private var prevAutoPaused = false
+    private var lastAnnouncedKm = 0
 
     fun handle(command: WatchCommand) {
         appScope.launch {
@@ -132,6 +136,7 @@ class WearRunSessionCoordinator @Inject constructor(
                         distanceMeters = 0.0,
                     ),
                 )
+                voiceGuide.start()
                 startBatchSaving()
                 stateSender.sendState(manager.state.value, runId, "RUNNING", newGoal)
             }
@@ -211,6 +216,7 @@ class WearRunSessionCoordinator @Inject constructor(
         )
 
         if (result is NetworkResult.Success) {
+            voiceGuide.finish()
             stateSender.sendState(state, currentRunId, "FINISHED", goal)
             sessionStore.clearSnapshot()
             pendingPointQueue.deleteByRunningRecordId(currentRunId)
@@ -238,6 +244,20 @@ class WearRunSessionCoordinator @Inject constructor(
         stateJob = appScope.launch {
             manager.state.collectLatest { state ->
                 if (state.isTracking) {
+                    // 자동 일시정지 ↔ 재개 음성 안내
+                    if (state.isAutoPaused != prevAutoPaused) {
+                        if (state.isAutoPaused) voiceGuide.autoPaused()
+                        else voiceGuide.autoResumed()
+                        prevAutoPaused = state.isAutoPaused
+                    }
+
+                    // km 마일스톤 음성 안내
+                    val currentKm = (state.distanceMeters / 1000).toInt()
+                    if (currentKm > lastAnnouncedKm && currentKm > 0) {
+                        voiceGuide.kilometer(currentKm, state.elapsedSeconds)
+                        lastAnnouncedKm = currentKm
+                    }
+
                     stateSender.sendState(
                         state,
                         runId,
@@ -316,6 +336,8 @@ class WearRunSessionCoordinator @Inject constructor(
         stateJob = null
         runId = null
         goal = null
+        prevAutoPaused = false
+        lastAnnouncedKm = 0
     }
 
     private fun hasTrackingPermissions(): Boolean {
