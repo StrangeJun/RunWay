@@ -34,10 +34,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -61,16 +58,15 @@ fun CoursesLibraryScreen(
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     val scope = rememberCoroutineScope()
 
+    // ON_RESUME 마다 항상 재로드:
+    // - 탭 전환 시 컴포저블이 새로 생성되면 라이프사이클이 이미 RESUMED이므로
+    //   observer 등록 직후 ON_RESUME이 즉시 발생 → reload ✓
+    // - 코스 상세에서 돌아올 때도 ON_RESUME 발생 → reload ✓
     val lifecycleOwner = LocalLifecycleOwner.current
-    var isFirstResume by remember { mutableStateOf(true) }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                if (isFirstResume) {
-                    isFirstResume = false
-                } else {
-                    viewModel.onResume()
-                }
+                viewModel.onResume()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
