@@ -10,6 +10,8 @@ import androidx.wear.remote.interactions.RemoteActivityHelper
 import com.runway.wear.data.WatchDataLayerClient
 import com.runway.wear.data.PhoneAuthStateRepository
 import com.runway.wear.data.PhoneRunStateRepository
+import com.runway.wear.data.WatchSettings
+import com.runway.wear.data.WatchSettingsStore
 import com.runway.wear.health.HealthServicesManager
 import com.runway.wear.model.GoalCompletionAction
 import com.runway.wear.model.IntervalTarget
@@ -17,6 +19,7 @@ import com.runway.wear.model.PhoneAuthState
 import com.runway.wear.model.RunGoal
 import com.runway.wear.model.WatchRunState
 import com.runway.wear.model.WatchScreen
+import com.runway.wear.voice.RunningVoiceGuide
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,13 +32,22 @@ import java.util.concurrent.Executors
 class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private val dataLayer = WatchDataLayerClient(application)
     private val healthServices = HealthServicesManager(application)
+    private val voiceGuide = RunningVoiceGuide(application)
+    private val settingsStore = WatchSettingsStore(application)
     private val remoteActivityExecutor = Executors.newSingleThreadExecutor()
     private val remoteActivityHelper = RemoteActivityHelper(
         application,
         remoteActivityExecutor,
     )
 
-    private val _state = MutableStateFlow(WatchRunState())
+    private val initialSettings = settingsStore.load()
+    private val _state = MutableStateFlow(
+        WatchRunState(
+            voiceGuidanceEnabled = initialSettings.voiceGuidanceEnabled,
+            autoPauseEnabled = initialSettings.autoPauseEnabled,
+            goalCompletionAction = initialSettings.goalCompletionAction,
+        ),
+    )
     val state: StateFlow<WatchRunState> = _state.asStateFlow()
 
     private var timerJob: Job? = null
@@ -43,6 +55,10 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private var authTimeoutJob: Job? = null
     private var intervalSegmentStartSeconds = 0L
     private var intervalSegmentStartMeters = 0.0
+    private var lastAnnouncedKilometer = 0
+    private var settingsReturnScreen = WatchScreen.HOME
+    private var lastAutoPaused = false
+    private var lastGpsStatus = "SEARCHING"
 
     init {
         refreshConnection()
@@ -115,28 +131,57 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
             WatchScreen.DISTANCE_GOAL,
             WatchScreen.INTERVAL_GOAL,
             -> navigate(WatchScreen.GOAL_TYPE)
+            WatchScreen.SETTINGS -> navigate(settingsReturnScreen)
             WatchScreen.TRACKING -> pause()
             WatchScreen.PAUSED -> navigate(WatchScreen.TRACKING)
             WatchScreen.SUMMARY -> returnHome()
         }
     }
 
+    fun openSettings() {
+        settingsReturnScreen = _state.value.screen
+        navigate(WatchScreen.SETTINGS)
+    }
+
+    fun setVoiceGuidanceEnabled(enabled: Boolean) {
+        _state.update { it.copy(voiceGuidanceEnabled = enabled) }
+        if (!enabled) voiceGuide.stopGuidance()
+        persistSettings()
+    }
+
+    fun setAutoPauseEnabled(enabled: Boolean) {
+        _state.update { it.copy(autoPauseEnabled = enabled) }
+        persistSettings()
+    }
+
+    fun setGoalCompletionAction(action: GoalCompletionAction) {
+        _state.update { it.copy(goalCompletionAction = action) }
+        persistSettings()
+    }
+
     fun start(goal: RunGoal) {
         intervalSegmentStartSeconds = 0L
         intervalSegmentStartMeters = 0.0
+        lastAnnouncedKilometer = 0
+        lastAutoPaused = false
+        lastGpsStatus = "SEARCHING"
         _state.update {
             WatchRunState(
                 screen = WatchScreen.TRACKING,
                 goal = goal,
                 isPhoneConnected = it.isPhoneConnected,
                 phoneAuthState = it.phoneAuthState,
+                voiceGuidanceEnabled = it.voiceGuidanceEnabled,
+                autoPauseEnabled = it.autoPauseEnabled,
+                goalCompletionAction = goal.completionAction,
                 isRunning = true,
             )
         }
         viewModelScope.launch {
             dataLayer.sendStart(goal)
-            runCatching { healthServices.start() }
+            runCatching { healthServices.start(_state.value.autoPauseEnabled) }
         }
+        speakIfEnabled { start() }
         startTimer()
         observeMetrics()
     }
@@ -159,6 +204,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
 
     fun finish() {
         timerJob?.cancel()
+        speakIfEnabled { finish() }
         _state.update { it.copy(screen = WatchScreen.SUMMARY, isRunning = false, isPaused = false) }
         viewModelScope.launch {
             dataLayer.finish()
@@ -169,6 +215,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     fun abandon() {
         timerJob?.cancel()
         metricsJob?.cancel()
+        speakIfEnabled { cancel() }
         viewModelScope.launch {
             dataLayer.abandon()
             runCatching { healthServices.finish() }
@@ -218,6 +265,9 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
                         gpsStatus = update.gpsStatus ?: current.gpsStatus,
                     )
                 }
+                updateAutoPause(update.isAutoPaused)
+                updateGpsVoice(update.gpsStatus)
+                announceCompletedKilometer()
                 updateGoalProgress()
             }
         }
@@ -291,11 +341,16 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
                 intervalSegmentProgress = 0,
             )
         }
+        speakIfEnabled { intervalChanged(isWork, step) }
     }
 
-    private fun completeGoal(action: GoalCompletionAction) {
+    private fun completeGoal(@Suppress("UNUSED_PARAMETER") action: GoalCompletionAction) {
         _state.update { it.copy(goalCompleted = true) }
-        if (action == GoalCompletionAction.PAUSE) pause()
+        val selectedAction = _state.value.goalCompletionAction
+        speakIfEnabled {
+            goalCompleted(selectedAction == GoalCompletionAction.CONTINUE)
+        }
+        if (selectedAction == GoalCompletionAction.PAUSE) pause()
     }
 
     private fun observePhoneState() {
@@ -341,6 +396,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
+        voiceGuide.shutdown()
         remoteActivityExecutor.shutdown()
         super.onCleared()
     }
@@ -348,7 +404,67 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private fun freshAuthenticatedState(): WatchRunState = WatchRunState(
         isPhoneConnected = _state.value.isPhoneConnected,
         phoneAuthState = _state.value.phoneAuthState,
+        voiceGuidanceEnabled = _state.value.voiceGuidanceEnabled,
+        autoPauseEnabled = _state.value.autoPauseEnabled,
+        goalCompletionAction = _state.value.goalCompletionAction,
     )
+
+    private fun announceCompletedKilometer() {
+        val current = _state.value
+        val completedKilometer = (current.distanceMeters / 1000.0).toInt()
+        if (completedKilometer <= lastAnnouncedKilometer) return
+        lastAnnouncedKilometer = completedKilometer
+        speakIfEnabled {
+            kilometer(
+                kilometers = completedKilometer,
+                elapsedSeconds = current.elapsedSeconds,
+                heartRateBpm = current.heartRateBpm,
+            )
+        }
+    }
+
+    private fun updateAutoPause(isAutoPaused: Boolean?) {
+        if (isAutoPaused == null || isAutoPaused == lastAutoPaused) return
+        lastAutoPaused = isAutoPaused
+        _state.update {
+            it.copy(
+                isPaused = isAutoPaused,
+                screen = WatchScreen.TRACKING,
+            )
+        }
+        viewModelScope.launch {
+            if (isAutoPaused) dataLayer.pause() else dataLayer.resume()
+        }
+        speakIfEnabled {
+            if (isAutoPaused) autoPaused() else autoResumed()
+        }
+    }
+
+    private fun updateGpsVoice(gpsStatus: String?) {
+        gpsStatus ?: return
+        if (gpsStatus == lastGpsStatus) return
+        if (gpsStatus == "POOR") {
+            speakIfEnabled { gpsWeak() }
+        } else if (lastGpsStatus == "POOR" && gpsStatus == "GOOD") {
+            speakIfEnabled { gpsRecovered() }
+        }
+        lastGpsStatus = gpsStatus
+    }
+
+    private fun persistSettings() {
+        val current = _state.value
+        settingsStore.save(
+            WatchSettings(
+                voiceGuidanceEnabled = current.voiceGuidanceEnabled,
+                autoPauseEnabled = current.autoPauseEnabled,
+                goalCompletionAction = current.goalCompletionAction,
+            ),
+        )
+    }
+
+    private inline fun speakIfEnabled(block: RunningVoiceGuide.() -> Unit) {
+        if (_state.value.voiceGuidanceEnabled) voiceGuide.block()
+    }
 
     private fun phoneErrorMessage(error: String?): String = when (error) {
         "RUN_ALREADY_ACTIVE" -> "폰에서 이미 러닝 중입니다"

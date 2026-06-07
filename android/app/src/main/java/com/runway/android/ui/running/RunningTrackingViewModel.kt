@@ -28,6 +28,7 @@ import com.runway.android.data.running.model.SavePointsRequest
 import com.runway.android.data.running.model.StartRunRequest
 import com.runway.android.domain.running.RunningRepository
 import com.runway.android.core.util.formatDuration
+import com.runway.android.core.voice.RunningVoiceGuide
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -55,6 +56,7 @@ class RunningTrackingViewModel @Inject constructor(
     private val manager: RunTrackingManager,
     private val pendingPointQueue: PendingPointQueue,
     private val sessionStore: TrackingSessionStore,
+    private val voiceGuide: RunningVoiceGuide,
     @Named("appScope") private val appScope: CoroutineScope,
 ) : ViewModel() {
 
@@ -122,6 +124,7 @@ class RunningTrackingViewModel @Inject constructor(
         if (serviceStarted) return
         serviceStarted = true
         gpsStatus = GpsStatus.WAITING_FOR_FIX
+        voiceGuide.start()
         startRun()
 
         ContextCompat.startForegroundService(
@@ -156,6 +159,7 @@ class RunningTrackingViewModel @Inject constructor(
 
     private fun triggerMilestone(km: Int) {
         vibrate()
+        voiceGuide.kilometer(km, elapsedSeconds)
         milestoneDisplayJob?.cancel()
         milestoneMessage = "${km}km 완료 · 현재 페이스 $paceText /km"
         milestoneDisplayJob = viewModelScope.launch {
@@ -304,6 +308,7 @@ class RunningTrackingViewModel @Inject constructor(
                         return@launch
                     }
                     is NetworkResult.Success -> {
+                        voiceGuide.finish()
                         sessionStore.clearSnapshot()
                         pendingPointQueue.deleteByRunningRecordId(currentRunId)
                     }

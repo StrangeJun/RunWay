@@ -29,6 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PhoneAndroid
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
@@ -45,6 +47,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -120,6 +123,7 @@ fun PathFinderWearApp(viewModel: WatchViewModel = viewModel()) {
                 WatchScreen.TIME_GOAL -> TimeGoalScreen(viewModel)
                 WatchScreen.DISTANCE_GOAL -> DistanceGoalScreen(viewModel)
                 WatchScreen.INTERVAL_GOAL -> IntervalGoalScreen(viewModel)
+                WatchScreen.SETTINGS -> RunningSettingsScreen(state, viewModel)
                 WatchScreen.TRACKING -> TrackingScreen(state, viewModel)
                 WatchScreen.PAUSED -> PausedScreen(state, viewModel)
                 WatchScreen.SUMMARY -> SummaryScreen(state, viewModel::returnHome)
@@ -233,7 +237,9 @@ private fun GoalTypeScreen(viewModel: WatchViewModel) {
 private fun TimeGoalScreen(viewModel: WatchViewModel) {
     var hours by remember { mutableIntStateOf(0) }
     var minutes by remember { mutableIntStateOf(30) }
-    var completion by remember { mutableStateOf(GoalCompletionAction.PAUSE) }
+    var completion by remember {
+        mutableStateOf(viewModel.state.value.goalCompletionAction)
+    }
     var selected by remember { mutableStateOf<String?>(null) }
 
     RotarySettingPage(
@@ -270,7 +276,9 @@ private fun TimeGoalScreen(viewModel: WatchViewModel) {
 private fun DistanceGoalScreen(viewModel: WatchViewModel) {
     var km by remember { mutableIntStateOf(5) }
     var decimal by remember { mutableIntStateOf(0) }
-    var completion by remember { mutableStateOf(GoalCompletionAction.PAUSE) }
+    var completion by remember {
+        mutableStateOf(viewModel.state.value.goalCompletionAction)
+    }
     var selected by remember { mutableStateOf<String?>(null) }
 
     RotarySettingPage(
@@ -318,7 +326,9 @@ private fun IntervalGoalScreen(viewModel: WatchViewModel) {
     var recoveryKm by remember { mutableIntStateOf(0) }
     var recoveryDecimal by remember { mutableIntStateOf(2) }
     var sets by remember { mutableIntStateOf(4) }
-    var completion by remember { mutableStateOf(GoalCompletionAction.PAUSE) }
+    var completion by remember {
+        mutableStateOf(viewModel.state.value.goalCompletionAction)
+    }
     var selected by remember { mutableStateOf<String?>(null) }
 
     RotarySettingPage(
@@ -498,10 +508,7 @@ private fun TrackingControls(state: WatchRunState, viewModel: WatchViewModel) {
             color = Muted,
             fontSize = 12.sp,
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             RunControlButton(
                 label = if (state.isPaused) "재생" else "일시정지",
                 icon = if (state.isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
@@ -516,6 +523,8 @@ private fun TrackingControls(state: WatchRunState, viewModel: WatchViewModel) {
                 onClick = viewModel::finish,
                 compact = compact,
             )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             RunControlButton(
                 label = "취소",
                 icon = Icons.Filled.Close,
@@ -523,7 +532,57 @@ private fun TrackingControls(state: WatchRunState, viewModel: WatchViewModel) {
                 onClick = viewModel::abandon,
                 compact = compact,
             )
+            RunControlButton(
+                label = "설정",
+                icon = Icons.Filled.Settings,
+                color = Color.White,
+                onClick = viewModel::openSettings,
+                compact = compact,
+            )
         }
+    }
+}
+
+@Composable
+private fun RunningSettingsScreen(
+    state: WatchRunState,
+    viewModel: WatchViewModel,
+) {
+    WatchPage {
+        BackTitle("러닝 설정", viewModel::navigateBack)
+        SettingToggleRow(
+            label = "음성 안내",
+            icon = Icons.AutoMirrored.Filled.VolumeUp,
+            checked = state.voiceGuidanceEnabled,
+            onCheckedChange = viewModel::setVoiceGuidanceEnabled,
+        )
+        SettingToggleRow(
+            label = "자동 일시정지",
+            icon = Icons.Filled.Pause,
+            checked = state.autoPauseEnabled,
+            onCheckedChange = viewModel::setAutoPauseEnabled,
+        )
+        SettingLabel("목표 달성 후")
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            ModeChip(
+                "자동 일시정지",
+                state.goalCompletionAction == GoalCompletionAction.PAUSE,
+            ) {
+                viewModel.setGoalCompletionAction(GoalCompletionAction.PAUSE)
+            }
+            ModeChip(
+                "계속 기록",
+                state.goalCompletionAction == GoalCompletionAction.CONTINUE,
+            ) {
+                viewModel.setGoalCompletionAction(GoalCompletionAction.CONTINUE)
+            }
+        }
+        Text(
+            "자동 일시정지는 다음 러닝부터 적용됩니다",
+            color = Muted,
+            fontSize = 9.sp,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -780,7 +839,7 @@ private fun RunControlButton(
         IconButton(
             onClick = onClick,
             modifier = Modifier
-                .size(if (compact) 62.dp else 72.dp)
+                .size(if (compact) 72.dp else 82.dp)
                 .background(
                     color = if (color == Accent) Accent else SurfaceColor,
                     shape = RoundedCornerShape(12.dp),
@@ -803,6 +862,41 @@ private fun RunControlButton(
             color = if (color == Danger) Danger else Muted,
             fontSize = 9.sp,
             maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun SettingToggleRow(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SurfaceColor, RoundedCornerShape(8.dp))
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (checked) Accent else Muted,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
         )
     }
 }

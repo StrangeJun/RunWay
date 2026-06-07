@@ -26,6 +26,7 @@ import com.runway.android.core.tracking.TrackingSessionSnapshot
 import com.runway.android.core.tracking.TrackingSessionStore
 import com.runway.android.core.tracking.toRunPointRequest
 import com.runway.android.core.util.formatDuration
+import com.runway.android.core.voice.RunningVoiceGuide
 import com.runway.android.data.attempt.model.AbandonAttemptRequest
 import com.runway.android.data.attempt.model.FinishAttemptRequest
 import com.runway.android.data.running.model.SavePointsRequest
@@ -71,6 +72,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
     private val manager: RunTrackingManager,
     private val pendingPointQueue: PendingPointQueue,
     private val sessionStore: TrackingSessionStore,
+    private val voiceGuide: RunningVoiceGuide,
     @Named("appScope") private val appScope: CoroutineScope,
 ) : ViewModel() {
 
@@ -202,6 +204,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
         if (serviceStarted) return
         serviceStarted = true
         gpsStatus = GpsStatus.WAITING_FOR_FIX
+        voiceGuide.start()
 
         ContextCompat.startForegroundService(
             context,
@@ -231,6 +234,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                             if (currentStatus == CourseTrackStatus.OFF_COURSE) {
                                 showDeviationWarning = true
                                 vibrateDeviation()
+                                voiceGuide.offCourse()
                                 // 최초 이탈 시 즉시 일시정지
                                 if (!isPaused && !isAutoPaused) {
                                     pausedByDeviation = true
@@ -239,6 +243,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                                 }
                             } else if (lastTrackStatus == CourseTrackStatus.OFF_COURSE) {
                                 showDeviationWarning = false
+                                voiceGuide.backOnCourse()
                                 if (pausedByDeviation) {
                                     pausedByDeviation = false
                                     repausingForDeviation = false
@@ -260,6 +265,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                         if (!nearFinishMessageShown && courseProgressPercent >= 90 && courseProgressPercent < 100) {
                             nearFinishMessageShown = true
                             vibrate()
+                            voiceGuide.nearCourseFinish()
                             milestoneDisplayJob?.cancel()
                             milestoneMessage = "거의 다 왔어요! 조금만 더 달려요!"
                             milestoneDisplayJob = viewModelScope.launch {
@@ -279,6 +285,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
 
     private fun triggerMilestone(km: Int) {
         vibrate()
+        voiceGuide.kilometer(km, elapsedSeconds)
         milestoneDisplayJob?.cancel()
         milestoneMessage = "${km}km 완료 · 현재 페이스 $paceText /km"
         milestoneDisplayJob = viewModelScope.launch {
@@ -408,6 +415,7 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                     return@launch
                 }
                 is NetworkResult.Success -> {
+                    voiceGuide.finish()
                     val response = finishResult.data
                     sessionStore.clearSnapshot()
                     pendingPointQueue.deleteByRunningRecordId(runningRecordId)

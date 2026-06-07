@@ -8,6 +8,7 @@ import androidx.health.services.client.data.Availability
 import androidx.health.services.client.data.DataType
 import androidx.health.services.client.data.ExerciseConfig
 import androidx.health.services.client.data.ExerciseLapSummary
+import androidx.health.services.client.data.ExerciseState
 import androidx.health.services.client.data.ExerciseType
 import androidx.health.services.client.data.ExerciseUpdate
 import androidx.health.services.client.data.LocationAvailability
@@ -25,13 +26,14 @@ data class HealthMetricUpdate(
     val heartRateBpm: Int? = null,
     val cadenceSpm: Int? = null,
     val gpsStatus: String? = null,
+    val isAutoPaused: Boolean? = null,
 )
 
 @SuppressLint("RestrictedApi")
 class HealthServicesManager(context: Context) {
     private val exerciseClient = HealthServices.getClient(context.applicationContext).exerciseClient
 
-    suspend fun start() {
+    suspend fun start(autoPauseEnabled: Boolean) {
         val capabilities = exerciseClient.getCapabilities()
             .getExerciseTypeCapabilities(ExerciseType.RUNNING)
         val requested = setOf(
@@ -44,7 +46,7 @@ class HealthServicesManager(context: Context) {
             ExerciseConfig(
                 exerciseType = ExerciseType.RUNNING,
                 dataTypes = requested,
-                isAutoPauseAndResumeEnabled = false,
+                isAutoPauseAndResumeEnabled = autoPauseEnabled,
                 isGpsEnabled = true,
             ),
         )
@@ -65,6 +67,15 @@ class HealthServicesManager(context: Context) {
                             .lastOrNull()?.value?.toInt(),
                         cadenceSpm = metrics.getData(DataType.STEPS_PER_MINUTE)
                             .lastOrNull()?.value?.toInt(),
+                        isAutoPaused = when (update.exerciseStateInfo.state) {
+                            ExerciseState.AUTO_PAUSING,
+                            ExerciseState.AUTO_PAUSED,
+                            -> true
+                            ExerciseState.AUTO_RESUMING,
+                            ExerciseState.ACTIVE,
+                            -> false
+                            else -> null
+                        },
                     ),
                 )
             }
