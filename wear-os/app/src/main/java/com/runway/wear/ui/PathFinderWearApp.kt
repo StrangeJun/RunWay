@@ -596,7 +596,7 @@ private data class WatchPageScope(val compact: Boolean)
 
 @Composable
 private fun WatchPage(
-    scrollable: Boolean = false,
+    scrollable: Boolean = true,
     content: @Composable WatchPageScope.() -> Unit,
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -620,9 +620,14 @@ private fun WatchPage(
                         Modifier
                     },
                 )
+                .padding(horizontal = if (compact) 18.dp else 24.dp)
                 .padding(
-                    horizontal = if (compact) 18.dp else 24.dp,
-                    vertical = if (compact) 10.dp else 16.dp,
+                    top = if (compact) 10.dp else 16.dp,
+                    bottom = if (scrollable) {
+                        if (compact) 28.dp else 36.dp
+                    } else {
+                        if (compact) 10.dp else 16.dp
+                    },
                 ),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(
