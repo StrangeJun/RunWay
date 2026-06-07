@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Geocoder
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -58,6 +59,7 @@ class HomeViewModel @Inject constructor(
     private val fusedLocationClient: FusedLocationProviderClient,
     @Named("noAuth") private val okHttpClient: OkHttpClient,
 ) : ViewModel() {
+    private val airKoreaClient = AirKoreaClient(okHttpClient)
 
     val greeting: String = buildGreeting()
 
@@ -218,13 +220,23 @@ class HomeViewModel @Inject constructor(
                 }
             }
 
+            val airKoreaResp = withContext(Dispatchers.IO) {
+                airKoreaClient.getAirQuality(
+                    latitude = lat,
+                    longitude = lon,
+                    serviceKey = BuildConfig.AIRKOREA_API_KEY,
+                    stationCandidates = resolveAirKoreaStationCandidates(lat, lon),
+                )
+            }
+
             if (weatherResp != null) {
                 val condition = weatherResp.weather.firstOrNull()
+                val fallbackAir = airResp?.list?.firstOrNull()?.components
                 weatherInfo = WeatherInfo(
                     tempCelsius = weatherResp.main.temp.toInt(),
                     humidity = weatherResp.main.humidity,
-                    pm10 = airResp?.list?.firstOrNull()?.components?.pm10?.roundToInt() ?: 0,
-                    pm25 = airResp?.list?.firstOrNull()?.components?.pm25?.roundToInt() ?: 0,
+                    pm10 = airKoreaResp?.pm10 ?: fallbackAir?.pm10?.roundToInt() ?: 0,
+                    pm25 = airKoreaResp?.pm25 ?: fallbackAir?.pm25?.roundToInt() ?: 0,
                     conditionId = condition?.id ?: 800,
                     condition = condition?.main.orEmpty(),
                     description = condition?.description.orEmpty(),
@@ -233,6 +245,25 @@ class HomeViewModel @Inject constructor(
         } catch (_: Exception) {
             // silent fail — weather is non-critical
         }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun resolveAirKoreaStationCandidates(
+        latitude: Double,
+        longitude: Double,
+    ): List<String> {
+        if (!Geocoder.isPresent()) return emptyList()
+        val address = runCatching {
+            Geocoder(context, Locale.KOREA)
+                .getFromLocation(latitude, longitude, 1)
+                ?.firstOrNull()
+        }.getOrNull() ?: return emptyList()
+
+        return listOfNotNull(
+            address.subLocality,
+            address.subAdminArea,
+            address.locality,
+        ).map(String::trim).filter(String::isNotBlank).distinct()
     }
 
     private fun loadData() {
