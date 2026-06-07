@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.gson.Gson
@@ -44,6 +45,7 @@ import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
 import java.util.Calendar
 import java.util.Locale
+import kotlin.math.roundToInt
 import javax.inject.Inject
 import javax.inject.Named
 
@@ -105,6 +107,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             isRefreshing = true
             nearbyCourses = emptyList()
+            weatherInfo = null
             // Inline the essential awaits to correctly track completion
             val runsResult = runningRepository.getMyRuns(page = 0, size = HOME_RUN_FETCH_SIZE)
             if (runsResult is NetworkResult.Success) {
@@ -113,6 +116,7 @@ class HomeViewModel @Inject constructor(
             val statsResult = runningRepository.getRunningStats("weekly")
             weeklyStats = resolveWeeklyStats(runsResult, statsResult)
             loadNearbyCoursesIfPermitted()
+            loadWeatherIfPermitted()
             isRefreshing = false
         }
     }
@@ -143,8 +147,13 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val cts = CancellationTokenSource()
+                val request = CurrentLocationRequest.Builder()
+                    .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                    .setMaxUpdateAgeMillis(0)
+                    .setDurationMillis(12_000)
+                    .build()
                 val location = fusedLocationClient
-                    .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token)
+                    .getCurrentLocation(request, cts.token)
                     .await() ?: return@launch
                 currentLocation = MapPoint(location.latitude, location.longitude)
                 fetchWeatherData(location.latitude, location.longitude)
@@ -214,8 +223,8 @@ class HomeViewModel @Inject constructor(
                 weatherInfo = WeatherInfo(
                     tempCelsius = weatherResp.main.temp.toInt(),
                     humidity = weatherResp.main.humidity,
-                    pm10 = airResp?.list?.firstOrNull()?.components?.pm10?.toInt() ?: 0,
-                    pm25 = airResp?.list?.firstOrNull()?.components?.pm25?.toInt() ?: 0,
+                    pm10 = airResp?.list?.firstOrNull()?.components?.pm10?.roundToInt() ?: 0,
+                    pm25 = airResp?.list?.firstOrNull()?.components?.pm25?.roundToInt() ?: 0,
                     conditionId = condition?.id ?: 800,
                     condition = condition?.main.orEmpty(),
                     description = condition?.description.orEmpty(),

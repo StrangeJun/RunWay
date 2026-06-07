@@ -14,6 +14,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -55,6 +56,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.runway.android.BuildConfig
@@ -309,18 +311,25 @@ private fun WeatherSummaryPill(
         label = "weatherShimmerX",
     )
 
-    Column(
+    BoxWithConstraints(
         modifier = modifier
-            .widthIn(max = 300.dp)
+            .fillMaxWidth()
+            .widthIn(max = 340.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(pillBg)
             .padding(horizontal = 12.dp, vertical = 9.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
+        val compact = maxWidth < 330.dp
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
         if (weatherInfo != null) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.Center,
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -337,9 +346,12 @@ private fun WeatherSummaryPill(
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = onPill,
+                        maxLines = 1,
+                        softWrap = false,
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Spacer(Modifier.width(if (compact) 8.dp else 14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 9.dp)) {
                     WeatherChip(
                         text = "${weatherInfo.tempCelsius}°C",
                         onPill = onPill,
@@ -356,22 +368,26 @@ private fun WeatherSummaryPill(
             }
 
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalArrangement = Arrangement.Center,
             ) {
                 DustChip(
-                    label = "미세먼지",
+                    label = if (compact) "미세" else "미세먼지",
                     value = weatherInfo.pm10.takeIf { it > 0 },
                     quality = if (weatherInfo.pm10 > 0) pm10Quality(weatherInfo.pm10) else "-",
                     color = if (weatherInfo.pm10 > 0) pm10Color(weatherInfo.pm10) else onPill.copy(alpha = 0.55f),
                     onPill = onPill,
+                    compact = compact,
                 )
+                Spacer(Modifier.width(if (compact) 8.dp else 14.dp))
                 DustChip(
-                    label = "초미세먼지",
+                    label = if (compact) "초미세" else "초미세먼지",
                     value = weatherInfo.pm25.takeIf { it > 0 },
                     quality = if (weatherInfo.pm25 > 0) pm25Quality(weatherInfo.pm25) else "-",
                     color = if (weatherInfo.pm25 > 0) pm25Color(weatherInfo.pm25) else onPill.copy(alpha = 0.55f),
                     onPill = onPill,
+                    compact = compact,
                 )
             }
         } else {
@@ -394,6 +410,7 @@ private fun WeatherSummaryPill(
                         )
                     },
             )
+        }
         }
     }
 }
@@ -448,6 +465,8 @@ private fun WeatherChip(
             },
             fontWeight = if (emphasized) FontWeight.Bold else FontWeight.Normal,
             color = if (emphasized) onPill else onPill.copy(alpha = 0.75f),
+            maxLines = 1,
+            softWrap = false,
         )
     }
 }
@@ -459,6 +478,7 @@ private fun DustChip(
     quality: String,
     color: Color,
     onPill: Color,
+    compact: Boolean,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -466,8 +486,11 @@ private fun DustChip(
     ) {
         Text(
             text = label,
-            fontSize = 13.sp,
+            fontSize = if (compact) 11.sp else 12.sp,
             color = onPill.copy(alpha = 0.55f),
+            maxLines = 1,
+            softWrap = false,
+            textAlign = TextAlign.Center,
         )
         Box(
             modifier = Modifier
@@ -476,8 +499,11 @@ private fun DustChip(
         )
         Text(
             text = value?.let { "$it㎍/㎥ $quality" } ?: quality,
-            fontSize = 13.sp,
+            fontSize = if (compact) 10.sp else 11.sp,
             color = color,
+            maxLines = 1,
+            softWrap = false,
+            textAlign = TextAlign.Center,
         )
     }
 }
