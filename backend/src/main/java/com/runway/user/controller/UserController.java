@@ -10,9 +10,11 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @Tag(name = "User", description = "사용자 프로필 API")
 @RestController
@@ -37,6 +39,15 @@ public class UserController {
             @Valid @RequestBody UpdateProfileRequest request) {
         UserProfileResponse data = userService.updateProfile(principal.getUserId(), request);
         return ResponseEntity.ok(ApiResponse.success("내 프로필 수정이 완료되었습니다.", data));
+    }
+
+    @Operation(summary = "프로필 이미지 업로드", security = @SecurityRequirement(name = "bearerAuth"))
+    @PostMapping(value = "/me/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<String>> uploadProfileImage(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam("image") MultipartFile image) {
+        String imageUrl = userService.uploadProfileImage(principal.getUserId(), image);
+        return ResponseEntity.ok(ApiResponse.success("프로필 이미지가 업로드되었습니다.", imageUrl));
     }
 
     @Operation(summary = "회원 탈퇴", security = @SecurityRequirement(name = "bearerAuth"))

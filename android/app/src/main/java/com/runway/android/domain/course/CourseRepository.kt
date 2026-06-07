@@ -61,4 +61,6 @@ interface CourseRepository {
     suspend fun publishCourse(courseId: String, request: PublishCourseRequest): NetworkResult<CourseStatusResponse>
 
     suspend fun archiveCourse(courseId: String): NetworkResult<CourseStatusResponse>
+
+    suspend fun deleteDraftCourse(courseId: String): NetworkResult<Unit>
 }

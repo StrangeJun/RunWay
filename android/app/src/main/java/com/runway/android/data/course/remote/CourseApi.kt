@@ -106,4 +106,9 @@ interface CourseApi {
     suspend fun archiveCourse(
         @Path("courseId") courseId: String,
     ): ApiResponse<CourseStatusResponse>
+
+    @DELETE("api/courses/{courseId}")
+    suspend fun deleteDraftCourse(
+        @Path("courseId") courseId: String,
+    ): ApiResponse<Unit>
 }

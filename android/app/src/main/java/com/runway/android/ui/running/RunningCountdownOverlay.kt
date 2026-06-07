@@ -16,6 +16,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -26,11 +27,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -48,10 +51,10 @@ fun RunningCountdownOverlay(
     modifier: Modifier = Modifier,
 ) {
     var count by remember { mutableIntStateOf(3) }
+    var skipped by remember { mutableStateOf(false) }
     val arcProgress = remember { Animatable(0f) }
     val context = LocalContext.current
 
-    // Arc sweeps over 900ms per count; resets on each change
     LaunchedEffect(count) {
         arcProgress.snapTo(0f)
         if (count > 0) {
@@ -61,13 +64,13 @@ fun RunningCountdownOverlay(
 
     LaunchedEffect(Unit) {
         vibrateCountdownTick(context)
-        delay(1_000)
+        delay(1_000); if (skipped) return@LaunchedEffect
         count = 2
         vibrateCountdownTick(context)
-        delay(1_000)
+        delay(1_000); if (skipped) return@LaunchedEffect
         count = 1
         vibrateCountdownTick(context)
-        delay(1_000)
+        delay(1_000); if (skipped) return@LaunchedEffect
         count = 0
         vibrateCountdownGo(context)
         delay(500)
@@ -79,7 +82,14 @@ fun RunningCountdownOverlay(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(CountdownBackground),
+            .background(CountdownBackground)
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    skipped = true
+                    vibrateCountdownGo(context)
+                    onFinished()
+                }
+            },
         contentAlignment = Alignment.Center,
     ) {
         // Subtle brand mark at top
@@ -92,6 +102,16 @@ fun RunningCountdownOverlay(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 60.dp),
+        )
+
+        // Tap hint
+        Text(
+            text = "화면을 탭하면 바로 시작",
+            fontSize = 13.sp,
+            color = Color.White.copy(alpha = 0.35f),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 72.dp),
         )
 
         // Ring + number

@@ -446,6 +446,18 @@ public class CourseService {
         return CourseStatusResponse.from(course);
     }
 
+    @Transactional
+    public void deleteDraftCourse(UUID userId, UUID courseId) {
+        Course course = findOwnedCourse(courseId, userId);
+        if (course.getStatus() != CourseStatus.DRAFT) {
+            throw new RunwayException(ErrorCode.INVALID_COURSE_STATUS,
+                    "공개된 코스는 삭제할 수 없습니다.");
+        }
+        coursePointRepository.deleteByCourseId(courseId);
+        course.softDelete();
+        log.info("Draft course deleted: courseId={}", courseId);
+    }
+
     // --- private helpers ---
 
     private CourseResponse toCourseResponse(Object[] row) {

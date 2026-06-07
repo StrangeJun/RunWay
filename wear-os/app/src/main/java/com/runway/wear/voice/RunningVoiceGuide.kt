@@ -42,6 +42,12 @@ class RunningVoiceGuide(context: Context) : TextToSpeech.OnInitListener {
 
     fun gpsRecovered() = speak("GPS 신호가 안정되었습니다.")
 
+    fun offCourse() = speak("코스를 이탈했습니다.")
+
+    fun backOnCourse() = speak("코스로 복귀했습니다.")
+
+    fun nearCourseFinish() = speak("거의 다 왔습니다.")
+
     fun goalCompleted(continueRecording: Boolean) = speak(
         if (continueRecording) {
             "목표를 달성했습니다. 기록을 계속합니다."
@@ -78,7 +84,7 @@ class RunningVoiceGuide(context: Context) : TextToSpeech.OnInitListener {
         }
         textToSpeech.speak(
             message,
-            TextToSpeech.QUEUE_ADD,
+            TextToSpeech.QUEUE_FLUSH,
             null,
             "pathfinder-watch-${System.nanoTime()}",
         )
@@ -86,16 +92,29 @@ class RunningVoiceGuide(context: Context) : TextToSpeech.OnInitListener {
 
     private fun selectKoreanFemaleVoice(voices: Set<Voice>?): Voice? {
         val korean = voices.orEmpty().filter { it.locale.language == Locale.KOREAN.language }
-        return korean.firstOrNull {
-            it.name.contains("female", ignoreCase = true) && !it.isNetworkConnectionRequired
-        } ?: korean.firstOrNull {
-            !it.name.contains("male", ignoreCase = true) && !it.isNetworkConnectionRequired
-        } ?: korean.firstOrNull { !it.isNetworkConnectionRequired }
+        val offline = korean.filter { !it.isNetworkConnectionRequired }
+        // Google TTS: "ko-kr-x-kof-local", Samsung TTS: "ko-KR-SMTf00" 등 f 패턴 우선
+        return offline.firstOrNull { isFemale(it.name) }
+            ?: offline.firstOrNull { !isMale(it.name) }
+            ?: offline.firstOrNull()
+            ?: korean.firstOrNull { isFemale(it.name) }
             ?: korean.firstOrNull()
     }
 
+    private fun isFemale(name: String) =
+        name.contains("female", ignoreCase = true) ||
+            name.contains("SMTf", ignoreCase = false) ||
+            FEMALE_PATTERN.containsMatchIn(name)
+
+    private fun isMale(name: String) =
+        name.contains("male", ignoreCase = true) ||
+            name.contains("SMTm", ignoreCase = false) ||
+            MALE_PATTERN.containsMatchIn(name)
+
     private companion object {
         const val GOOGLE_TTS_PACKAGE = "com.google.android.tts"
+        val FEMALE_PATTERN = Regex("[^a-zA-Z]f\\d")
+        val MALE_PATTERN = Regex("[^a-zA-Z]m\\d")
     }
 }
 

@@ -11,11 +11,17 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -149,6 +155,14 @@ fun CourseAttemptTrackingScreen(
 
     BackHandler(enabled = !viewModel.isFinishing && !viewModel.isAbandoning) {
         if (!countdownDone) onNavigateBack() else showStopSheet = true
+    }
+
+    // 완주 시 StopSheet 자동으로 열기
+    LaunchedEffect(viewModel.isCourseCompleted) {
+        if (viewModel.isCourseCompleted && !showStopSheet) {
+            kotlinx.coroutines.delay(1_500)
+            showStopSheet = true
+        }
     }
 
     if (showStopSheet) {
@@ -431,10 +445,31 @@ fun CourseAttemptTrackingScreen(
         RunningCountdownOverlay(onFinished = { countdownDone = true })
     }
 
-    if (viewModel.courseProgressPercent >= 100) {
+    if (viewModel.isCourseCompleted) {
         ConfettiCanvas(modifier = Modifier.fillMaxSize())
+        CompletionBorderOverlay()
     }
     } // Box
+}
+
+@Composable
+private fun CompletionBorderOverlay() {
+    val primary = MaterialTheme.colorScheme.primary
+    val infiniteTransition = rememberInfiniteTransition(label = "border_pulse")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "pulse",
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .border(width = 4.dp, color = primary.copy(alpha = alpha)),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

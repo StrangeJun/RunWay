@@ -202,6 +202,31 @@ fun CourseDetailScreen(
     }
 
     // 보관 성공 다이얼로그
+    // 삭제 확인 다이얼로그
+    if (viewModel.showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissDeleteDialog,
+            title = { Text("코스를 삭제할까요?") },
+            text = { Text("삭제된 코스는 복구할 수 없습니다.") },
+            confirmButton = {
+                TextButton(
+                    onClick = viewModel::deleteDraftCourse,
+                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                ) { Text("삭제") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissDeleteDialog) { Text("취소") }
+            },
+        )
+    }
+
+    // 삭제 성공 → 뒤로가기
+    LaunchedEffect(viewModel.deleteSuccess) {
+        if (viewModel.deleteSuccess) onBack()
+    }
+
     if (viewModel.archiveSuccess) {
         AlertDialog(
             onDismissRequest = viewModel::clearArchiveSuccess,
@@ -589,18 +614,27 @@ private fun CourseDetailContent(
                         )
                     }
                 }
-                androidx.compose.material3.Surface(
-                    onClick = viewModel::openRateDialog,
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.surface,
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp, MaterialTheme.colorScheme.outline
-                    ),
-                ) {
+                if (!viewModel.hasRated) {
+                    androidx.compose.material3.Surface(
+                        onClick = viewModel::openRateDialog,
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.surface,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp, MaterialTheme.colorScheme.outline
+                        ),
+                    ) {
+                        Text(
+                            text = "평가하기",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        )
+                    }
+                } else {
                     Text(
-                        text = "평가하기",
+                        text = "평가 완료",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     )
                 }
@@ -635,51 +669,48 @@ private fun CourseDetailContent(
                 CourseMetadataSection(course = course)
             }
 
-            // ─── 초안 상태 + 소유자 → 공개하기 버튼 ───
+            // ─── 초안 상태 + 소유자 → 공개하기 + 삭제 버튼 ───
             if (course.status == "draft" && course.isOwner) {
                 Spacer(modifier = Modifier.height(20.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                 Spacer(modifier = Modifier.height(16.dp))
-                Surface(
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    onClick = viewModel::openPublishDialog,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Row(
-                        modifier = Modifier.padding(vertical = 14.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        onClick = viewModel::openPublishDialog,
                     ) {
-                        Text(
-                            text = "공개하기",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
+                        Row(
+                            modifier = Modifier.padding(vertical = 14.dp),
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            Text(
+                                text = "공개하기",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
                     }
-                }
-            }
-
-            // ─── 공개 상태 + 소유자 → 보관하기 버튼 ───
-            if (course.status == "published" && course.isOwner) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    onClick = viewModel::openArchiveDialog,
-                ) {
-                    Row(
-                        modifier = Modifier.padding(vertical = 14.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        onClick = viewModel::openDeleteDialog,
                     ) {
-                        Text(
-                            text = "보관하기",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Row(
+                            modifier = Modifier.padding(vertical = 14.dp),
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            Text(
+                                text = "삭제",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                        }
                     }
                 }
             }

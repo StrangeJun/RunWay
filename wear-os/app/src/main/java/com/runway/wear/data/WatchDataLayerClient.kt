@@ -18,6 +18,11 @@ object WatchPaths {
     const val RUN_UPLOAD_ACK = "/runway/watch/run-upload-ack"
     const val COURSE_REQUEST = "/runway/watch/course-request"
     const val COURSE_CATALOG = "/runway/watch/course-catalog"
+    const val OPEN_COURSE = "/runway/watch/open-course"
+    const val OPEN_RUN = "/runway/watch/open-run"
+    const val AUTH_REQUEST = "/runway/watch/auth/request"
+    const val AUTH_STATE = "/runway/watch/auth/state"
+    const val OPEN_APP = "/runway/watch/open-app"
 }
 
 class WatchDataLayerClient(context: Context) {
@@ -54,6 +59,15 @@ class WatchDataLayerClient(context: Context) {
     suspend fun resume(): Boolean = sendCommand(JSONObject().put("type", "RESUME_RUN"))
     suspend fun finish(): Boolean = sendCommand(JSONObject().put("type", "FINISH_RUN"))
     suspend fun abandon(): Boolean = sendCommand(JSONObject().put("type", "ABANDON_RUN"))
+
+    suspend fun requestOpenCourseOnPhone(courseId: String): Boolean =
+        sendMessage(WatchPaths.OPEN_COURSE, courseId.encodeToByteArray())
+
+    suspend fun requestOpenRunOnPhone(runId: String): Boolean =
+        sendMessage(WatchPaths.OPEN_RUN, runId.encodeToByteArray())
+
+    suspend fun requestAuthState(): Boolean = sendMessage(WatchPaths.AUTH_REQUEST, ByteArray(0))
+    suspend fun requestOpenPhoneApp(): Boolean = sendMessage(WatchPaths.OPEN_APP, ByteArray(0))
 
     suspend fun requestNearbyCourses(latitude: Double, longitude: Double): Boolean = sendMessage(
         WatchPaths.COURSE_REQUEST,

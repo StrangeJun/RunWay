@@ -44,6 +44,8 @@ enum class WatchScreen {
     DISTANCE_GOAL,
     INTERVAL_GOAL,
     SETTINGS,
+    PREPARING,
+    COUNTDOWN,
     TRACKING,
     PAUSED,
     SUMMARY,
@@ -52,7 +54,10 @@ enum class WatchScreen {
 data class WatchRunState(
     val screen: WatchScreen = WatchScreen.HOME,
     val goal: RunGoal = RunGoal.Free,
+    val pendingGoal: RunGoal? = null,
     val isPhoneConnected: Boolean = false,
+    val gpsReady: Boolean = false,
+    val syncedRunId: String? = null,
     val voiceGuidanceEnabled: Boolean = true,
     val autoPauseEnabled: Boolean = true,
     val goalCompletionAction: GoalCompletionAction = GoalCompletionAction.PAUSE,
@@ -77,6 +82,7 @@ data class WatchRunState(
     val distanceToCourseMeters: Double? = null,
     val isOffCourse: Boolean = false,
     val isSyncingCourses: Boolean = false,
+    val phoneLoggedIn: Boolean? = null,
 ) {
     val progressPercent: Int?
         get() = GoalProgress.percent(this)

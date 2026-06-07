@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.runway.android.core.datastore.OnboardingDataStore
 import com.runway.android.core.datastore.ThemeDataStore
+import com.runway.android.core.wear.WatchNavRepository
 import com.runway.android.domain.auth.AuthRepository
 import com.runway.android.ui.theme.AccentColor
 import com.runway.android.ui.theme.ThemeMode
@@ -19,6 +20,7 @@ class MainViewModel @Inject constructor(
     authRepository: AuthRepository,
     onboardingDataStore: OnboardingDataStore,
     private val themeDataStore: ThemeDataStore,
+    private val watchNavRepository: WatchNavRepository,
 ) : ViewModel() {
 
     val isLoggedIn: StateFlow<Boolean?> = authRepository.isLoggedInFlow()
@@ -32,6 +34,12 @@ class MainViewModel @Inject constructor(
 
     val accentColor: StateFlow<AccentColor> = themeDataStore.accentColorFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, AccentColor.GREEN)
+
+    val watchPendingCourseId = watchNavRepository.pendingCourseId
+    val watchPendingRunId = watchNavRepository.pendingRunId
+
+    fun consumeWatchPendingCourse() = watchNavRepository.consumeCourse()
+    fun consumeWatchPendingRun() = watchNavRepository.consumeRun()
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { themeDataStore.setThemeMode(mode) }

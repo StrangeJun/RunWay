@@ -22,7 +22,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -167,6 +172,15 @@ private fun CourseFullMap(
         BitmapDescriptorFactory.fromBitmap(createPillMarker(context, "Finish", "#EF4444"))
     }
 
+    var mapLoaded by remember { mutableStateOf(false) }
+    LaunchedEffect(mapLoaded) {
+        if (!mapLoaded) return@LaunchedEffect
+        delay(50)
+        runCatching {
+            cameraPositionState.animate(CameraUpdateFactory.newLatLngBounds(bounds, 80), 300)
+        }
+    }
+
     GoogleMap(
         modifier = Modifier.fillMaxSize(),
         cameraPositionState = cameraPositionState,
@@ -180,9 +194,7 @@ private fun CourseFullMap(
             compassEnabled = true,
             mapToolbarEnabled = false,
         ),
-        onMapLoaded = {
-            cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 80))
-        },
+        onMapLoaded = { mapLoaded = true },
     ) {
         // Route polyline
         Polyline(

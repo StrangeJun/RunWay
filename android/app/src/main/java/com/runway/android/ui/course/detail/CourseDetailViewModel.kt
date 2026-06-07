@@ -4,7 +4,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.attempt.model.LeaderboardItem
@@ -14,6 +13,8 @@ import com.runway.android.data.course.model.CourseDetailResponse
 import com.runway.android.data.course.model.CoursePointResponse
 import com.runway.android.data.course.model.CourseRatingRequest
 import com.runway.android.data.course.model.CourseReportRequest
+import android.app.Application
+import android.content.Context
 import com.runway.android.data.course.model.PublishCourseRequest
 import com.runway.android.domain.attempt.CourseAttemptRepository
 import com.runway.android.domain.course.CourseRepository
@@ -33,10 +34,13 @@ data class AttemptStartedEvent(
 
 @HiltViewModel
 class CourseDetailViewModel @Inject constructor(
+    application: Application,
     savedStateHandle: SavedStateHandle,
     private val courseRepository: CourseRepository,
     private val courseAttemptRepository: CourseAttemptRepository,
-) : ViewModel() {
+) : androidx.lifecycle.AndroidViewModel(application) {
+
+    private val ratingPrefs = application.getSharedPreferences("rated_courses", Context.MODE_PRIVATE)
 
     companion object {
         const val PUBLISH_MIN_COMPLETIONS = 10
@@ -117,6 +121,14 @@ class CourseDetailViewModel @Inject constructor(
     var ratingError by mutableStateOf<String?>(null)
         private set
     var ratingSuccess by mutableStateOf(false)
+        private set
+    val hasRated: Boolean get() = ratingPrefs.getBoolean("rated_$courseId", false)
+
+    var showDeleteDialog by mutableStateOf(false)
+        private set
+    var isDeleting by mutableStateOf(false)
+        private set
+    var deleteSuccess by mutableStateOf(false)
         private set
 
     private val _navigateToAttempt = MutableSharedFlow<AttemptStartedEvent>()
@@ -232,6 +244,7 @@ class CourseDetailViewModel @Inject constructor(
                 is NetworkResult.Success -> {
                     ratingSuccess = true
                     showRateDialog = false
+                    ratingPrefs.edit().putBoolean("rated_$courseId", true).apply()
                     // 평균 평점 반영을 위해 상세 정보 새로고침
                     load()
                 }
@@ -239,6 +252,21 @@ class CourseDetailViewModel @Inject constructor(
                 is NetworkResult.NetworkError -> ratingError = "네트워크 연결을 확인해 주세요."
             }
             isSubmittingRating = false
+        }
+    }
+
+    fun openDeleteDialog() { showDeleteDialog = true }
+    fun dismissDeleteDialog() { showDeleteDialog = false }
+
+    fun deleteDraftCourse() {
+        if (isDeleting) return
+        isDeleting = true
+        showDeleteDialog = false
+        viewModelScope.launch {
+            when (courseRepository.deleteDraftCourse(courseId)) {
+                is NetworkResult.Success -> deleteSuccess = true
+                is NetworkResult.ApiError, is NetworkResult.NetworkError -> isDeleting = false
+            }
         }
     }
 

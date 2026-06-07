@@ -38,16 +38,35 @@ object PhoneRunStateRepository {
     }
 }
 
+object PhoneAuthStateRepository {
+    private val _isLoggedIn = MutableStateFlow<Boolean?>(null)
+    val isLoggedIn = _isLoggedIn.asStateFlow()
+
+    fun update(isLoggedIn: Boolean) {
+        _isLoggedIn.value = isLoggedIn
+    }
+}
+
+data class SyncAck(val localId: String, val runId: String?)
+
 object WatchRunSyncRepository {
     private val _lastSyncedId = MutableStateFlow<String?>(null)
     val lastSyncedId = _lastSyncedId.asStateFlow()
 
+    private val _lastSyncedRunId = MutableStateFlow<String?>(null)
+    val lastSyncedRunId = _lastSyncedRunId.asStateFlow()
+
     fun acknowledge(payload: ByteArray): String? {
-        val localId = runCatching {
-            JSONObject(payload.decodeToString()).getString("localId")
+        val ack = runCatching {
+            val json = JSONObject(payload.decodeToString())
+            SyncAck(
+                localId = json.getString("localId"),
+                runId = json.optString("runId").takeUnless { it.isBlank() || it == "null" },
+            )
         }.getOrNull() ?: return null
-        _lastSyncedId.value = localId
-        return localId
+        _lastSyncedId.value = ack.localId
+        ack.runId?.let { _lastSyncedRunId.value = it }
+        return ack.localId
     }
 }
 
@@ -60,6 +79,12 @@ class PhoneStateListenerService : WearableListenerService() {
             WatchPaths.RUN_UPLOAD_ACK -> {
                 WatchRunSyncRepository.acknowledge(messageEvent.data)?.let { localId ->
                     PendingWatchRunStore(this).remove(localId)
+                }
+            }
+            WatchPaths.AUTH_STATE -> {
+                runCatching {
+                    val json = JSONObject(messageEvent.data.decodeToString())
+                    PhoneAuthStateRepository.update(json.getBoolean("isLoggedIn"))
                 }
             }
         }

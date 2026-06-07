@@ -106,4 +106,7 @@ class CourseRepositoryImpl @Inject constructor(
 
     override suspend fun archiveCourse(courseId: String): NetworkResult<CourseStatusResponse> =
         safeApiCall { courseApi.archiveCourse(courseId) }
+
+    override suspend fun deleteDraftCourse(courseId: String): NetworkResult<Unit> =
+        safeApiCall { courseApi.deleteDraftCourse(courseId) }
 }

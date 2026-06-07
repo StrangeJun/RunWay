@@ -42,6 +42,9 @@ docker-data/
 .claude/
 **/.claude/
 
+# ─── GitHub metadata ──────────────────────────────────────
+.github/
+
 # ─── Do NOT ignore (Gradle wrapper must be committed) ────
 !gradlew
 !gradlew.bat

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -330,6 +332,9 @@ fun RunDetailScreen(
                 }
 
                 var showFullScreenMap by remember { mutableStateOf(false) }
+                val fullScreenPoints = remember(detail.points) {
+                    detail.points.map { MapPoint(it.latitude, it.longitude) }
+                }
 
                 if (showFullScreenMap) {
                     Dialog(
@@ -345,7 +350,7 @@ fun RunDetailScreen(
                                 .background(Color.Black),
                         ) {
                             RouteMapView(
-                                points = detail.points.map { MapPoint(it.latitude, it.longitude) },
+                                points = fullScreenPoints,
                                 modifier = Modifier.fillMaxSize(),
                                 gesturesEnabled = true,
                                 showKilometerMarkers = true,
@@ -372,7 +377,12 @@ fun RunDetailScreen(
                 }
 
                 LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                    contentPadding = PaddingValues(
+                        start = 20.dp,
+                        end = 20.dp,
+                        top = 12.dp,
+                        bottom = 32.dp,
+                    ),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     // ─── 날짜 + 시각 헤더 ───
@@ -459,6 +469,29 @@ fun RunDetailScreen(
                     // ─── 1km 구간 기록 ───
                     item {
                         RunSplitsCard(splits = viewModel.splits)
+                    }
+
+                    // ─── 코스 만들기 ───
+                    if (viewModel.canCreateCourse) {
+                        item {
+                            Button(
+                                onClick = viewModel::openCreateCourseDialog,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .navigationBarsPadding(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.AddLocation,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("코스 만들기", fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
             }

@@ -2,6 +2,7 @@ package com.runway.wear
 
 import android.app.Application
 import android.annotation.SuppressLint
+import android.os.HandlerThread
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,6 +19,7 @@ import com.google.android.gms.location.Priority
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
+import com.runway.wear.data.PhoneAuthStateRepository
 import com.runway.wear.data.PhoneRunStateRepository
 import com.runway.wear.data.WatchSettings
 import com.runway.wear.data.WatchSettingsStore
@@ -28,6 +30,7 @@ import com.runway.wear.model.RunGoal
 import com.runway.wear.model.WatchRunState
 import com.runway.wear.model.WatchScreen
 import com.runway.wear.voice.RunningVoiceGuide
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +38,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.tasks.await as awaitTask
 import java.time.Instant
 
@@ -75,20 +79,31 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private var lowSpeedTicks = 0
     private var highSpeedTicks = 0
     private var gpsLocationCallback: LocationCallback? = null
+    private var homeGpsCallback: LocationCallback? = null
+    private var deviationGpsCallback: LocationCallback? = null
+    private val gpsHandlerThread = HandlerThread("gps-auto-pause").also { it.start() }
+    private var lastReadyLocation: android.location.Location? = null
 
     init {
-        OfflineCourseRepository.update(offlineCourseStore.load())
+        viewModelScope.launch(Dispatchers.IO) {
+            OfflineCourseRepository.update(offlineCourseStore.load())
+        }
         refreshConnection()
         observePhoneState()
         observeRunSync()
         observeOfflineCourses()
+        observePhoneAuthState()
+        startHomeGpsMonitor()
     }
 
     fun refreshConnection() {
         viewModelScope.launch {
             val connected = dataLayer.isPhoneConnected()
             _state.update { it.copy(isPhoneConnected = connected) }
-            if (connected) dataLayer.syncPendingRuns(pendingRunStore)
+            if (connected) {
+                dataLayer.requestAuthState()
+                dataLayer.syncPendingRuns(pendingRunStore)
+            }
         }
     }
 
@@ -107,6 +122,8 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
             WatchScreen.INTERVAL_GOAL,
             -> navigate(WatchScreen.GOAL_TYPE)
             WatchScreen.SETTINGS -> navigate(settingsReturnScreen)
+            WatchScreen.PREPARING -> cancelPreparing()
+            WatchScreen.COUNTDOWN -> cancelCountdown()
             WatchScreen.TRACKING -> pause()
             WatchScreen.PAUSED -> navigate(WatchScreen.TRACKING)
             WatchScreen.SUMMARY -> returnHome()
@@ -136,7 +153,25 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
 
     fun start(goal: RunGoal) {
         activeCourse = null
+        _state.update { it.copy(screen = WatchScreen.PREPARING, pendingGoal = goal) }
+    }
+
+    fun confirmPreparing() {
+        _state.update { it.copy(screen = WatchScreen.COUNTDOWN) }
+    }
+
+    fun cancelPreparing() {
+        _state.update { it.copy(screen = WatchScreen.HOME, pendingGoal = null) }
+    }
+
+    fun commitCountdown() {
+        val goal = _state.value.pendingGoal ?: RunGoal.Free
+        _state.update { it.copy(pendingGoal = null) }
         startTracking(goal)
+    }
+
+    fun cancelCountdown() {
+        _state.update { it.copy(screen = WatchScreen.HOME, pendingGoal = null) }
     }
 
     fun selectCourse(courseId: String) {
@@ -158,7 +193,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
             ?: return
         lastCourseWarning = false
         pausedByCourseDeviation = false
-        startTracking(RunGoal.Free)
+        _state.update { it.copy(screen = WatchScreen.PREPARING, pendingGoal = RunGoal.Free) }
     }
 
     @SuppressLint("MissingPermission")
@@ -196,6 +231,10 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         lastAnnouncedKilometer = 0
         lastAutoPaused = false
         lastGpsStatus = "SEARCHING"
+        nearFinishAnnounced = false
+        lastCourseWarning = false
+        pausedByCourseDeviation = false
+        maxCourseProgressMeters = 0.0
         resetGpsAutoPause()
         _state.update {
             WatchRunState(
@@ -211,13 +250,26 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
                 courseDistanceMeters = activeCourse?.distanceMeters ?: 0.0,
             )
         }
+        // GPS 준비된 위치를 첫 번째 포인트로 즉시 기록
+        lastReadyLocation?.let { loc ->
+            runPoints.add(
+                WatchRunPoint(
+                    sequence = 0,
+                    latitude = loc.latitude,
+                    longitude = loc.longitude,
+                    altitudeMeters = loc.altitude,
+                    speedMps = 0.0,
+                    recordedAt = Instant.now().toString(),
+                )
+            )
+        }
+        observeMetrics()
         viewModelScope.launch {
             runCatching { healthServices.start(_state.value.autoPauseEnabled) }
         }
         speakIfEnabled { start() }
         startTimer()
-        observeMetrics()
-        startGpsAutoPauseMonitor()
+        RunForegroundService.start(getApplication())
     }
 
     fun pause() {
@@ -240,6 +292,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     fun finish() {
         timerJob?.cancel()
         stopGpsAutoPauseMonitor()
+        stopDeviationMonitor()
         speakIfEnabled { finish() }
         val completed = _state.value
         _state.update {
@@ -250,6 +303,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
                 phoneStatusMessage = "폰 연결 시 자동으로 동기화됩니다",
             )
         }
+        RunForegroundService.stop(getApplication())
         viewModelScope.launch {
             runCatching { healthServices.finish() }
             val durationSeconds = completed.elapsedSeconds.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
@@ -282,7 +336,9 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         timerJob?.cancel()
         metricsJob?.cancel()
         stopGpsAutoPauseMonitor()
+        stopDeviationMonitor()
         speakIfEnabled { cancel() }
+        RunForegroundService.stop(getApplication())
         viewModelScope.launch {
             runCatching { healthServices.finish() }
         }
@@ -292,6 +348,8 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     fun returnHome() {
         metricsJob?.cancel()
         stopGpsAutoPauseMonitor()
+        stopDeviationMonitor()
+        RunForegroundService.stop(getApplication())
         _state.value = freshAuthenticatedState()
     }
 
@@ -329,7 +387,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         gpsLocationCallback = callback
-        fusedLocationClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
+        fusedLocationClient.requestLocationUpdates(request, callback, gpsHandlerThread.looper)
     }
 
     private fun handleSpeedTick(speedMps: Double) {
@@ -374,6 +432,74 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         highSpeedTicks = 0
     }
 
+    @SuppressLint("MissingPermission")
+    private fun startHomeGpsMonitor() {
+        // 마지막으로 알려진 위치가 있으면 즉시 표시
+        runCatching {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null && location.accuracy <= GPS_READY_ACCURACY_METERS) {
+                    _state.update { it.copy(gpsReady = true) }
+                }
+            }
+        }
+
+        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1_000L)
+            .setMinUpdateIntervalMillis(500L)
+            .setWaitForAccurateLocation(false)
+            .build()
+        val callback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                val location = result.lastLocation ?: return
+                if (location.accuracy <= GPS_READY_ACCURACY_METERS) {
+                    lastReadyLocation = location
+                    _state.update { it.copy(gpsReady = true) }
+                }
+            }
+        }
+        homeGpsCallback = callback
+        runCatching {
+            fusedLocationClient.requestLocationUpdates(request, callback, gpsHandlerThread.looper)
+        }
+    }
+
+    private fun stopHomeGpsMonitor() {
+        homeGpsCallback?.let { fusedLocationClient.removeLocationUpdates(it) }
+        homeGpsCallback = null
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startDeviationMonitor() {
+        stopDeviationMonitor()
+        val course = activeCourse ?: return
+        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2_000L)
+            .setMinUpdateIntervalMillis(1_000L)
+            .build()
+        val callback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                val loc = result.lastLocation ?: return
+                val proximity = courseProximity(loc.latitude, loc.longitude, course) ?: return
+                val backOnCourse = proximity.nearestMeters <= COURSE_OFF_THRESHOLD_METERS
+                _state.update { it.copy(distanceToCourseMeters = proximity.nearestMeters, isOffCourse = !backOnCourse) }
+                if (backOnCourse && pausedByCourseDeviation) {
+                    stopDeviationMonitor()
+                    lastCourseWarning = false
+                    pausedByCourseDeviation = false
+                    speakIfEnabled { backOnCourse() }
+                    resume()
+                }
+            }
+        }
+        deviationGpsCallback = callback
+        runCatching {
+            fusedLocationClient.requestLocationUpdates(request, callback, gpsHandlerThread.looper)
+        }
+    }
+
+    private fun stopDeviationMonitor() {
+        deviationGpsCallback?.let { fusedLocationClient.removeLocationUpdates(it) }
+        deviationGpsCallback = null
+    }
+
     private fun stopGpsAutoPauseMonitor() {
         gpsAutoPauseJob?.cancel()
         gpsAutoPauseJob = null
@@ -395,7 +521,9 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
                         speedMps = location.speedMps,
                         recordedAt = location.recordedAt,
                     )
-                    updateCourseProgress(location.latitude, location.longitude)
+                    withContext(Dispatchers.Default) {
+                        updateCourseProgress(location.latitude, location.longitude)
+                    }
                 }
                 _state.update { current ->
                     val distance = update.distanceMeters ?: current.distanceMeters
@@ -531,6 +659,31 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+        viewModelScope.launch {
+            WatchRunSyncRepository.lastSyncedRunId.collect { runId ->
+                if (runId != null) {
+                    _state.update { it.copy(syncedRunId = runId) }
+                }
+            }
+        }
+    }
+
+    fun openRunOnPhone() {
+        val runId = _state.value.syncedRunId ?: return
+        if (!_state.value.isPhoneConnected) return
+        viewModelScope.launch { dataLayer.requestOpenRunOnPhone(runId) }
+    }
+
+    fun openPhoneApp() {
+        viewModelScope.launch { dataLayer.requestOpenPhoneApp() }
+    }
+
+    private fun observePhoneAuthState() {
+        viewModelScope.launch {
+            PhoneAuthStateRepository.isLoggedIn.collect { loggedIn ->
+                _state.update { it.copy(phoneLoggedIn = loggedIn) }
+            }
+        }
     }
 
     private fun observeOfflineCourses() {
@@ -550,15 +703,43 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private var nearFinishAnnounced = false
+
+    fun openCourseOnPhone() {
+        val courseId = _state.value.selectedCourseId ?: return
+        if (!_state.value.isPhoneConnected) {
+            _state.update { it.copy(phoneStatusMessage = "폰 연결 후 이용 가능합니다") }
+            return
+        }
+        viewModelScope.launch { dataLayer.requestOpenCourseOnPhone(courseId) }
+    }
+
+    private var maxCourseProgressMeters = 0.0
+
     private fun updateCourseProgress(latitude: Double, longitude: Double) {
         val course = activeCourse ?: return
-        val nearest = nearestDistanceToCourse(latitude, longitude, course)
-        val offCourse = nearest != null && nearest > 80.0
-        val progress = if (course.distanceMeters > 1.0) {
-            (_state.value.distanceMeters * 100.0 / course.distanceMeters).toInt().coerceIn(0, 100)
+        val proximity = courseProximity(latitude, longitude, course) ?: return
+        val nearest = proximity.nearestMeters
+        val offCourse = nearest > COURSE_OFF_THRESHOLD_METERS
+
+        // 코스 위에 있을 때만 진행도 업데이트 (되돌아가도 감소 안 함)
+        if (!offCourse) {
+            maxCourseProgressMeters = maxOf(maxCourseProgressMeters, proximity.projectedMeters)
+        }
+
+        val rawProgress = if (course.distanceMeters > 1.0) {
+            (maxCourseProgressMeters * 100.0 / course.distanceMeters).toInt().coerceIn(0, 100)
         } else {
             0
         }
+        // 완주 조건: 코스 진행도 100% AND 종착점 30m 이내
+        val progress = if (rawProgress >= 100) {
+            val endPoint = if (course.isLoop) course.points.firstOrNull() else course.points.lastOrNull()
+            val nearEnd = endPoint?.let {
+                distanceMeters(latitude, longitude, it.latitude, it.longitude) <= COURSE_FINISH_RADIUS_METERS
+            } ?: true
+            if (nearEnd) 100 else 99
+        } else rawProgress
         _state.update {
             it.copy(
                 courseProgressPercent = progress,
@@ -566,35 +747,50 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
                 isOffCourse = offCourse,
             )
         }
+
+        // 이탈 상태 전환 시 음성 + 일시정지 + FLP 복귀 모니터 시작
         if (offCourse != lastCourseWarning) {
             lastCourseWarning = offCourse
             speakIfEnabled {
-                if (offCourse) gpsWeak() else gpsRecovered()
+                if (offCourse) offCourse() else backOnCourse()
             }
             if (offCourse && !_state.value.isPaused) {
                 pausedByCourseDeviation = true
                 pause()
+                startDeviationMonitor()
             } else if (!offCourse && pausedByCourseDeviation) {
+                stopDeviationMonitor()
                 pausedByCourseDeviation = false
                 resume()
             }
         } else if (offCourse && !_state.value.isPaused) {
             pausedByCourseDeviation = true
             pause()
+            startDeviationMonitor()
+        }
+
+        // 90% 도달 시 1회 거의 다 왔습니다
+        if (!nearFinishAnnounced && progress in 90..99) {
+            nearFinishAnnounced = true
+            speakIfEnabled { nearCourseFinish() }
         }
     }
 
     override fun onCleared() {
+        stopHomeGpsMonitor()
         stopGpsAutoPauseMonitor()
+        gpsHandlerThread.quitSafely()
         voiceGuide.shutdown()
         super.onCleared()
     }
 
     private fun freshAuthenticatedState(): WatchRunState = WatchRunState(
         isPhoneConnected = _state.value.isPhoneConnected,
+        phoneLoggedIn = _state.value.phoneLoggedIn,
         voiceGuidanceEnabled = _state.value.voiceGuidanceEnabled,
         autoPauseEnabled = _state.value.autoPauseEnabled,
         goalCompletionAction = _state.value.goalCompletionAction,
+        gpsReady = lastReadyLocation != null, // 이미 잡은 GPS는 유지
     )
 
     private fun distanceMeters(
@@ -614,31 +810,35 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         return earthRadius * 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
     }
 
-    private fun nearestDistanceToCourse(
-        latitude: Double,
-        longitude: Double,
-        course: OfflineCourse,
-    ): Double? {
+    // 코스 경로까지의 최단 거리 AND 코스 시작점으로부터의 투영 거리(arclength) 반환
+    private data class CourseProximity(val nearestMeters: Double, val projectedMeters: Double)
+
+    private fun courseProximity(latitude: Double, longitude: Double, course: OfflineCourse): CourseProximity? {
         if (course.points.isEmpty()) return null
         if (course.points.size == 1) {
-            val point = course.points.first()
-            return distanceMeters(latitude, longitude, point.latitude, point.longitude)
+            val p = course.points.first()
+            return CourseProximity(distanceMeters(latitude, longitude, p.latitude, p.longitude), 0.0)
         }
-        return course.points.zipWithNext().minOf { (start, end) ->
-            val denominator =
-                (end.latitude - start.latitude) * (end.latitude - start.latitude) +
-                    (end.longitude - start.longitude) * (end.longitude - start.longitude)
-            val fraction = if (denominator < 1e-12) {
-                0.0
-            } else {
-                (((latitude - start.latitude) * (end.latitude - start.latitude) +
-                    (longitude - start.longitude) * (end.longitude - start.longitude)) / denominator)
-                    .coerceIn(0.0, 1.0)
+        var bestNearest = Double.MAX_VALUE
+        var bestProjected = 0.0
+        var cumulative = 0.0
+        course.points.zipWithNext().forEach { (start, end) ->
+            val segLen = distanceMeters(start.latitude, start.longitude, end.latitude, end.longitude)
+            val dLat = end.latitude - start.latitude
+            val dLon = end.longitude - start.longitude
+            val lenSq = dLat * dLat + dLon * dLon
+            val t = if (lenSq < 1e-12) 0.0 else
+                (((latitude - start.latitude) * dLat + (longitude - start.longitude) * dLon) / lenSq).coerceIn(0.0, 1.0)
+            val projLat = start.latitude + t * dLat
+            val projLon = start.longitude + t * dLon
+            val nearDist = distanceMeters(latitude, longitude, projLat, projLon)
+            if (nearDist < bestNearest) {
+                bestNearest = nearDist
+                bestProjected = cumulative + t * segLen
             }
-            val projectedLatitude = start.latitude + fraction * (end.latitude - start.latitude)
-            val projectedLongitude = start.longitude + fraction * (end.longitude - start.longitude)
-            distanceMeters(latitude, longitude, projectedLatitude, projectedLongitude)
+            cumulative += segLen
         }
+        return CourseProximity(bestNearest, bestProjected)
     }
 
     private fun announceCompletedKilometer() {
@@ -682,13 +882,15 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun persistSettings() {
         val current = _state.value
-        settingsStore.save(
-            WatchSettings(
-                voiceGuidanceEnabled = current.voiceGuidanceEnabled,
-                autoPauseEnabled = current.autoPauseEnabled,
-                goalCompletionAction = current.goalCompletionAction,
-            ),
-        )
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsStore.save(
+                WatchSettings(
+                    voiceGuidanceEnabled = current.voiceGuidanceEnabled,
+                    autoPauseEnabled = current.autoPauseEnabled,
+                    goalCompletionAction = current.goalCompletionAction,
+                ),
+            )
+        }
     }
 
     private inline fun speakIfEnabled(block: RunningVoiceGuide.() -> Unit) {
@@ -711,7 +913,10 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         const val GPS_SAMPLE_INTERVAL_MILLIS = 1_000L
         const val AUTO_PAUSE_SPEED_MPS = 0.5
         const val AUTO_RESUME_SPEED_MPS = 1.0
-        const val AUTO_PAUSE_TICKS = 10
+        const val AUTO_PAUSE_TICKS = 5
         const val AUTO_RESUME_TICKS = 3
+        const val GPS_READY_ACCURACY_METERS = 30f
+        const val COURSE_OFF_THRESHOLD_METERS = 20.0
+        const val COURSE_FINISH_RADIUS_METERS = 30.0
     }
 }

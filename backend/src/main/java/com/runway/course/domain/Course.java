@@ -165,6 +165,10 @@ public class Course {
         this.completionCount++;
     }
 
+    public void softDelete() {
+        this.deletedAt = Instant.now();
+    }
+
     public boolean isOwnedBy(UUID userId) {
         return this.creatorId.equals(userId);
     }

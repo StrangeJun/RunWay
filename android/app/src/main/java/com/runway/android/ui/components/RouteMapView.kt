@@ -11,6 +11,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.graphics.toArgb
 import com.runway.android.ui.theme.LocalIsDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -113,6 +114,18 @@ private fun RouteGoogleMap(
         }
     }
 
+    // 최초 1회만 bounds 카메라 이동 (onMapLoaded는 타일 재로드 시마다 재호출되므로 상태로 보호)
+    var mapLoaded by remember { mutableStateOf(false) }
+    LaunchedEffect(mapLoaded) {
+        if (!mapLoaded) return@LaunchedEffect
+        val needBounds = !followCurrentLocation || currentLatLng == null
+        if (!needBounds) return@LaunchedEffect
+        delay(50)
+        runCatching {
+            cameraPositionState.animate(CameraUpdateFactory.newLatLngBounds(bounds, 48), 300)
+        }
+    }
+
     GoogleMap(
         modifier = modifier,
         cameraPositionState = cameraPositionState,
@@ -127,14 +140,7 @@ private fun RouteGoogleMap(
             mapToolbarEnabled = false,
         ),
         onMapClick = { onClick?.invoke() },
-        onMapLoaded = {
-            // 위치 추적 모드일 때는 첫 GPS 수신 전까지만 전체 코스 bounds로 표시
-            if (!followCurrentLocation) {
-                cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 48))
-            } else if (currentLatLng == null) {
-                cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 48))
-            }
-        },
+        onMapLoaded = { if (!mapLoaded) mapLoaded = true },
     ) {
         Polyline(
             points = latLngs,

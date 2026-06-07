@@ -37,7 +37,7 @@ class WatchRunUploadCoordinator @Inject constructor(
 
         val localId = payload.getString("localId")
         if (preferences.getBoolean(completedKey(localId), false)) {
-            acknowledge(localId, dataItemUri)
+            acknowledge(localId, null, dataItemUri)
             return
         }
 
@@ -133,12 +133,17 @@ class WatchRunUploadCoordinator @Inject constructor(
             .remove(offsetKey(localId))
             .remove(attemptIdKey(localId))
             .commit()
-        acknowledge(localId, dataItemUri)
+        // courseAttempt run은 코스 생성 대상이 아니므로 runId만 전달
+        acknowledge(localId, if (courseId == null) runId else null, dataItemUri)
     }
 
-    private suspend fun acknowledge(localId: String, dataItemUri: Uri) {
+    private suspend fun acknowledge(localId: String, runId: String?, dataItemUri: Uri) {
         Wearable.getDataClient(context).deleteDataItems(dataItemUri).await()
-        val payload = JSONObject().put("localId", localId).toString().encodeToByteArray()
+        val payload = JSONObject()
+            .put("localId", localId)
+            .apply { runId?.let { put("runId", it) } }
+            .toString()
+            .encodeToByteArray()
         val nodes = Wearable.getNodeClient(context).connectedNodes.await()
         nodes.forEach { node ->
             Wearable.getMessageClient(context)

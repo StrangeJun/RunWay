@@ -141,10 +141,23 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             isSaving = true
             saveError = null
+
+            // 이미지가 선택됐으면 먼저 업로드
+            val newImageUrl: String? = selectedImageUri?.let { uri ->
+                when (val uploadResult = userRepository.uploadProfileImage(uri)) {
+                    is NetworkResult.Success -> uploadResult.data
+                    else -> {
+                        saveError = "이미지 업로드에 실패했습니다."
+                        isSaving = false
+                        return@launch
+                    }
+                }
+            }
+
             when (val result = userRepository.updateMe(
                 UpdateProfileRequest(
                     nickname = trimmedNickname,
-                    profileImageUrl = null,
+                    profileImageUrl = newImageUrl ?: profileImageUrl,
                     bio = editBio.trim().ifEmpty { null },
                 )
             )) {

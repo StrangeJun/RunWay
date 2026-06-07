@@ -17,8 +17,15 @@ import com.runway.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -33,6 +40,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserService {
 
+    @Value("${app.upload-dir:/opt/runway/uploads}")
+    private String uploadDir;
+
+    @Value("${app.base-url:https://pathfinder.run}")
+    private String baseUrl;
+
     private final UserRepository userRepository;
     private final RunningRecordRepository runningRecordRepository;
     private final CourseAttemptRepository courseAttemptRepository;
@@ -42,6 +55,24 @@ public class UserService {
     public UserProfileResponse getProfile(UUID userId) {
         User user = findActiveUser(userId);
         return UserProfileResponse.from(user);
+    }
+
+    public String uploadProfileImage(UUID userId, MultipartFile file) {
+        if (file.isEmpty()) throw new RunwayException(ErrorCode.INVALID_REQUEST, "파일이 비어 있습니다.");
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new RunwayException(ErrorCode.INVALID_REQUEST, "이미지 파일만 업로드 가능합니다.");
+        }
+        String ext = contentType.contains("png") ? ".png" : ".jpg";
+        String filename = "profile_" + userId + ext;
+        try {
+            Path dir = Paths.get(uploadDir, "profiles");
+            Files.createDirectories(dir);
+            Files.copy(file.getInputStream(), dir.resolve(filename), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new RunwayException(ErrorCode.INVALID_REQUEST, "이미지 저장에 실패했습니다.");
+        }
+        return baseUrl + "/uploads/profiles/" + filename;
     }
 
     @Transactional

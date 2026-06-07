@@ -1,11 +1,13 @@
 package com.runway.android.core.wear
 
+import android.content.Intent
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
+import com.runway.android.MainActivity
 import com.runway.android.core.datastore.TokenDataStore
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -27,12 +29,16 @@ class WatchCommandListenerService : WearableListenerService() {
         const val RUN_UPLOAD_ACK_PATH = "/runway/watch/run-upload-ack"
         const val COURSE_REQUEST_PATH = "/runway/watch/course-request"
         const val COURSE_CATALOG_PATH = "/runway/watch/course-catalog"
+        const val OPEN_COURSE_PATH = "/runway/watch/open-course"
+        const val OPEN_RUN_PATH = "/runway/watch/open-run"
+        const val OPEN_APP_PATH = "/runway/watch/open-app"
     }
 
     @Inject lateinit var coordinator: WearRunSessionCoordinator
     @Inject lateinit var tokenDataStore: TokenDataStore
     @Inject lateinit var uploadCoordinator: WatchRunUploadCoordinator
     @Inject lateinit var courseSyncCoordinator: WatchCourseSyncCoordinator
+    @Inject lateinit var watchNavRepository: WatchNavRepository
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
@@ -50,6 +56,35 @@ class WatchCommandListenerService : WearableListenerService() {
                         longitude = payload.getDouble("longitude"),
                     )
                 }
+            }
+            OPEN_COURSE_PATH -> {
+                val courseId = messageEvent.data.decodeToString()
+                if (courseId.isNotBlank()) {
+                    watchNavRepository.requestOpenCourse(courseId)
+                    startActivity(
+                        Intent(this, MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        }
+                    )
+                }
+            }
+            OPEN_RUN_PATH -> {
+                val runId = messageEvent.data.decodeToString()
+                if (runId.isNotBlank()) {
+                    watchNavRepository.requestOpenRun(runId)
+                    startActivity(
+                        Intent(this, MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        }
+                    )
+                }
+            }
+            OPEN_APP_PATH -> {
+                startActivity(
+                    Intent(this, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    }
+                )
             }
         }
     }

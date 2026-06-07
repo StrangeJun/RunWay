@@ -168,6 +168,9 @@ class CourseAttemptTrackingViewModel @Inject constructor(
     private var serviceStarted = false
     private var lastTrackStatus: CourseTrackStatus = CourseTrackStatus.UNKNOWN
     private var nearFinishMessageShown = false
+    private var courseCompletionHandled = false
+    var isCourseCompleted by mutableStateOf(false)
+        private set
     private var pausedByDeviation = false
     // true 동안에는 연속 재일시정지 중복 실행 방지 (isPaused=true 확인 후 리셋)
     private var repausingForDeviation = false
@@ -273,6 +276,15 @@ class CourseAttemptTrackingViewModel @Inject constructor(
                                 milestoneMessage = null
                             }
                         }
+                        // 100% 완주 감지 — 자동 일시정지 + 음성
+                        if (!courseCompletionHandled && courseProgressPercent >= 100) {
+                            courseCompletionHandled = true
+                            isCourseCompleted = true
+                            vibrateCompletion()
+                            voiceGuide.speak("코스를 완주했습니다! 수고하셨습니다.")
+                            milestoneMessage = "코스 완주! 🎉"
+                            if (!isPaused && !isAutoPaused) pause()
+                        }
                     }
                 }
             }
@@ -332,6 +344,19 @@ class CourseAttemptTrackingViewModel @Inject constructor(
         }
         vibrator.vibrate(
             VibrationEffect.createWaveform(longArrayOf(0, 200, 100, 200), -1)
+        )
+    }
+
+    @Suppress("DEPRECATION")
+    private fun vibrateCompletion() {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+        } else {
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+        // 완주: 강한 진동 3회
+        vibrator.vibrate(
+            VibrationEffect.createWaveform(longArrayOf(0, 200, 80, 200, 80, 400), -1)
         )
     }
 

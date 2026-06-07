@@ -8,6 +8,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -48,7 +49,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -156,6 +159,9 @@ fun PostureHomeScreen(
                         }
                     },
                 )
+            }
+            item {
+                PostureDisclaimerBanner()
             }
             item {
                 Row(
@@ -430,6 +436,39 @@ private fun PostureHelpDialog(onDismiss: () -> Unit) {
             TextButton(onClick = onDismiss) { Text("확인") }
         },
     )
+}
+
+@Composable
+private fun PostureDisclaimerBanner() {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        // 화면 너비 기준으로 글자 크기 결정 (360dp 기준 9sp, 이하면 더 작게)
+        val fontSize = (maxWidth.value * 0.025f).coerceIn(8f, 10f).sp
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            color = Color(0x33F59E0B),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Info,
+                    contentDescription = null,
+                    tint = Color(0xFFD97706),
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(
+                    text = "본 분석은 러닝 자세를 이해하기 위한 참고 자료입니다.\n" +
+                        "촬영 환경, 카메라 각도, 의류, 조명 등에 따라 정확도가 달라질 수 있으며,\n" +
+                        "의료적 판단의 근거로 사용해서는 안 됩니다.",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = fontSize),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
 }
 
 @Preview(showBackground = true)

@@ -3,6 +3,7 @@ package com.runway.wear
 import android.Manifest
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -10,20 +11,38 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.runway.wear.WatchViewModel
+import androidx.wear.ambient.AmbientLifecycleObserver
 import com.runway.wear.ui.PathFinderWearApp
 
 class MainActivity : ComponentActivity() {
     private var launchToken by mutableIntStateOf(0)
+    private var isAmbient by mutableStateOf(false)
+
+    private val ambientObserver = AmbientLifecycleObserver(
+        this,
+        object : AmbientLifecycleObserver.AmbientLifecycleCallback {
+            override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
+                isAmbient = true
+            }
+            override fun onExitAmbient() {
+                isAmbient = false
+            }
+            override fun onUpdateAmbient() {}
+        }
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        launchToken++
+        lifecycle.addObserver(ambientObserver)
+        // 앱이 포그라운드에 있는 동안 항상 화면 유지
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (savedInstanceState == null) launchToken++
         setContent {
             val watchViewModel: WatchViewModel = viewModel()
             val lifecycleState = LocalLifecycleOwner.current.lifecycle.currentStateAsState()
@@ -44,7 +63,7 @@ class MainActivity : ComponentActivity() {
                     watchViewModel.refreshConnection()
                 }
             }
-            PathFinderWearApp(watchViewModel, launchToken)
+            PathFinderWearApp(watchViewModel, launchToken, isAmbient)
         }
     }
 
@@ -53,8 +72,5 @@ class MainActivity : ComponentActivity() {
         launchToken++
     }
 
-    override fun onRestart() {
-        super.onRestart()
-        launchToken++
-    }
+
 }

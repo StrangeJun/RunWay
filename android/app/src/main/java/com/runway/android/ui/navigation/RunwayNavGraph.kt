@@ -44,6 +44,8 @@ fun RunwayNavGraph() {
     val mainViewModel: MainViewModel = hiltViewModel()
     val isLoggedIn by mainViewModel.isLoggedIn.collectAsState()
     val isOnboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
+    val watchPendingCourseId by mainViewModel.watchPendingCourseId.collectAsState()
+    val watchPendingRunId by mainViewModel.watchPendingRunId.collectAsState()
     val navController = rememberNavController()
 
     LaunchedEffect(isLoggedIn) {
@@ -138,6 +140,16 @@ fun RunwayNavGraph() {
         // ─── Main shell (BottomNav 포함) ───
 
         composable(RunwayRoutes.MAIN) { backStackEntry ->
+            LaunchedEffect(watchPendingCourseId) {
+                val courseId = watchPendingCourseId ?: return@LaunchedEffect
+                mainViewModel.consumeWatchPendingCourse()
+                navController.navigate(RunwayRoutes.courseDetail(courseId))
+            }
+            LaunchedEffect(watchPendingRunId) {
+                val runId = watchPendingRunId ?: return@LaunchedEffect
+                mainViewModel.consumeWatchPendingRun()
+                navController.navigate(RunwayRoutes.runDetail(runId))
+            }
             val homeViewModel: HomeViewModel = hiltViewModel()
             val deletedRunId by backStackEntry.savedStateHandle
                 .getStateFlow<String?>("deletedRunId", null)

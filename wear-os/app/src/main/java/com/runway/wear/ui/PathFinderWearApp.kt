@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
@@ -30,14 +31,28 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.foundation.Canvas
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -59,6 +74,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -68,7 +84,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -104,6 +123,7 @@ private val Danger = Color(0xFFFF665E)
 fun PathFinderWearApp(
     viewModel: WatchViewModel = viewModel(),
     launchToken: Int = 0,
+    isAmbient: Boolean = false,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showLaunchAnimation by remember(launchToken) { mutableStateOf(true) }
@@ -127,12 +147,15 @@ fun PathFinderWearApp(
         Surface(modifier = Modifier.fillMaxSize(), color = Background) {
             if (showLaunchAnimation) {
                 LaunchAnimationScreen()
+            } else if (isAmbient && (state.screen == WatchScreen.TRACKING || state.screen == WatchScreen.PAUSED)) {
+                AmbientTrackingScreen(state)
             } else when (state.screen) {
                 WatchScreen.HOME -> HomeScreen(
                     state = state,
                     onStart = viewModel::start,
                     onGoal = { viewModel.navigate(WatchScreen.GOAL_TYPE) },
                     onCourses = { viewModel.navigate(WatchScreen.COURSE_LIST) },
+                    onLogin = viewModel::openPhoneApp,
                 )
                 WatchScreen.COURSE_LIST -> CourseListScreen(state, viewModel)
                 WatchScreen.COURSE_DETAIL -> CourseDetailScreen(state, viewModel)
@@ -141,9 +164,18 @@ fun PathFinderWearApp(
                 WatchScreen.DISTANCE_GOAL -> DistanceGoalScreen(viewModel)
                 WatchScreen.INTERVAL_GOAL -> IntervalGoalScreen(viewModel)
                 WatchScreen.SETTINGS -> RunningSettingsScreen(state, viewModel)
+                WatchScreen.PREPARING -> PreparingScreen(
+                    state = state,
+                    onConfirm = viewModel::confirmPreparing,
+                    onCancel = viewModel::cancelPreparing,
+                )
+                WatchScreen.COUNTDOWN -> CountdownScreen(
+                    onFinished = viewModel::commitCountdown,
+                    onCancel = viewModel::cancelCountdown,
+                )
                 WatchScreen.TRACKING -> TrackingScreen(state, viewModel)
                 WatchScreen.PAUSED -> PausedScreen(state, viewModel)
-                WatchScreen.SUMMARY -> SummaryScreen(state, viewModel::returnHome)
+                WatchScreen.SUMMARY -> SummaryScreen(state, viewModel::returnHome, viewModel::openRunOnPhone)
             }
         }
     }
@@ -195,6 +227,7 @@ private fun HomeScreen(
     onStart: (RunGoal) -> Unit,
     onGoal: () -> Unit,
     onCourses: () -> Unit,
+    onLogin: () -> Unit = {},
 ) {
     WatchPage(scrollable = true) {
         Image(
@@ -203,6 +236,7 @@ private fun HomeScreen(
             modifier = Modifier.size(if (compact) 34.dp else 52.dp),
         )
         Text("PathFinder", fontWeight = FontWeight.Bold, fontSize = if (compact) 16.sp else 18.sp)
+        GpsStatusIndicator(state.gpsReady)
         ConnectionLabel(state.isPhoneConnected)
         PrimaryAction(
             label = "바로 시작",
@@ -212,6 +246,14 @@ private fun HomeScreen(
         )
         SecondaryAction("목표 설정", Icons.Filled.Flag, onClick = onGoal, compact = compact)
         SecondaryAction("주변 코스 도전", Icons.Filled.Route, onClick = onCourses, compact = compact)
+        if (state.isPhoneConnected && state.phoneLoggedIn == false) {
+            SecondaryAction(
+                label = "핸드폰에서 로그인하기",
+                icon = Icons.Filled.PhoneAndroid,
+                onClick = onLogin,
+                color = Danger,
+            )
+        }
         Text(
             if (state.isPhoneConnected) "폰 연결됨 · 독립 GPS 준비" else "독립 GPS 모드 · 동기화 대기",
             color = Muted,
@@ -291,6 +333,12 @@ private fun CourseDetailScreen(state: WatchRunState, viewModel: WatchViewModel) 
         }
         Text("경로 ${course?.points?.size ?: 0}개 지점 오프라인 저장됨", color = Muted, fontSize = 9.sp)
         PrimaryAction("코스 도전 시작", Icons.Filled.PlayArrow, onClick = viewModel::startSelectedCourse)
+        SecondaryAction(
+            label = "에서 경로살펴보기",
+            icon = Icons.Filled.PhoneAndroid,
+            onClick = viewModel::openCourseOnPhone,
+            color = if (state.isPhoneConnected) Color.White else Muted,
+        )
     }
 }
 
@@ -623,51 +671,81 @@ private fun TrackingMetrics(state: WatchRunState) {
 
 @Composable
 private fun TrackingControls(state: WatchRunState, viewModel: WatchViewModel) {
-    WatchPage {
-        Text(
-            if (state.isPaused) "일시정지됨" else "러닝 제어",
-            fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
+    var confirmAction by remember { mutableStateOf<ConfirmAction?>(null) }
+
+    if (confirmAction != null) {
+        ConfirmDialog(
+            message = if (confirmAction == ConfirmAction.FINISH) "러닝을 종료하시겠어요?" else "러닝을 취소하시겠어요?",
+            confirmLabel = if (confirmAction == ConfirmAction.FINISH) "종료" else "취소",
+            confirmColor = if (confirmAction == ConfirmAction.FINISH) Accent else Danger,
+            onConfirm = {
+                val action = confirmAction
+                confirmAction = null
+                if (action == ConfirmAction.FINISH) viewModel.finish() else viewModel.abandon()
+            },
+            onDismiss = { confirmAction = null },
         )
-        Text(
-            "${formatDuration(state.elapsedSeconds)} · %.2fkm".format(state.distanceMeters / 1000.0),
-            color = Muted,
-            fontSize = 12.sp,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            RunControlButton(
-                label = if (state.isPaused) "재생" else "일시정지",
-                icon = if (state.isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
-                color = Accent,
-                onClick = if (state.isPaused) viewModel::resume else viewModel::pause,
-                compact = compact,
+        return
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val btnSize = if (maxHeight <= 200.dp) 50.dp else 58.dp
+        val iconSize = if (maxHeight <= 200.dp) 22.dp else 26.dp
+        val gap = if (maxHeight <= 200.dp) 6.dp else 8.dp
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = if (maxHeight <= 200.dp) 8.dp else 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
+        ) {
+            Text(
+                "${formatDuration(state.elapsedSeconds)} · %.2fkm".format(state.distanceMeters / 1000.0),
+                color = if (state.isPaused) Accent else Muted,
+                fontSize = 11.sp,
+                fontWeight = if (state.isPaused) FontWeight.Bold else FontWeight.Normal,
             )
-            RunControlButton(
-                label = "종료",
-                icon = Icons.Filled.Stop,
-                color = Color.White,
-                onClick = viewModel::finish,
-                compact = compact,
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            RunControlButton(
-                label = "취소",
-                icon = Icons.Filled.Close,
-                color = Danger,
-                onClick = viewModel::abandon,
-                compact = compact,
-            )
-            RunControlButton(
-                label = "설정",
-                icon = Icons.Filled.Settings,
-                color = Color.White,
-                onClick = viewModel::openSettings,
-                compact = compact,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                CompactControlButton(
+                    label = if (state.isPaused) "재생" else "일시정지",
+                    icon = if (state.isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                    color = Accent,
+                    size = btnSize,
+                    iconSize = iconSize,
+                    onClick = if (state.isPaused) viewModel::resume else viewModel::pause,
+                )
+                CompactControlButton(
+                    label = "종료",
+                    icon = Icons.Filled.Stop,
+                    color = Color.White,
+                    size = btnSize,
+                    iconSize = iconSize,
+                    onClick = { confirmAction = ConfirmAction.FINISH },
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                CompactControlButton(
+                    label = "취소",
+                    icon = Icons.Filled.Close,
+                    color = Danger,
+                    size = btnSize,
+                    iconSize = iconSize,
+                    onClick = { confirmAction = ConfirmAction.ABANDON },
+                )
+                CompactControlButton(
+                    label = "설정",
+                    icon = Icons.Filled.Settings,
+                    color = Color.White,
+                    size = btnSize,
+                    iconSize = iconSize,
+                    onClick = viewModel::openSettings,
+                )
+            }
         }
     }
 }
+
+private enum class ConfirmAction { FINISH, ABANDON }
 
 @Composable
 private fun RunningSettingsScreen(
@@ -718,7 +796,11 @@ private fun PausedScreen(state: WatchRunState, viewModel: WatchViewModel) {
 }
 
 @Composable
-private fun SummaryScreen(state: WatchRunState, onDone: () -> Unit) {
+private fun SummaryScreen(
+    state: WatchRunState,
+    onDone: () -> Unit,
+    onOpenRunOnPhone: () -> Unit = {},
+) {
     WatchPage(scrollable = true) {
         Text("런 완료", color = Accent, fontWeight = FontWeight.Bold, fontSize = 20.sp)
         Text("%.2f km".format(state.distanceMeters / 1000.0), fontWeight = FontWeight.Bold, fontSize = 32.sp)
@@ -730,6 +812,13 @@ private fun SummaryScreen(state: WatchRunState, onDone: () -> Unit) {
             fontSize = 10.sp,
             textAlign = TextAlign.Center,
         )
+        if (state.syncedRunId != null && state.isPhoneConnected) {
+            SecondaryAction(
+                label = "에서 코스로 등록",
+                icon = Icons.Filled.PhoneAndroid,
+                onClick = onOpenRunOnPhone,
+            )
+        }
         PrimaryAction("완료", Icons.Filled.Check, onClick = onDone)
     }
 }
@@ -751,8 +840,19 @@ private fun RotarySettingPage(
 
     val scrollState = rememberScrollState()
     val focusRequester = remember { FocusRequester() }
+    var rotaryAccumulator by remember { mutableFloatStateOf(0f) }
+    var lastStepMs by remember { mutableStateOf(0L) }
     val valueState = rememberScrollableState { delta ->
-        onRotate(if (delta > 0f) 1 else -1)
+        rotaryAccumulator += delta
+        if (kotlin.math.abs(rotaryAccumulator) >= ROTARY_STEP_THRESHOLD) {
+            val now = System.currentTimeMillis()
+            val direction = if (rotaryAccumulator > 0f) 1 else -1
+            rotaryAccumulator = 0f
+            if (now - lastStepMs >= ROTARY_DEBOUNCE_MS) {
+                lastStepMs = now
+                onRotate(direction)
+            }
+        }
         delta
     }
     val rotaryBehavior = RotaryScrollableDefaults.behavior(
@@ -808,13 +908,16 @@ private fun FullScreenNumberPicker(
     )
     val scope = rememberCoroutineScope()
     var rotaryAccumulator by remember { mutableFloatStateOf(0f) }
+    var lastStepMs by remember { mutableStateOf(0L) }
     val rotaryState = rememberScrollableState { delta ->
         rotaryAccumulator += delta
         if (kotlin.math.abs(rotaryAccumulator) >= ROTARY_STEP_THRESHOLD) {
+            val now = System.currentTimeMillis()
             val direction = if (rotaryAccumulator > 0f) 1 else -1
-            rotaryAccumulator -= direction * ROTARY_STEP_THRESHOLD
+            rotaryAccumulator = 0f
             val next = (localValue + direction).coerceIn(spec.min, spec.max)
-            if (next != localValue) {
+            if (next != localValue && now - lastStepMs >= ROTARY_DEBOUNCE_MS) {
+                lastStepMs = now
                 localValue = next
                 scope.launch { listState.scrollToItem(next - spec.min) }
             }
@@ -895,7 +998,8 @@ private fun FullScreenNumberPicker(
     }
 }
 
-private const val ROTARY_STEP_THRESHOLD = 24f
+private const val ROTARY_STEP_THRESHOLD = 96f
+private const val ROTARY_DEBOUNCE_MS = 150L
 
 private data class WatchPageScope(val compact: Boolean)
 
@@ -1027,6 +1131,34 @@ private fun BackTitle(title: String, onBack: () -> Unit) {
 }
 
 @Composable
+private fun GpsStatusIndicator(gpsReady: Boolean) {
+    val infiniteTransition = rememberInfiniteTransition(label = "gps_blink")
+    val blinkAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(700, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "blink",
+    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.size(8.dp).background(
+                color = if (gpsReady) Accent else Accent.copy(alpha = blinkAlpha),
+                shape = CircleShape,
+            ),
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(
+            text = if (gpsReady) "GPS 준비됨" else "GPS 탐색 중",
+            color = if (gpsReady) Accent else Muted,
+            fontSize = 10.sp,
+        )
+    }
+}
+
+@Composable
 private fun ConnectionLabel(connected: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(7.dp).background(if (connected) Accent else Muted, CircleShape))
@@ -1069,6 +1201,44 @@ private fun SecondaryAction(
         Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(5.dp))
         Text(label, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun CompactControlButton(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    color: Color,
+    size: androidx.compose.ui.unit.Dp,
+    iconSize: androidx.compose.ui.unit.Dp,
+    onClick: () -> Unit,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier
+                .size(size)
+                .background(
+                    color = if (color == Accent) Accent else SurfaceColor,
+                    shape = RoundedCornerShape(10.dp),
+                )
+                .border(
+                    width = 1.dp,
+                    color = if (color == Accent) Color.Transparent else color.copy(alpha = 0.35f),
+                    shape = RoundedCornerShape(10.dp),
+                ),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (color == Accent) Color.Black else color,
+                modifier = Modifier.size(iconSize),
+            )
+        }
+        Text(label, color = if (color == Danger) Danger else Muted, fontSize = 10.sp, maxLines = 1)
     }
 }
 
@@ -1247,4 +1417,213 @@ private fun intervalTarget(
 ): IntervalTarget = when (mode) {
     SegmentMode.TIME -> IntervalTarget.Time((minutes * 60 + seconds).coerceAtLeast(10))
     SegmentMode.DISTANCE -> IntervalTarget.Distance((km * 1000 + decimal * 100).coerceAtLeast(100))
+}
+
+@Composable
+private fun PreparingScreen(
+    state: WatchRunState,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "gps_blink")
+    val blinkAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(700),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "blink",
+    )
+
+    WatchPage {
+        Text("준비 중", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Spacer(Modifier.height(4.dp))
+
+        // GPS 상태
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .background(
+                        color = if (state.gpsReady) Accent
+                                else Accent.copy(alpha = blinkAlpha),
+                        shape = CircleShape,
+                    ),
+            )
+            Text(
+                text = if (state.gpsReady) "GPS 준비됨" else "GPS 탐색 중...",
+                color = if (state.gpsReady) Accent else Muted,
+                fontSize = 13.sp,
+            )
+        }
+
+        if (state.gpsReady) {
+            Text("✓ 준비 완료", color = Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        } else {
+            Text("GPS 신호를 기다리는 중입니다", color = Muted, fontSize = 9.sp, textAlign = TextAlign.Center)
+        }
+
+        Button(
+            onClick = onConfirm,
+            enabled = state.gpsReady,
+            modifier = Modifier.fillMaxWidth().height(36.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Accent,
+                contentColor = Color.Black,
+                disabledContainerColor = SurfaceColor,
+                disabledContentColor = Muted,
+            ),
+        ) {
+            Icon(Icons.AutoMirrored.Filled.DirectionsRun, null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("시작하기", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        }
+        SecondaryAction(
+            label = "취소",
+            icon = Icons.Filled.Close,
+            onClick = onCancel,
+        )
+    }
+}
+
+@Composable
+private fun CountdownScreen(
+    onFinished: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    var count by remember { mutableIntStateOf(3) }
+    val arcProgress = remember { Animatable(0f) }
+
+    LaunchedEffect(count) {
+        arcProgress.snapTo(0f)
+        if (count > 0) arcProgress.animateTo(1f, tween(900, easing = LinearEasing))
+    }
+
+    LaunchedEffect(Unit) {
+        delay(1_000); count = 2
+        delay(1_000); count = 1
+        delay(1_000); count = 0
+        delay(400); onFinished()
+    }
+
+    BackHandler(onBack = onCancel)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Background)
+            .pointerInput(Unit) { detectTapGestures { onFinished() } },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(160.dp)) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val stroke = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                drawArc(Accent.copy(alpha = 0.15f), -90f, 360f, false, style = stroke)
+                drawArc(Accent, -90f, 360f * arcProgress.value, false, style = stroke)
+            }
+            AnimatedContent(
+                targetState = count,
+                transitionSpec = {
+                    (scaleIn(initialScale = 1.4f, animationSpec = tween(220)) +
+                        fadeIn(tween(160))) togetherWith
+                        (scaleOut(targetScale = 0.7f, animationSpec = tween(180)) +
+                            fadeOut(tween(140)))
+                },
+                label = "countdown",
+            ) { c ->
+                Text(
+                    text = if (c == 0) "GO!" else c.toString(),
+                    fontSize = if (c == 0) 42.sp else 72.sp,
+                    fontWeight = FontWeight.Black,
+                    color = if (c == 0) Accent else Color.White,
+                )
+            }
+        }
+        Text(
+            "화면을 탭하면 바로 시작",
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp),
+            color = Muted,
+            fontSize = 10.sp,
+        )
+    }
+}
+
+@Composable
+private fun ConfirmDialog(
+    message: String,
+    confirmLabel: String,
+    confirmColor: Color,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Background),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(horizontal = 20.dp),
+        ) {
+            Text(message, fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceColor, contentColor = Color.White),
+                ) { Text("아니요", fontSize = 11.sp) }
+                Button(
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = confirmColor, contentColor = Color.Black),
+                ) { Text(confirmLabel, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AmbientTrackingScreen(state: WatchRunState) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = formatDuration(state.elapsedSeconds),
+                fontSize = 38.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
+            Text(
+                text = "%.2f km".format(state.distanceMeters / 1000.0),
+                fontSize = 20.sp,
+                color = Color.White.copy(alpha = 0.7f),
+            )
+            Text(
+                text = formatPace(state.paceMinPerKm) + "/km",
+                fontSize = 14.sp,
+                color = Color.White.copy(alpha = 0.5f),
+            )
+        }
+        if (state.isPaused) {
+            Text(
+                text = "일시정지",
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp),
+                fontSize = 11.sp,
+                color = Color.White.copy(alpha = 0.4f),
+            )
+        }
+    }
 }

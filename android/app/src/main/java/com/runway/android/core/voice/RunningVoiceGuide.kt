@@ -70,16 +70,28 @@ class RunningVoiceGuide @Inject constructor(
 
     private fun selectKoreanFemaleVoice(voices: Set<Voice>?): Voice? {
         val korean = voices.orEmpty().filter { it.locale.language == Locale.KOREAN.language }
-        return korean.firstOrNull {
-            it.name.contains("female", ignoreCase = true) && !it.isNetworkConnectionRequired
-        } ?: korean.firstOrNull {
-            !it.name.contains("male", ignoreCase = true) && !it.isNetworkConnectionRequired
-        } ?: korean.firstOrNull { !it.isNetworkConnectionRequired }
+        val offline = korean.filter { !it.isNetworkConnectionRequired }
+        return offline.firstOrNull { isFemale(it.name) }
+            ?: offline.firstOrNull { !isMale(it.name) }
+            ?: offline.firstOrNull()
+            ?: korean.firstOrNull { isFemale(it.name) }
             ?: korean.firstOrNull()
     }
 
+    private fun isFemale(name: String) =
+        name.contains("female", ignoreCase = true) ||
+            name.contains("SMTf", ignoreCase = false) ||
+            FEMALE_PATTERN.containsMatchIn(name)
+
+    private fun isMale(name: String) =
+        name.contains("male", ignoreCase = true) ||
+            name.contains("SMTm", ignoreCase = false) ||
+            MALE_PATTERN.containsMatchIn(name)
+
     private companion object {
         const val GOOGLE_TTS_PACKAGE = "com.google.android.tts"
+        val FEMALE_PATTERN = Regex("[^a-zA-Z]f\\d")
+        val MALE_PATTERN = Regex("[^a-zA-Z]m\\d")
     }
 }
 

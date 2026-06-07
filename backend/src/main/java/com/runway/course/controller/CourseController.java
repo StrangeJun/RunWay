@@ -148,6 +148,15 @@ public class CourseController {
         return ResponseEntity.ok(ApiResponse.success("코스가 보관 처리되었습니다.", data));
     }
 
+    @Operation(summary = "초안 코스 삭제", security = @SecurityRequirement(name = "bearerAuth"))
+    @DeleteMapping("/{courseId}")
+    public ResponseEntity<ApiResponse<Void>> deleteDraftCourse(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID courseId) {
+        courseService.deleteDraftCourse(principal.getUserId(), courseId);
+        return ResponseEntity.ok(ApiResponse.success("코스가 삭제되었습니다.", null));
+    }
+
     @Operation(summary = "코스 신고", security = @SecurityRequirement(name = "bearerAuth"))
     @PostMapping("/{courseId}/reports")
     public ResponseEntity<ApiResponse<CourseReportResponse>> reportCourse(
