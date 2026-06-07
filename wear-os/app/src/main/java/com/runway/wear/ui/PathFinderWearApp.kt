@@ -692,21 +692,32 @@ private fun ModeChip(label: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun BackTitle(title: String, onBack: () -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         IconButton(
             onClick = onBack,
             modifier = Modifier
-                .size(44.dp)
+                .size(40.dp)
                 .background(SurfaceColor, CircleShape),
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                 contentDescription = "뒤로가기",
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(24.dp),
             )
         }
         Spacer(Modifier.width(8.dp))
-        Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text(
+            text = title,
+            modifier = Modifier.weight(1f),
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp,
+            maxLines = 1,
+        )
     }
 }
 
