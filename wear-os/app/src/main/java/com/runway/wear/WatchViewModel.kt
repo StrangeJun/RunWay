@@ -3,7 +3,6 @@ package com.runway.wear
 import android.app.Application
 import android.annotation.SuppressLint
 import android.os.Looper
-import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.runway.wear.data.WatchDataLayerClient
@@ -73,9 +72,8 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private var lastCourseWarning = false
     private var pausedByCourseDeviation = false
     private var pausedByGpsInactivity = false
-    private var lastMovementAtMillis: Long? = null
-    private var movementAnchorLatitude: Double? = null
-    private var movementAnchorLongitude: Double? = null
+    private var lowSpeedTicks = 0
+    private var highSpeedTicks = 0
     private var gpsLocationCallback: LocationCallback? = null
 
     init {
@@ -232,7 +230,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
 
     fun resume() {
         pausedByGpsInactivity = false
-        lastMovementAtMillis = SystemClock.elapsedRealtime()
+        resetGpsAutoPause()
         _state.update { it.copy(screen = WatchScreen.TRACKING, isPaused = false) }
         viewModelScope.launch {
             runCatching { healthServices.resume() }
@@ -326,77 +324,54 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         val callback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 result.lastLocation?.let { location ->
-                    handleGpsMovement(
-                        latitude = location.latitude,
-                        longitude = location.longitude,
-                        speedMps = location.speed.toDouble(),
-                    )
+                    handleSpeedTick(location.speed.toDouble())
                 }
             }
         }
         gpsLocationCallback = callback
         fusedLocationClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
-        gpsAutoPauseJob = viewModelScope.launch {
-            while (true) {
-                delay(1_000)
-                val current = _state.value
-                val lastMovement = lastMovementAtMillis
-                if (
-                    current.autoPauseEnabled &&
-                    current.isRunning &&
-                    !current.isPaused &&
-                    lastMovement != null &&
-                    SystemClock.elapsedRealtime() - lastMovement >= GPS_INACTIVITY_TIMEOUT_MILLIS
-                ) {
-                    pausedByGpsInactivity = true
-                    _state.update { it.copy(screen = WatchScreen.TRACKING, isPaused = true) }
-                    runCatching { healthServices.pause() }
-                    speakIfEnabled { autoPaused() }
-                }
-            }
-        }
     }
 
-    private fun handleGpsMovement(
-        latitude: Double,
-        longitude: Double,
-        speedMps: Double,
-    ) {
-        val anchorLatitude = movementAnchorLatitude
-        val anchorLongitude = movementAnchorLongitude
-        if (anchorLatitude == null || anchorLongitude == null) {
-            movementAnchorLatitude = latitude
-            movementAnchorLongitude = longitude
-            lastMovementAtMillis = SystemClock.elapsedRealtime()
-            return
-        }
+    private fun handleSpeedTick(speedMps: Double) {
+        val current = _state.value
+        if (!current.autoPauseEnabled || !current.isRunning) return
 
-        val movedMeters = distanceMeters(
-            anchorLatitude,
-            anchorLongitude,
-            latitude,
-            longitude,
-        )
-        val isMoving = movedMeters >= GPS_MOVEMENT_THRESHOLD_METERS ||
-            speedMps >= GPS_RESUME_SPEED_MPS
-        if (!isMoving) return
-
-        movementAnchorLatitude = latitude
-        movementAnchorLongitude = longitude
-        lastMovementAtMillis = SystemClock.elapsedRealtime()
-        if (pausedByGpsInactivity && !pausedByCourseDeviation) {
-            pausedByGpsInactivity = false
-            _state.update { it.copy(screen = WatchScreen.TRACKING, isPaused = false) }
-            viewModelScope.launch { runCatching { healthServices.resume() } }
-            speakIfEnabled { autoResumed() }
+        if (!current.isPaused) {
+            if (speedMps < AUTO_PAUSE_SPEED_MPS) {
+                lowSpeedTicks++
+                highSpeedTicks = 0
+            } else {
+                lowSpeedTicks = 0
+                highSpeedTicks = 0
+            }
+            if (lowSpeedTicks >= AUTO_PAUSE_TICKS) {
+                lowSpeedTicks = 0
+                pausedByGpsInactivity = true
+                _state.update { it.copy(screen = WatchScreen.TRACKING, isPaused = true) }
+                viewModelScope.launch { runCatching { healthServices.pause() } }
+                speakIfEnabled { autoPaused() }
+            }
+        } else if (pausedByGpsInactivity && !pausedByCourseDeviation) {
+            if (speedMps > AUTO_RESUME_SPEED_MPS) {
+                highSpeedTicks++
+                if (highSpeedTicks >= AUTO_RESUME_TICKS) {
+                    highSpeedTicks = 0
+                    lowSpeedTicks = 0
+                    pausedByGpsInactivity = false
+                    _state.update { it.copy(screen = WatchScreen.TRACKING, isPaused = false) }
+                    viewModelScope.launch { runCatching { healthServices.resume() } }
+                    speakIfEnabled { autoResumed() }
+                }
+            } else {
+                highSpeedTicks = 0
+            }
         }
     }
 
     private fun resetGpsAutoPause() {
         pausedByGpsInactivity = false
-        lastMovementAtMillis = null
-        movementAnchorLatitude = null
-        movementAnchorLongitude = null
+        lowSpeedTicks = 0
+        highSpeedTicks = 0
     }
 
     private fun stopGpsAutoPauseMonitor() {
@@ -734,8 +709,9 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
 
     private companion object {
         const val GPS_SAMPLE_INTERVAL_MILLIS = 1_000L
-        const val GPS_INACTIVITY_TIMEOUT_MILLIS = 5_000L
-        const val GPS_MOVEMENT_THRESHOLD_METERS = 3.0
-        const val GPS_RESUME_SPEED_MPS = 0.8
+        const val AUTO_PAUSE_SPEED_MPS = 0.5
+        const val AUTO_RESUME_SPEED_MPS = 1.0
+        const val AUTO_PAUSE_TICKS = 10
+        const val AUTO_RESUME_TICKS = 3
     }
 }

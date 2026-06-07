@@ -590,6 +590,7 @@ private fun CourseMapPanel(
         RouteMapView(
             points = points,
             currentLocation = currentLocation,
+            gesturesEnabled = true,
             followCurrentLocation = true,
             modifier = Modifier
                 .weight(1f)

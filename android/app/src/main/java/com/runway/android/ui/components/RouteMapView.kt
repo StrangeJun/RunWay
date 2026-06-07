@@ -97,7 +97,7 @@ private fun RouteGoogleMap(
     }
     val isDark = LocalIsDarkTheme.current
     val mapStyleOptions = remember(isDark) {
-        val styleRes = if (isDark) R.raw.map_style_dark else R.raw.map_style_light
+        val styleRes = if (isDark) R.raw.map_style_discover_dark else R.raw.map_style_light
         runCatching { MapStyleOptions.loadRawResourceStyle(context, styleRes) }.getOrNull()
     }
 
