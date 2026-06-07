@@ -14,8 +14,6 @@ object WatchPaths {
     const val COMMAND = "/runway/watch/command"
     const val STATE = "/runway/watch/state"
     const val COURSE_START = "/runway/watch/course-start"
-    const val AUTH_REQUEST = "/runway/watch/auth/request"
-    const val AUTH_STATE = "/runway/watch/auth/state"
     const val RUN_UPLOAD = "/runway/watch/run-upload"
     const val RUN_UPLOAD_ACK = "/runway/watch/run-upload-ack"
     const val COURSE_REQUEST = "/runway/watch/course-request"
@@ -31,11 +29,6 @@ class WatchDataLayerClient(context: Context) {
     suspend fun isPhoneConnected(): Boolean = runCatching {
         nodeClient.connectedNodes.await().isNotEmpty()
     }.getOrDefault(false)
-
-    suspend fun requestAuthState(): Boolean = sendMessage(
-        path = WatchPaths.AUTH_REQUEST,
-        payload = ByteArray(0),
-    )
 
     suspend fun sendStart(goal: RunGoal): Boolean = sendCommand(
         when (goal) {

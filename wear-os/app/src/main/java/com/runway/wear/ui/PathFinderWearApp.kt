@@ -30,13 +30,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -67,6 +68,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -81,7 +83,6 @@ import com.runway.wear.R
 import com.runway.wear.WatchViewModel
 import com.runway.wear.model.GoalCompletionAction
 import com.runway.wear.model.IntervalTarget
-import com.runway.wear.model.PhoneAuthState
 import com.runway.wear.model.RunGoal
 import com.runway.wear.model.WatchRunState
 import com.runway.wear.model.WatchScreen
@@ -90,6 +91,7 @@ import com.runway.wear.model.formatPace
 import com.runway.wear.data.OfflineCourse
 import com.runway.wear.data.OfflineCourseRepository
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 private val Background = Color(0xFF090B0F)
@@ -99,8 +101,16 @@ private val Muted = Color(0xFF9AA3AF)
 private val Danger = Color(0xFFFF665E)
 
 @Composable
-fun PathFinderWearApp(viewModel: WatchViewModel = viewModel()) {
+fun PathFinderWearApp(
+    viewModel: WatchViewModel = viewModel(),
+    launchToken: Int = 0,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var showLaunchAnimation by remember(launchToken) { mutableStateOf(true) }
+    LaunchedEffect(launchToken) {
+        delay(700)
+        showLaunchAnimation = false
+    }
     BackHandler(
         enabled = state.screen != WatchScreen.HOME,
         onBack = viewModel::navigateBack,
@@ -115,7 +125,9 @@ fun PathFinderWearApp(viewModel: WatchViewModel = viewModel()) {
         ),
     ) {
         Surface(modifier = Modifier.fillMaxSize(), color = Background) {
-            when (state.screen) {
+            if (showLaunchAnimation) {
+                LaunchAnimationScreen()
+            } else when (state.screen) {
                 WatchScreen.HOME -> HomeScreen(
                     state = state,
                     onStart = viewModel::start,
@@ -138,54 +150,41 @@ fun PathFinderWearApp(viewModel: WatchViewModel = viewModel()) {
 }
 
 @Composable
-private fun AuthCheckingScreen() {
-    WatchPage(scrollable = false) {
+private fun LaunchAnimationScreen() {
+    var started by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { started = true }
+    val scale by animateFloatAsState(
+        targetValue = if (started) 1f else 0.72f,
+        animationSpec = tween(420),
+        label = "launchScale",
+    )
+    val alpha by animateFloatAsState(
+        targetValue = if (started) 1f else 0f,
+        animationSpec = tween(320),
+        label = "launchAlpha",
+    )
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
         Image(
             painter = painterResource(R.drawable.app_logo_mark),
             contentDescription = "PathFinder",
-            modifier = Modifier.size(if (compact) 42.dp else 56.dp),
+            modifier = Modifier
+                .size(72.dp)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    this.alpha = alpha
+                },
         )
-        Text("로그인 확인 중", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-        Text("휴대폰과 연결하고 있습니다", color = Muted, fontSize = 10.sp)
-    }
-}
-
-@Composable
-private fun PhoneLoginScreen(
-    isPhoneConnected: Boolean,
-    message: String?,
-    onOpenPhone: () -> Unit,
-    onRetry: () -> Unit,
-) {
-    WatchPage(scrollable = true) {
-        Image(
-            painter = painterResource(R.drawable.app_logo_mark),
-            contentDescription = "PathFinder",
-            modifier = Modifier.size(if (compact) 38.dp else 52.dp),
-        )
-        Text("휴대폰 로그인이 필요해요", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        Spacer(Modifier.height(10.dp))
         Text(
-            if (isPhoneConnected) {
-                "휴대폰 앱에서 로그인하면 워치에서 바로 시작할 수 있습니다"
-            } else {
-                "휴대폰과 워치의 연결을 확인해 주세요"
-            },
-            color = Muted,
-            fontSize = 10.sp,
-            textAlign = TextAlign.Center,
-        )
-        PrimaryAction(
-            label = "휴대폰에서 로그인",
-            icon = Icons.Filled.PhoneAndroid,
-            onClick = onOpenPhone,
-            compact = compact,
-        )
-        message?.let { StatusText(it) }
-        Text(
-            text = "로그인 확인",
-            color = Accent,
-            fontSize = 11.sp,
-            modifier = Modifier.clickable(onClick = onRetry).padding(6.dp),
+            "PathFinder",
+            color = Color.White.copy(alpha = alpha),
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
         )
     }
 }

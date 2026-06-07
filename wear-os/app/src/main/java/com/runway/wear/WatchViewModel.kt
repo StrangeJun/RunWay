@@ -2,12 +2,10 @@ package com.runway.wear
 
 import android.app.Application
 import android.annotation.SuppressLint
-import android.content.Intent
-import android.net.Uri
-import androidx.concurrent.futures.await
+import android.os.Looper
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.wear.remote.interactions.RemoteActivityHelper
 import com.runway.wear.data.WatchDataLayerClient
 import com.runway.wear.data.PendingWatchRun
 import com.runway.wear.data.PendingWatchRunStore
@@ -18,14 +16,15 @@ import com.runway.wear.data.OfflineCourseRepository
 import com.runway.wear.data.OfflineCourseStore
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import com.runway.wear.data.PhoneAuthStateRepository
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
 import com.runway.wear.data.PhoneRunStateRepository
 import com.runway.wear.data.WatchSettings
 import com.runway.wear.data.WatchSettingsStore
 import com.runway.wear.health.HealthServicesManager
 import com.runway.wear.model.GoalCompletionAction
 import com.runway.wear.model.IntervalTarget
-import com.runway.wear.model.PhoneAuthState
 import com.runway.wear.model.RunGoal
 import com.runway.wear.model.WatchRunState
 import com.runway.wear.model.WatchScreen
@@ -38,7 +37,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await as awaitTask
-import java.util.concurrent.Executors
 import java.time.Instant
 
 class WatchViewModel(application: Application) : AndroidViewModel(application) {
@@ -49,11 +47,6 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private val pendingRunStore = PendingWatchRunStore(application)
     private val offlineCourseStore = OfflineCourseStore(application)
     private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(application)
-    private val remoteActivityExecutor = Executors.newSingleThreadExecutor()
-    private val remoteActivityHelper = RemoteActivityHelper(
-        application,
-        remoteActivityExecutor,
-    )
 
     private val initialSettings = settingsStore.load()
     private val _state = MutableStateFlow(
@@ -67,7 +60,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
 
     private var timerJob: Job? = null
     private var metricsJob: Job? = null
-    private var authTimeoutJob: Job? = null
+    private var gpsAutoPauseJob: Job? = null
     private var intervalSegmentStartSeconds = 0L
     private var intervalSegmentStartMeters = 0.0
     private var lastAnnouncedKilometer = 0
@@ -79,13 +72,16 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private var activeCourse: OfflineCourse? = null
     private var lastCourseWarning = false
     private var pausedByCourseDeviation = false
+    private var pausedByGpsInactivity = false
+    private var lastMovementAtMillis: Long? = null
+    private var movementAnchorLatitude: Double? = null
+    private var movementAnchorLongitude: Double? = null
+    private var gpsLocationCallback: LocationCallback? = null
 
     init {
         OfflineCourseRepository.update(offlineCourseStore.load())
         refreshConnection()
-        refreshAuthState()
         observePhoneState()
-        observePhoneAuthState()
         observeRunSync()
         observeOfflineCourses()
     }
@@ -95,52 +91,6 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
             val connected = dataLayer.isPhoneConnected()
             _state.update { it.copy(isPhoneConnected = connected) }
             if (connected) dataLayer.syncPendingRuns(pendingRunStore)
-        }
-    }
-
-    fun refreshAuthState() {
-        authTimeoutJob?.cancel()
-        _state.update { it.copy(phoneAuthState = PhoneAuthState.CHECKING, authMessage = null) }
-        viewModelScope.launch {
-            val requested = dataLayer.requestAuthState()
-            if (!requested) {
-                _state.update {
-                    it.copy(
-                        isPhoneConnected = false,
-                        phoneAuthState = PhoneAuthState.LOGGED_OUT,
-                        authMessage = "휴대폰 연결을 확인해 주세요",
-                    )
-                }
-            } else {
-                authTimeoutJob = viewModelScope.launch {
-                    delay(4_000)
-                    _state.update {
-                        if (it.phoneAuthState == PhoneAuthState.CHECKING) {
-                            it.copy(
-                                phoneAuthState = PhoneAuthState.LOGGED_OUT,
-                                authMessage = "휴대폰 앱을 열고 다시 확인해 주세요",
-                            )
-                        } else {
-                            it
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    fun openPhoneLogin() {
-        viewModelScope.launch {
-            val intent = Intent(Intent.ACTION_VIEW)
-                .setData(Uri.parse(PHONE_LOGIN_URI))
-                .addCategory(Intent.CATEGORY_BROWSABLE)
-            runCatching {
-                remoteActivityHelper.startRemoteActivity(intent, null).await()
-            }.onSuccess {
-                _state.update { it.copy(authMessage = "휴대폰에서 로그인해 주세요") }
-            }.onFailure {
-                _state.update { it.copy(authMessage = "휴대폰 앱을 열지 못했습니다") }
-            }
         }
     }
 
@@ -248,12 +198,12 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         lastAnnouncedKilometer = 0
         lastAutoPaused = false
         lastGpsStatus = "SEARCHING"
+        resetGpsAutoPause()
         _state.update {
             WatchRunState(
                 screen = WatchScreen.TRACKING,
                 goal = goal,
                 isPhoneConnected = it.isPhoneConnected,
-                phoneAuthState = it.phoneAuthState,
                 voiceGuidanceEnabled = it.voiceGuidanceEnabled,
                 autoPauseEnabled = it.autoPauseEnabled,
                 goalCompletionAction = goal.completionAction,
@@ -269,9 +219,11 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         speakIfEnabled { start() }
         startTimer()
         observeMetrics()
+        startGpsAutoPauseMonitor()
     }
 
     fun pause() {
+        pausedByGpsInactivity = false
         _state.update { it.copy(screen = WatchScreen.PAUSED, isPaused = true) }
         viewModelScope.launch {
             runCatching { healthServices.pause() }
@@ -279,6 +231,8 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun resume() {
+        pausedByGpsInactivity = false
+        lastMovementAtMillis = SystemClock.elapsedRealtime()
         _state.update { it.copy(screen = WatchScreen.TRACKING, isPaused = false) }
         viewModelScope.launch {
             runCatching { healthServices.resume() }
@@ -287,6 +241,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
 
     fun finish() {
         timerJob?.cancel()
+        stopGpsAutoPauseMonitor()
         speakIfEnabled { finish() }
         val completed = _state.value
         _state.update {
@@ -328,6 +283,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     fun abandon() {
         timerJob?.cancel()
         metricsJob?.cancel()
+        stopGpsAutoPauseMonitor()
         speakIfEnabled { cancel() }
         viewModelScope.launch {
             runCatching { healthServices.finish() }
@@ -337,6 +293,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
 
     fun returnHome() {
         metricsJob?.cancel()
+        stopGpsAutoPauseMonitor()
         _state.value = freshAuthenticatedState()
     }
 
@@ -355,6 +312,99 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
                 updateGoalProgress()
             }
         }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startGpsAutoPauseMonitor() {
+        stopGpsAutoPauseMonitor()
+        val request = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY,
+            GPS_SAMPLE_INTERVAL_MILLIS,
+        )
+            .setMinUpdateIntervalMillis(GPS_SAMPLE_INTERVAL_MILLIS)
+            .build()
+        val callback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                result.lastLocation?.let { location ->
+                    handleGpsMovement(
+                        latitude = location.latitude,
+                        longitude = location.longitude,
+                        speedMps = location.speed.toDouble(),
+                    )
+                }
+            }
+        }
+        gpsLocationCallback = callback
+        fusedLocationClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
+        gpsAutoPauseJob = viewModelScope.launch {
+            while (true) {
+                delay(1_000)
+                val current = _state.value
+                val lastMovement = lastMovementAtMillis
+                if (
+                    current.autoPauseEnabled &&
+                    current.isRunning &&
+                    !current.isPaused &&
+                    lastMovement != null &&
+                    SystemClock.elapsedRealtime() - lastMovement >= GPS_INACTIVITY_TIMEOUT_MILLIS
+                ) {
+                    pausedByGpsInactivity = true
+                    _state.update { it.copy(screen = WatchScreen.TRACKING, isPaused = true) }
+                    runCatching { healthServices.pause() }
+                    speakIfEnabled { autoPaused() }
+                }
+            }
+        }
+    }
+
+    private fun handleGpsMovement(
+        latitude: Double,
+        longitude: Double,
+        speedMps: Double,
+    ) {
+        val anchorLatitude = movementAnchorLatitude
+        val anchorLongitude = movementAnchorLongitude
+        if (anchorLatitude == null || anchorLongitude == null) {
+            movementAnchorLatitude = latitude
+            movementAnchorLongitude = longitude
+            lastMovementAtMillis = SystemClock.elapsedRealtime()
+            return
+        }
+
+        val movedMeters = distanceMeters(
+            anchorLatitude,
+            anchorLongitude,
+            latitude,
+            longitude,
+        )
+        val isMoving = movedMeters >= GPS_MOVEMENT_THRESHOLD_METERS ||
+            speedMps >= GPS_RESUME_SPEED_MPS
+        if (!isMoving) return
+
+        movementAnchorLatitude = latitude
+        movementAnchorLongitude = longitude
+        lastMovementAtMillis = SystemClock.elapsedRealtime()
+        if (pausedByGpsInactivity && !pausedByCourseDeviation) {
+            pausedByGpsInactivity = false
+            _state.update { it.copy(screen = WatchScreen.TRACKING, isPaused = false) }
+            viewModelScope.launch { runCatching { healthServices.resume() } }
+            speakIfEnabled { autoResumed() }
+        }
+    }
+
+    private fun resetGpsAutoPause() {
+        pausedByGpsInactivity = false
+        lastMovementAtMillis = null
+        movementAnchorLatitude = null
+        movementAnchorLongitude = null
+    }
+
+    private fun stopGpsAutoPauseMonitor() {
+        gpsAutoPauseJob?.cancel()
+        gpsAutoPauseJob = null
+        gpsLocationCallback?.let(fusedLocationClient::removeLocationUpdates)
+        gpsLocationCallback = null
+        resetGpsAutoPause()
     }
 
     private fun observeMetrics() {
@@ -498,26 +548,6 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun observePhoneAuthState() {
-        viewModelScope.launch {
-            PhoneAuthStateRepository.state.collect { snapshot ->
-                snapshot ?: return@collect
-                authTimeoutJob?.cancel()
-                _state.update {
-                    it.copy(
-                        isPhoneConnected = true,
-                        phoneAuthState = if (snapshot.isLoggedIn) {
-                            PhoneAuthState.LOGGED_IN
-                        } else {
-                            PhoneAuthState.LOGGED_OUT
-                        },
-                        authMessage = null,
-                    )
-                }
-            }
-        }
-    }
-
     private fun observeRunSync() {
         viewModelScope.launch {
             WatchRunSyncRepository.lastSyncedId.collect { localId ->
@@ -580,14 +610,13 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
+        stopGpsAutoPauseMonitor()
         voiceGuide.shutdown()
-        remoteActivityExecutor.shutdown()
         super.onCleared()
     }
 
     private fun freshAuthenticatedState(): WatchRunState = WatchRunState(
         isPhoneConnected = _state.value.isPhoneConnected,
-        phoneAuthState = _state.value.phoneAuthState,
         voiceGuidanceEnabled = _state.value.voiceGuidanceEnabled,
         autoPauseEnabled = _state.value.autoPauseEnabled,
         goalCompletionAction = _state.value.goalCompletionAction,
@@ -704,6 +733,9 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private companion object {
-        const val PHONE_LOGIN_URI = "pathfinder://auth/login"
+        const val GPS_SAMPLE_INTERVAL_MILLIS = 1_000L
+        const val GPS_INACTIVITY_TIMEOUT_MILLIS = 5_000L
+        const val GPS_MOVEMENT_THRESHOLD_METERS = 3.0
+        const val GPS_RESUME_SPEED_MPS = 0.8
     }
 }
