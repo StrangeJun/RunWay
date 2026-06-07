@@ -57,5 +57,6 @@ docker-data/
 # docs/ 는 커밋 대상 (project-overview.md 등)
 
 # ─── Kotlin compiler session files ───────────────────────
-**/.kotlin/sessions/docs/test-sample/*.mov
+**/.kotlin/sessions/
+docs/test-sample/*.mov
 docs/test-sample/*.mp4
