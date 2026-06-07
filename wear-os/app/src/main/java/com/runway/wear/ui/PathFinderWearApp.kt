@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -20,6 +21,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -52,10 +56,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,7 +87,10 @@ import com.runway.wear.model.WatchRunState
 import com.runway.wear.model.WatchScreen
 import com.runway.wear.model.formatDuration
 import com.runway.wear.model.formatPace
+import com.runway.wear.data.OfflineCourse
+import com.runway.wear.data.OfflineCourseRepository
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 private val Background = Color(0xFF090B0F)
 private val SurfaceColor = Color(0xFF171A20)
@@ -107,9 +116,14 @@ fun PathFinderWearApp(viewModel: WatchViewModel = viewModel()) {
     ) {
         Surface(modifier = Modifier.fillMaxSize(), color = Background) {
             when (state.screen) {
-                WatchScreen.HOME -> HomeScreen(state, viewModel::start) {
-                    viewModel.navigate(WatchScreen.GOAL_TYPE)
-                }
+                WatchScreen.HOME -> HomeScreen(
+                    state = state,
+                    onStart = viewModel::start,
+                    onGoal = { viewModel.navigate(WatchScreen.GOAL_TYPE) },
+                    onCourses = { viewModel.navigate(WatchScreen.COURSE_LIST) },
+                )
+                WatchScreen.COURSE_LIST -> CourseListScreen(state, viewModel)
+                WatchScreen.COURSE_DETAIL -> CourseDetailScreen(state, viewModel)
                 WatchScreen.GOAL_TYPE -> GoalTypeScreen(viewModel)
                 WatchScreen.TIME_GOAL -> TimeGoalScreen(viewModel)
                 WatchScreen.DISTANCE_GOAL -> DistanceGoalScreen(viewModel)
@@ -181,6 +195,7 @@ private fun HomeScreen(
     state: WatchRunState,
     onStart: (RunGoal) -> Unit,
     onGoal: () -> Unit,
+    onCourses: () -> Unit,
 ) {
     WatchPage(scrollable = true) {
         Image(
@@ -197,6 +212,7 @@ private fun HomeScreen(
             compact = compact,
         )
         SecondaryAction("목표 설정", Icons.Filled.Flag, onClick = onGoal, compact = compact)
+        SecondaryAction("주변 코스 도전", Icons.Filled.Route, onClick = onCourses, compact = compact)
         Text(
             if (state.isPhoneConnected) "폰 연결됨 · 독립 GPS 준비" else "독립 GPS 모드 · 동기화 대기",
             color = Muted,
@@ -204,6 +220,78 @@ private fun HomeScreen(
             textAlign = TextAlign.Center,
         )
         state.phoneStatusMessage?.let { StatusText(it) }
+    }
+}
+
+@Composable
+private fun CourseListScreen(state: WatchRunState, viewModel: WatchViewModel) {
+    val courses by OfflineCourseRepository.courses.collectAsStateWithLifecycle()
+    WatchPage(scrollable = true) {
+        BackTitle("저장된 주변 코스", viewModel::navigateBack)
+        SecondaryAction(
+            label = if (state.isSyncingCourses) "불러오는 중..." else "현재 위치 주변 저장",
+            icon = Icons.Filled.Route,
+            onClick = viewModel::syncNearbyCourses,
+            color = if (state.isPhoneConnected) Accent else Muted,
+        )
+        if (!state.isPhoneConnected) {
+            Text("새 코스 저장은 폰 연결 시 가능합니다", color = Muted, fontSize = 9.sp)
+        }
+        if (courses.isEmpty()) {
+            Text(
+                "저장된 코스가 없습니다\n폰 연결 후 주변 코스를 저장하세요",
+                color = Muted,
+                fontSize = 10.sp,
+                textAlign = TextAlign.Center,
+            )
+        } else {
+            courses.forEach { course ->
+                CourseCard(course) { viewModel.selectCourse(course.courseId) }
+            }
+        }
+        state.phoneStatusMessage?.let { Text(it, color = Muted, fontSize = 9.sp) }
+    }
+}
+
+@Composable
+private fun CourseCard(course: OfflineCourse, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SurfaceColor, RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+        Text(course.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        Text(
+            "%.1fkm · 현재 위치에서 %.0fm".format(
+                course.distanceMeters / 1000.0,
+                course.distanceFromMeMeters,
+            ),
+            color = Muted,
+            fontSize = 9.sp,
+        )
+    }
+}
+
+@Composable
+private fun CourseDetailScreen(state: WatchRunState, viewModel: WatchViewModel) {
+    val course = OfflineCourseRepository.courses.value
+        .firstOrNull { it.courseId == state.selectedCourseId }
+    WatchPage(scrollable = true) {
+        BackTitle("코스 도전", viewModel::navigateBack)
+        Text(course?.name ?: state.courseName.orEmpty(), fontWeight = FontWeight.Bold, fontSize = 17.sp)
+        Text(
+            "%.2f km".format((course?.distanceMeters ?: state.courseDistanceMeters) / 1000.0),
+            color = Accent,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        course?.description?.let {
+            Text(it, color = Muted, fontSize = 9.sp, textAlign = TextAlign.Center)
+        }
+        Text("경로 ${course?.points?.size ?: 0}개 지점 오프라인 저장됨", color = Muted, fontSize = 9.sp)
+        PrimaryAction("코스 도전 시작", Icons.Filled.PlayArrow, onClick = viewModel::startSelectedCourse)
     }
 }
 
@@ -239,9 +327,15 @@ private fun TimeGoalScreen(viewModel: WatchViewModel) {
         onRotate = { delta ->
             when (selected) {
                 "hours" -> hours = wrap(hours, delta, 0, 5)
-                "minutes" -> minutes = wrap(minutes, delta * 5, 0, 55, 5)
+                "minutes" -> minutes = wrap(minutes, delta, 0, 59)
             }
         },
+        picker = when (selected) {
+            "hours" -> NumberPickerSpec("시간", hours, 0, 5, onValueChange = { hours = it })
+            "minutes" -> NumberPickerSpec("분", minutes, 0, 59, "%02d", onValueChange = { minutes = it })
+            else -> null
+        },
+        onDismissPicker = { selected = null },
     ) {
         SettingLabel("목표 시간")
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -281,6 +375,12 @@ private fun DistanceGoalScreen(viewModel: WatchViewModel) {
                 "decimal" -> decimal = wrap(decimal, delta, 0, 9)
             }
         },
+        picker = when (selected) {
+            "km" -> NumberPickerSpec("킬로미터", km, 0, 50, onValueChange = { km = it })
+            "decimal" -> NumberPickerSpec("100미터 단위", decimal, 0, 9, onValueChange = { decimal = it })
+            else -> null
+        },
+        onDismissPicker = { selected = null },
     ) {
         SettingLabel("목표 거리")
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -328,16 +428,38 @@ private fun IntervalGoalScreen(viewModel: WatchViewModel) {
         onRotate = { delta ->
             when (selected) {
                 "workMinutes" -> workMinutes = wrap(workMinutes, delta, 0, 60)
-                "workSeconds" -> workSeconds = wrap(workSeconds, delta * 10, 0, 50, 10)
+                "workSeconds" -> workSeconds = wrap(workSeconds, delta, 0, 59)
                 "workKm" -> workKm = wrap(workKm, delta, 0, 20)
                 "workDecimal" -> workDecimal = wrap(workDecimal, delta, 0, 9)
                 "recoveryMinutes" -> recoveryMinutes = wrap(recoveryMinutes, delta, 0, 30)
-                "recoverySeconds" -> recoverySeconds = wrap(recoverySeconds, delta * 10, 0, 50, 10)
+                "recoverySeconds" -> recoverySeconds = wrap(recoverySeconds, delta, 0, 59)
                 "recoveryKm" -> recoveryKm = wrap(recoveryKm, delta, 0, 10)
                 "recoveryDecimal" -> recoveryDecimal = wrap(recoveryDecimal, delta, 0, 9)
                 "sets" -> sets = wrap(sets, delta, 1, 20)
             }
         },
+        picker = intervalPickerSpec(
+            selected = selected,
+            workMinutes = workMinutes,
+            workSeconds = workSeconds,
+            workKm = workKm,
+            workDecimal = workDecimal,
+            recoveryMinutes = recoveryMinutes,
+            recoverySeconds = recoverySeconds,
+            recoveryKm = recoveryKm,
+            recoveryDecimal = recoveryDecimal,
+            sets = sets,
+            onWorkMinutes = { workMinutes = it },
+            onWorkSeconds = { workSeconds = it },
+            onWorkKm = { workKm = it },
+            onWorkDecimal = { workDecimal = it },
+            onRecoveryMinutes = { recoveryMinutes = it },
+            onRecoverySeconds = { recoverySeconds = it },
+            onRecoveryKm = { recoveryKm = it },
+            onRecoveryDecimal = { recoveryDecimal = it },
+            onSets = { sets = it },
+        ),
+        onDismissPicker = { selected = null },
     ) {
         IntervalSegmentEditor(
             title = "운동",
@@ -459,8 +581,12 @@ private fun TrackingScreen(state: WatchRunState, viewModel: WatchViewModel) {
 private fun TrackingMetrics(state: WatchRunState) {
     WatchPage {
         Text(
-            state.remainingLabel ?: "자유 러닝",
-            color = if (state.gpsStatus == "POOR") Danger else Accent,
+            when {
+                state.isOffCourse -> "코스 이탈 · 경로로 돌아가세요"
+                state.courseName != null -> "${state.courseName} ${state.courseProgressPercent}%"
+                else -> state.remainingLabel ?: "자유 러닝"
+            },
+            color = if (state.gpsStatus == "POOR" || state.isOffCourse) Danger else Accent,
             fontSize = 11.sp,
             textAlign = TextAlign.Center,
         )
@@ -476,6 +602,17 @@ private fun TrackingMetrics(state: WatchRunState) {
                 color = Accent,
                 trackColor = Color.White.copy(alpha = 0.12f),
             )
+        }
+        if (state.courseName != null) {
+            LinearProgressIndicator(
+                progress = { state.courseProgressPercent / 100f },
+                modifier = Modifier.fillMaxWidth().height(7.dp),
+                color = if (state.isOffCourse) Danger else Accent,
+                trackColor = Color.White.copy(alpha = 0.12f),
+            )
+            state.distanceToCourseMeters?.let {
+                Text("코스까지 ${it.toInt()}m", color = if (state.isOffCourse) Danger else Muted, fontSize = 9.sp)
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Metric("심박", state.heartRateBpm?.toString() ?: "--")
@@ -604,8 +741,15 @@ private fun RotarySettingPage(
     selected: String?,
     onBack: () -> Unit,
     onRotate: (Int) -> Unit,
+    picker: NumberPickerSpec?,
+    onDismissPicker: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    if (picker != null) {
+        FullScreenNumberPicker(picker, onDismissPicker)
+        return
+    }
+
     val scrollState = rememberScrollState()
     val focusRequester = remember { FocusRequester() }
     val valueState = rememberScrollableState { delta ->
@@ -635,7 +779,7 @@ private fun RotarySettingPage(
             BackTitle(title, onBack)
             content()
             Text(
-                if (selected == null) "숫자를 누른 뒤 베젤을 돌리세요" else "베젤을 돌려 값 변경 · 다시 눌러 완료",
+                "숫자를 누르면 확대 선택 화면이 열립니다",
                 color = Muted,
                 fontSize = 9.sp,
                 textAlign = TextAlign.Center,
@@ -643,6 +787,116 @@ private fun RotarySettingPage(
         }
     }
 }
+
+private data class NumberPickerSpec(
+    val title: String,
+    val value: Int,
+    val min: Int,
+    val max: Int,
+    val format: String = "%d",
+    val onValueChange: (Int) -> Unit,
+)
+
+@Composable
+private fun FullScreenNumberPicker(
+    spec: NumberPickerSpec,
+    onDone: () -> Unit,
+) {
+    val values = remember(spec.min, spec.max) { (spec.min..spec.max).toList() }
+    var localValue by remember(spec.title) { mutableIntStateOf(spec.value) }
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = (spec.value - spec.min).coerceIn(0, values.lastIndex),
+    )
+    val scope = rememberCoroutineScope()
+    var rotaryAccumulator by remember { mutableFloatStateOf(0f) }
+    val rotaryState = rememberScrollableState { delta ->
+        rotaryAccumulator += delta
+        if (kotlin.math.abs(rotaryAccumulator) >= ROTARY_STEP_THRESHOLD) {
+            val direction = if (rotaryAccumulator > 0f) 1 else -1
+            rotaryAccumulator -= direction * ROTARY_STEP_THRESHOLD
+            val next = (localValue + direction).coerceIn(spec.min, spec.max)
+            if (next != localValue) {
+                localValue = next
+                scope.launch { listState.scrollToItem(next - spec.min) }
+            }
+        }
+        delta
+    }
+    val focusRequester = remember { FocusRequester() }
+    val rotaryBehavior = RotaryScrollableDefaults.behavior(rotaryState)
+
+    val commitAndDone = {
+        spec.onValueChange(localValue)
+        onDone()
+    }
+
+    BackHandler(onBack = commitAndDone)
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }
+            .distinctUntilChanged()
+            .collect { scrolling ->
+                if (!scrolling) {
+                    val layout = listState.layoutInfo
+                    val center = (layout.viewportStartOffset + layout.viewportEndOffset) / 2
+                    val centered = layout.visibleItemsInfo.minByOrNull {
+                        kotlin.math.abs((it.offset + it.size / 2) - center)
+                    } ?: return@collect
+                    localValue = values[centered.index]
+                }
+            }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Background)
+            .requestFocusOnHierarchyActive()
+            .rotaryScrollable(rotaryBehavior, focusRequester),
+    ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 72.dp),
+            flingBehavior = rememberSnapFlingBehavior(listState),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            items(values, key = { it }) { value ->
+                val selected = value == localValue
+                Text(
+                    text = spec.format.format(value),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .clickable {
+                            localValue = value
+                            commitAndDone()
+                        }
+                        .padding(vertical = 8.dp),
+                    color = if (selected) Accent else Muted,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+        Text(
+            spec.title,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 14.dp),
+            color = Color.White,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Button(
+            onClick = commitAndDone,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp).height(38.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.Black),
+        ) {
+            Text("확인", fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+private const val ROTARY_STEP_THRESHOLD = 24f
 
 private data class WatchPageScope(val compact: Boolean)
 
@@ -924,6 +1178,65 @@ private fun wrap(value: Int, delta: Int, min: Int, max: Int, step: Int = 1): Int
         next < min -> max
         else -> (next / step) * step
     }
+}
+
+private fun intervalPickerSpec(
+    selected: String?,
+    workMinutes: Int,
+    workSeconds: Int,
+    workKm: Int,
+    workDecimal: Int,
+    recoveryMinutes: Int,
+    recoverySeconds: Int,
+    recoveryKm: Int,
+    recoveryDecimal: Int,
+    sets: Int,
+    onWorkMinutes: (Int) -> Unit,
+    onWorkSeconds: (Int) -> Unit,
+    onWorkKm: (Int) -> Unit,
+    onWorkDecimal: (Int) -> Unit,
+    onRecoveryMinutes: (Int) -> Unit,
+    onRecoverySeconds: (Int) -> Unit,
+    onRecoveryKm: (Int) -> Unit,
+    onRecoveryDecimal: (Int) -> Unit,
+    onSets: (Int) -> Unit,
+): NumberPickerSpec? = when (selected) {
+    "workMinutes" -> NumberPickerSpec("운동 분", workMinutes, 0, 60, onValueChange = onWorkMinutes)
+    "workSeconds" -> NumberPickerSpec(
+        "운동 초",
+        workSeconds,
+        0,
+        59,
+        "%02d",
+        onWorkSeconds,
+    )
+    "workKm" -> NumberPickerSpec("운동 km", workKm, 0, 20, onValueChange = onWorkKm)
+    "workDecimal" -> NumberPickerSpec("운동 100m", workDecimal, 0, 9, onValueChange = onWorkDecimal)
+    "recoveryMinutes" -> NumberPickerSpec(
+        "회복 분",
+        recoveryMinutes,
+        0,
+        30,
+        onValueChange = onRecoveryMinutes,
+    )
+    "recoverySeconds" -> NumberPickerSpec(
+        "회복 초",
+        recoverySeconds,
+        0,
+        59,
+        "%02d",
+        onRecoverySeconds,
+    )
+    "recoveryKm" -> NumberPickerSpec("회복 km", recoveryKm, 0, 10, onValueChange = onRecoveryKm)
+    "recoveryDecimal" -> NumberPickerSpec(
+        "회복 100m",
+        recoveryDecimal,
+        0,
+        9,
+        onValueChange = onRecoveryDecimal,
+    )
+    "sets" -> NumberPickerSpec("반복 횟수", sets, 1, 20, onValueChange = onSets)
+    else -> null
 }
 
 private fun intervalTarget(

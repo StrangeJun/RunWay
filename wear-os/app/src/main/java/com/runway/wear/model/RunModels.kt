@@ -37,6 +37,8 @@ sealed interface RunGoal {
 
 enum class WatchScreen {
     HOME,
+    COURSE_LIST,
+    COURSE_DETAIL,
     GOAL_TYPE,
     TIME_GOAL,
     DISTANCE_GOAL,
@@ -76,6 +78,13 @@ data class WatchRunState(
     val intervalRemainingLabel: String? = null,
     val goalCompleted: Boolean = false,
     val phoneStatusMessage: String? = null,
+    val selectedCourseId: String? = null,
+    val courseName: String? = null,
+    val courseDistanceMeters: Double = 0.0,
+    val courseProgressPercent: Int = 0,
+    val distanceToCourseMeters: Double? = null,
+    val isOffCourse: Boolean = false,
+    val isSyncingCourses: Boolean = false,
 ) {
     val progressPercent: Int?
         get() = GoalProgress.percent(this)

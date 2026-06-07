@@ -7,6 +7,7 @@ import java.util.UUID
 
 data class PendingWatchRun(
     val localId: String,
+    val courseId: String?,
     val startedAt: String,
     val endedAt: String,
     val distanceMeters: Double,
@@ -18,6 +19,7 @@ data class PendingWatchRun(
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("localId", localId)
+        .put("courseId", courseId)
         .put("startedAt", startedAt)
         .put("endedAt", endedAt)
         .put("distanceMeters", distanceMeters)
@@ -30,6 +32,7 @@ data class PendingWatchRun(
     companion object {
         fun create(
             startedAt: String,
+            courseId: String? = null,
             endedAt: String,
             distanceMeters: Double,
             durationSeconds: Int,
@@ -39,6 +42,7 @@ data class PendingWatchRun(
             points: List<WatchRunPoint>,
         ) = PendingWatchRun(
             localId = UUID.randomUUID().toString(),
+            courseId = courseId,
             startedAt = startedAt,
             endedAt = endedAt,
             distanceMeters = distanceMeters,
@@ -51,6 +55,7 @@ data class PendingWatchRun(
 
         fun fromJson(json: JSONObject) = PendingWatchRun(
             localId = json.getString("localId"),
+            courseId = json.optString("courseId").takeUnless { it.isBlank() || it == "null" },
             startedAt = json.getString("startedAt"),
             endedAt = json.getString("endedAt"),
             distanceMeters = json.getDouble("distanceMeters"),

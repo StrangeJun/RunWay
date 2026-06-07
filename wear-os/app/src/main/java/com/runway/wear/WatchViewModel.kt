@@ -1,6 +1,7 @@
 package com.runway.wear
 
 import android.app.Application
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import androidx.concurrent.futures.await
@@ -12,6 +13,11 @@ import com.runway.wear.data.PendingWatchRun
 import com.runway.wear.data.PendingWatchRunStore
 import com.runway.wear.data.WatchRunPoint
 import com.runway.wear.data.WatchRunSyncRepository
+import com.runway.wear.data.OfflineCourse
+import com.runway.wear.data.OfflineCourseRepository
+import com.runway.wear.data.OfflineCourseStore
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.runway.wear.data.PhoneAuthStateRepository
 import com.runway.wear.data.PhoneRunStateRepository
 import com.runway.wear.data.WatchSettings
@@ -31,6 +37,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await as awaitTask
 import java.util.concurrent.Executors
 import java.time.Instant
 
@@ -40,6 +47,8 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private val voiceGuide = RunningVoiceGuide(application)
     private val settingsStore = WatchSettingsStore(application)
     private val pendingRunStore = PendingWatchRunStore(application)
+    private val offlineCourseStore = OfflineCourseStore(application)
+    private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(application)
     private val remoteActivityExecutor = Executors.newSingleThreadExecutor()
     private val remoteActivityHelper = RemoteActivityHelper(
         application,
@@ -67,13 +76,18 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private var lastGpsStatus = "SEARCHING"
     private var runStartedAt: Instant? = null
     private val runPoints = mutableListOf<WatchRunPoint>()
+    private var activeCourse: OfflineCourse? = null
+    private var lastCourseWarning = false
+    private var pausedByCourseDeviation = false
 
     init {
+        OfflineCourseRepository.update(offlineCourseStore.load())
         refreshConnection()
         refreshAuthState()
         observePhoneState()
         observePhoneAuthState()
         observeRunSync()
+        observeOfflineCourses()
     }
 
     fun refreshConnection() {
@@ -137,6 +151,8 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     fun navigateBack() {
         when (_state.value.screen) {
             WatchScreen.HOME -> Unit
+            WatchScreen.COURSE_LIST -> navigate(WatchScreen.HOME)
+            WatchScreen.COURSE_DETAIL -> navigate(WatchScreen.COURSE_LIST)
             WatchScreen.GOAL_TYPE -> navigate(WatchScreen.HOME)
             WatchScreen.TIME_GOAL,
             WatchScreen.DISTANCE_GOAL,
@@ -171,6 +187,60 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun start(goal: RunGoal) {
+        activeCourse = null
+        startTracking(goal)
+    }
+
+    fun selectCourse(courseId: String) {
+        val course = OfflineCourseRepository.courses.value.firstOrNull { it.courseId == courseId }
+            ?: return
+        _state.update {
+            it.copy(
+                screen = WatchScreen.COURSE_DETAIL,
+                selectedCourseId = course.courseId,
+                courseName = course.name,
+                courseDistanceMeters = course.distanceMeters,
+            )
+        }
+    }
+
+    fun startSelectedCourse() {
+        val courseId = _state.value.selectedCourseId ?: return
+        activeCourse = OfflineCourseRepository.courses.value.firstOrNull { it.courseId == courseId }
+            ?: return
+        lastCourseWarning = false
+        pausedByCourseDeviation = false
+        startTracking(RunGoal.Free)
+    }
+
+    @SuppressLint("MissingPermission")
+    fun syncNearbyCourses() {
+        if (!_state.value.isPhoneConnected) {
+            _state.update { it.copy(phoneStatusMessage = "주변 코스 저장은 폰 연결이 필요합니다") }
+            return
+        }
+        _state.update { it.copy(isSyncingCourses = true, phoneStatusMessage = "현재 위치 확인 중") }
+        viewModelScope.launch {
+            val location = runCatching {
+                fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).awaitTask()
+            }.getOrNull()
+            if (location == null) {
+                _state.update {
+                    it.copy(isSyncingCourses = false, phoneStatusMessage = "워치 위치를 확인하지 못했습니다")
+                }
+                return@launch
+            }
+            val sent = dataLayer.requestNearbyCourses(location.latitude, location.longitude)
+            _state.update {
+                it.copy(
+                    isSyncingCourses = sent,
+                    phoneStatusMessage = if (sent) "주변 코스를 불러오는 중" else "폰 연결을 확인해 주세요",
+                )
+            }
+        }
+    }
+
+    private fun startTracking(goal: RunGoal) {
         runStartedAt = Instant.now()
         runPoints.clear()
         intervalSegmentStartSeconds = 0L
@@ -188,6 +258,9 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
                 autoPauseEnabled = it.autoPauseEnabled,
                 goalCompletionAction = goal.completionAction,
                 isRunning = true,
+                selectedCourseId = activeCourse?.courseId,
+                courseName = activeCourse?.name,
+                courseDistanceMeters = activeCourse?.distanceMeters ?: 0.0,
             )
         }
         viewModelScope.launch {
@@ -231,6 +304,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
             pendingRunStore.add(
                 PendingWatchRun.create(
                     startedAt = (runStartedAt ?: Instant.now()).toString(),
+                    courseId = activeCourse?.courseId,
                     endedAt = Instant.now().toString(),
                     distanceMeters = completed.distanceMeters,
                     durationSeconds = durationSeconds,
@@ -296,6 +370,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
                         speedMps = location.speedMps,
                         recordedAt = location.recordedAt,
                     )
+                    updateCourseProgress(location.latitude, location.longitude)
                 }
                 _state.update { current ->
                     val distance = update.distanceMeters ?: current.distanceMeters
@@ -453,6 +528,57 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun observeOfflineCourses() {
+        viewModelScope.launch {
+            OfflineCourseRepository.courses.collect { courses ->
+                _state.update {
+                    it.copy(
+                        isSyncingCourses = false,
+                        phoneStatusMessage = if (courses.isNotEmpty()) {
+                            "주변 코스 ${courses.size}개를 저장했습니다"
+                        } else {
+                            it.phoneStatusMessage
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    private fun updateCourseProgress(latitude: Double, longitude: Double) {
+        val course = activeCourse ?: return
+        val nearest = nearestDistanceToCourse(latitude, longitude, course)
+        val offCourse = nearest != null && nearest > 80.0
+        val progress = if (course.distanceMeters > 1.0) {
+            (_state.value.distanceMeters * 100.0 / course.distanceMeters).toInt().coerceIn(0, 100)
+        } else {
+            0
+        }
+        _state.update {
+            it.copy(
+                courseProgressPercent = progress,
+                distanceToCourseMeters = nearest,
+                isOffCourse = offCourse,
+            )
+        }
+        if (offCourse != lastCourseWarning) {
+            lastCourseWarning = offCourse
+            speakIfEnabled {
+                if (offCourse) gpsWeak() else gpsRecovered()
+            }
+            if (offCourse && !_state.value.isPaused) {
+                pausedByCourseDeviation = true
+                pause()
+            } else if (!offCourse && pausedByCourseDeviation) {
+                pausedByCourseDeviation = false
+                resume()
+            }
+        } else if (offCourse && !_state.value.isPaused) {
+            pausedByCourseDeviation = true
+            pause()
+        }
+    }
+
     override fun onCleared() {
         voiceGuide.shutdown()
         remoteActivityExecutor.shutdown()
@@ -466,6 +592,50 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         autoPauseEnabled = _state.value.autoPauseEnabled,
         goalCompletionAction = _state.value.goalCompletionAction,
     )
+
+    private fun distanceMeters(
+        latitude1: Double,
+        longitude1: Double,
+        latitude2: Double,
+        longitude2: Double,
+    ): Double {
+        val earthRadius = 6_371_000.0
+        val lat1 = Math.toRadians(latitude1)
+        val lat2 = Math.toRadians(latitude2)
+        val deltaLat = Math.toRadians(latitude2 - latitude1)
+        val deltaLon = Math.toRadians(longitude2 - longitude1)
+        val a = kotlin.math.sin(deltaLat / 2).let { it * it } +
+            kotlin.math.cos(lat1) * kotlin.math.cos(lat2) *
+            kotlin.math.sin(deltaLon / 2).let { it * it }
+        return earthRadius * 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
+    }
+
+    private fun nearestDistanceToCourse(
+        latitude: Double,
+        longitude: Double,
+        course: OfflineCourse,
+    ): Double? {
+        if (course.points.isEmpty()) return null
+        if (course.points.size == 1) {
+            val point = course.points.first()
+            return distanceMeters(latitude, longitude, point.latitude, point.longitude)
+        }
+        return course.points.zipWithNext().minOf { (start, end) ->
+            val denominator =
+                (end.latitude - start.latitude) * (end.latitude - start.latitude) +
+                    (end.longitude - start.longitude) * (end.longitude - start.longitude)
+            val fraction = if (denominator < 1e-12) {
+                0.0
+            } else {
+                (((latitude - start.latitude) * (end.latitude - start.latitude) +
+                    (longitude - start.longitude) * (end.longitude - start.longitude)) / denominator)
+                    .coerceIn(0.0, 1.0)
+            }
+            val projectedLatitude = start.latitude + fraction * (end.latitude - start.latitude)
+            val projectedLongitude = start.longitude + fraction * (end.longitude - start.longitude)
+            distanceMeters(latitude, longitude, projectedLatitude, projectedLongitude)
+        }
+    }
 
     private fun announceCompletedKilometer() {
         val current = _state.value

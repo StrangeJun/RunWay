@@ -1,7 +1,11 @@
 package com.runway.wear.data
 
+import com.google.android.gms.wearable.DataEvent
+import com.google.android.gms.wearable.DataEventBuffer
+import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Node
+import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -9,6 +13,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.tasks.await
+import org.json.JSONArray
 import org.json.JSONObject
 
 data class PhoneRunState(
@@ -72,6 +78,35 @@ class PhoneStateListenerService : WearableListenerService() {
                 }
             }
         }
+    }
+
+    override fun onDataChanged(dataEvents: DataEventBuffer) {
+        dataEvents
+            .filter { it.type == DataEvent.TYPE_CHANGED }
+            .filter { it.dataItem.uri.path == WatchPaths.COURSE_CATALOG }
+            .forEach { event ->
+                val asset = DataMapItem.fromDataItem(event.dataItem).dataMap.getAsset("courses")
+                    ?: return@forEach
+                serviceScope.launch {
+                    val descriptor = runCatching {
+                        Wearable.getDataClient(this@PhoneStateListenerService)
+                            .getFdForAsset(asset)
+                            .await()
+                    }.getOrNull() ?: return@launch
+                    val courses = descriptor.inputStream.use { input ->
+                        val array = runCatching { JSONArray(input.readBytes().decodeToString()) }
+                            .getOrNull() ?: return@launch
+                        buildList {
+                            for (index in 0 until array.length()) {
+                                runCatching { OfflineCourse.fromJson(array.getJSONObject(index)) }
+                                    .getOrNull()
+                                    ?.let(::add)
+                            }
+                        }
+                    }
+                    OfflineCourseStore(this@PhoneStateListenerService).replace(courses)
+                }
+            }
     }
 
     override fun onPeerConnected(peer: Node) {

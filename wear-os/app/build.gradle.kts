@@ -64,6 +64,7 @@ dependencies {
     implementation("androidx.wear.compose:compose-material3:1.6.2")
     implementation("androidx.health:health-services-client:1.1.0-rc01")
     implementation("com.google.android.gms:play-services-wearable:19.0.0")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("com.google.guava:guava:33.3.1-android")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")

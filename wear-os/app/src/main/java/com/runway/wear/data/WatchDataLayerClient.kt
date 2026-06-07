@@ -18,6 +18,8 @@ object WatchPaths {
     const val AUTH_STATE = "/runway/watch/auth/state"
     const val RUN_UPLOAD = "/runway/watch/run-upload"
     const val RUN_UPLOAD_ACK = "/runway/watch/run-upload-ack"
+    const val COURSE_REQUEST = "/runway/watch/course-request"
+    const val COURSE_CATALOG = "/runway/watch/course-catalog"
 }
 
 class WatchDataLayerClient(context: Context) {
@@ -59,6 +61,15 @@ class WatchDataLayerClient(context: Context) {
     suspend fun resume(): Boolean = sendCommand(JSONObject().put("type", "RESUME_RUN"))
     suspend fun finish(): Boolean = sendCommand(JSONObject().put("type", "FINISH_RUN"))
     suspend fun abandon(): Boolean = sendCommand(JSONObject().put("type", "ABANDON_RUN"))
+
+    suspend fun requestNearbyCourses(latitude: Double, longitude: Double): Boolean = sendMessage(
+        WatchPaths.COURSE_REQUEST,
+        JSONObject()
+            .put("latitude", latitude)
+            .put("longitude", longitude)
+            .toString()
+            .encodeToByteArray(),
+    )
 
     suspend fun syncPendingRuns(store: PendingWatchRunStore): Int {
         if (!isPhoneConnected()) return 0

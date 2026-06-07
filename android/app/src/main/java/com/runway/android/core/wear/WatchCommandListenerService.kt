@@ -25,11 +25,14 @@ class WatchCommandListenerService : WearableListenerService() {
         const val AUTH_STATE_PATH = "/runway/watch/auth/state"
         const val RUN_UPLOAD_PATH = "/runway/watch/run-upload"
         const val RUN_UPLOAD_ACK_PATH = "/runway/watch/run-upload-ack"
+        const val COURSE_REQUEST_PATH = "/runway/watch/course-request"
+        const val COURSE_CATALOG_PATH = "/runway/watch/course-catalog"
     }
 
     @Inject lateinit var coordinator: WearRunSessionCoordinator
     @Inject lateinit var tokenDataStore: TokenDataStore
     @Inject lateinit var uploadCoordinator: WatchRunUploadCoordinator
+    @Inject lateinit var courseSyncCoordinator: WatchCourseSyncCoordinator
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
@@ -37,6 +40,17 @@ class WatchCommandListenerService : WearableListenerService() {
             COMMAND_PATH ->
                 WatchCommandParser.parse(messageEvent.data)?.let(coordinator::handle)
             AUTH_REQUEST_PATH -> sendAuthState(messageEvent.sourceNodeId)
+            COURSE_REQUEST_PATH -> {
+                val payload = runCatching {
+                    JSONObject(messageEvent.data.decodeToString())
+                }.getOrNull() ?: return
+                serviceScope.launch {
+                    courseSyncCoordinator.syncNearby(
+                        latitude = payload.getDouble("latitude"),
+                        longitude = payload.getDouble("longitude"),
+                    )
+                }
+            }
         }
     }
 

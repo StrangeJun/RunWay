@@ -9,6 +9,9 @@ import com.runway.android.data.running.model.FinishRunRequest
 import com.runway.android.data.running.model.RunPointRequest
 import com.runway.android.data.running.model.SavePointsRequest
 import com.runway.android.data.running.model.StartRunRequest
+import com.runway.android.data.attempt.model.FinishAttemptRequest
+import com.runway.android.data.attempt.model.StartAttemptRequest
+import com.runway.android.domain.attempt.CourseAttemptRepository
 import com.runway.android.domain.running.RunningRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
@@ -22,6 +25,7 @@ class WatchRunUploadCoordinator @Inject constructor(
     @ApplicationContext private val context: Context,
     private val tokenDataStore: TokenDataStore,
     private val runningRepository: RunningRepository,
+    private val courseAttemptRepository: CourseAttemptRepository,
 ) {
     private val preferences = context.getSharedPreferences(
         "watch_run_uploads",
@@ -37,14 +41,31 @@ class WatchRunUploadCoordinator @Inject constructor(
             return
         }
 
+        val courseId = payload.optString("courseId").takeUnless { it.isBlank() || it == "null" }
         val runId = preferences.getString(runIdKey(localId), null) ?: run {
-            when (val result = runningRepository.startRun(
-                StartRunRequest(payload.getString("startedAt")),
-            )) {
-                is NetworkResult.Success -> result.data.runId.also {
-                    preferences.edit().putString(runIdKey(localId), it).commit()
+            if (courseId != null) {
+                when (val result = courseAttemptRepository.startAttempt(
+                    courseId,
+                    StartAttemptRequest(payload.getString("startedAt")),
+                )) {
+                    is NetworkResult.Success -> {
+                        preferences.edit()
+                            .putString(runIdKey(localId), result.data.runningRecordId)
+                            .putString(attemptIdKey(localId), result.data.courseAttemptId)
+                            .commit()
+                        result.data.runningRecordId
+                    }
+                    else -> return
                 }
-                else -> return
+            } else {
+                when (val result = runningRepository.startRun(
+                    StartRunRequest(payload.getString("startedAt")),
+                )) {
+                    is NetworkResult.Success -> result.data.runId.also {
+                        preferences.edit().putString(runIdKey(localId), it).commit()
+                    }
+                    else -> return
+                }
             }
         }
 
@@ -70,25 +91,47 @@ class WatchRunUploadCoordinator @Inject constructor(
             preferences.edit().putInt(offsetKey(localId), offset).commit()
         }
 
-        val finishResult = runningRepository.finishRun(
-            runId,
-            FinishRunRequest(
-                endedAt = payload.getString("endedAt"),
-                distanceMeters = payload.getDouble("distanceMeters"),
-                durationSeconds = payload.getInt("durationSeconds"),
-                avgPaceSecondsPerKm = payload.getInt("avgPaceSecondsPerKm"),
-                caloriesBurned = payload.getInt("caloriesBurned"),
-                avgHeartRateBpm = payload.optInt("avgHeartRateBpm").takeIf {
-                    payload.has("avgHeartRateBpm") && !payload.isNull("avgHeartRateBpm")
-                },
-            ),
-        )
+        val endedAt = payload.getString("endedAt")
+        val distanceMeters = payload.getDouble("distanceMeters")
+        val durationSeconds = payload.getInt("durationSeconds")
+        val avgPace = payload.getInt("avgPaceSecondsPerKm")
+        val calories = payload.getInt("caloriesBurned")
+        val avgHeartRate = payload.optInt("avgHeartRateBpm").takeIf {
+            payload.has("avgHeartRateBpm") && !payload.isNull("avgHeartRateBpm")
+        }
+        val finishResult = if (courseId != null) {
+            val attemptId = preferences.getString(attemptIdKey(localId), null) ?: return
+            courseAttemptRepository.finishAttempt(
+                attemptId,
+                FinishAttemptRequest(
+                    endedAt = endedAt,
+                    distanceMeters = distanceMeters,
+                    durationSeconds = durationSeconds,
+                    avgPaceSecondsPerKm = avgPace,
+                    caloriesBurned = calories,
+                    avgHeartRateBpm = avgHeartRate,
+                ),
+            )
+        } else {
+            runningRepository.finishRun(
+                runId,
+                FinishRunRequest(
+                    endedAt = endedAt,
+                    distanceMeters = distanceMeters,
+                    durationSeconds = durationSeconds,
+                    avgPaceSecondsPerKm = avgPace,
+                    caloriesBurned = calories,
+                    avgHeartRateBpm = avgHeartRate,
+                ),
+            )
+        }
         if (finishResult !is NetworkResult.Success) return
 
         preferences.edit()
             .putBoolean(completedKey(localId), true)
             .remove(runIdKey(localId))
             .remove(offsetKey(localId))
+            .remove(attemptIdKey(localId))
             .commit()
         acknowledge(localId, dataItemUri)
     }
@@ -106,6 +149,7 @@ class WatchRunUploadCoordinator @Inject constructor(
 
     private fun runIdKey(localId: String) = "run_id_$localId"
     private fun offsetKey(localId: String) = "offset_$localId"
+    private fun attemptIdKey(localId: String) = "attempt_id_$localId"
     private fun completedKey(localId: String) = "completed_$localId"
 
     private companion object {
