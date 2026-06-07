@@ -85,20 +85,20 @@ class RunningVoiceGuide @Inject constructor(
 
     fun start() = speak("러닝을 시작합니다.")
 
-    fun finish() = speak("수고하셨습니다.")
+    fun finish() = speak("러닝을 종료합니다. 수고하셨습니다.")
 
     fun kilometer(kilometers: Int, elapsedSeconds: Int) {
         val pace = if (kilometers > 0) elapsedSeconds / kilometers else 0
-        speak("${kilometers}킬로미터. 페이스 ${pace / 60}분 ${pace % 60}초.")
+        speak("${kilometers}킬로미터 완료. 페이스 ${pace / 60}분 ${pace % 60}초.")
     }
 
-    fun autoPaused() = speak("일시정지.")
+    fun autoPaused() = speak("자동으로 일시정지합니다.")
 
-    fun autoResumed() = speak("재개합니다.")
+    fun autoResumed() = speak("다시 시작합니다.")
 
-    fun offCourse() = speak("코스 이탈.")
+    fun offCourse() = speak("코스를 이탈했습니다.")
 
-    fun backOnCourse() = speak("코스 복귀.")
+    fun backOnCourse() = speak("코스로 복귀했습니다.")
 
     fun nearCourseFinish() = speak("거의 다 왔습니다.")
 }
