@@ -8,7 +8,11 @@ import java.util.concurrent.ConcurrentLinkedQueue
 
 class RunningVoiceGuide(context: Context) : TextToSpeech.OnInitListener {
     private val pending = ConcurrentLinkedQueue<String>()
-    private val textToSpeech = TextToSpeech(context.applicationContext, this)
+    private val textToSpeech = TextToSpeech(
+        context.applicationContext,
+        this,
+        GOOGLE_TTS_PACKAGE,
+    )
     @Volatile private var ready = false
 
     override fun onInit(status: Int) {
@@ -88,6 +92,10 @@ class RunningVoiceGuide(context: Context) : TextToSpeech.OnInitListener {
             !it.name.contains("male", ignoreCase = true) && !it.isNetworkConnectionRequired
         } ?: korean.firstOrNull { !it.isNetworkConnectionRequired }
             ?: korean.firstOrNull()
+    }
+
+    private companion object {
+        const val GOOGLE_TTS_PACKAGE = "com.google.android.tts"
     }
 }
 

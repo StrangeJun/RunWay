@@ -2,6 +2,7 @@ package com.runway.android.core.voice
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
+import android.speech.tts.Voice
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.Locale
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -13,7 +14,11 @@ class RunningVoiceGuide @Inject constructor(
     @ApplicationContext context: Context,
 ) : TextToSpeech.OnInitListener {
     private val pending = ConcurrentLinkedQueue<String>()
-    private val textToSpeech = TextToSpeech(context.applicationContext, this)
+    private val textToSpeech = TextToSpeech(
+        context.applicationContext,
+        this,
+        GOOGLE_TTS_PACKAGE,
+    )
     @Volatile private var ready = false
 
     override fun onInit(status: Int) {
@@ -22,42 +27,80 @@ class RunningVoiceGuide @Inject constructor(
         textToSpeech.setSpeechRate(1.08f)
         textToSpeech.setPitch(1.08f)
 
-        // 오프라인 한국어 여성 음성 우선, 없으면 오프라인 한국어 음성으로 대체
-        val koreanVoices = textToSpeech.voices
-            .orEmpty()
-            .filter { it.locale.language == Locale.KOREAN.language && !it.isNetworkConnectionRequired }
-
-        val preferred = koreanVoices.firstOrNull { it.name.contains("female", ignoreCase = true) }
-            ?: koreanVoices.firstOrNull()
-
-        preferred?.let { textToSpeech.voice = it }
+        selectKoreanFemaleVoice(textToSpeech.voices)?.let { textToSpeech.voice = it }
 
         ready = true
-        while (true) { speak(pending.poll() ?: break) }
+        while (true) {
+            val message = pending.poll() ?: break
+            speak(message)
+        }
     }
 
     fun speak(message: String) {
         if (message.isBlank()) return
-        if (!ready) { pending.offer(message); return }
-        textToSpeech.speak(message, TextToSpeech.QUEUE_FLUSH, null, "rw-${System.nanoTime()}")
+        if (!ready) {
+            pending.offer(message)
+            return
+        }
+        textToSpeech.speak(
+            message,
+            TextToSpeech.QUEUE_ADD,
+            null,
+            "pathfinder-phone-${System.nanoTime()}",
+        )
     }
 
-    fun start() = speak("러닝을 시작합니다.")
+    fun start() = speak("러닝을 시작합니다. 오늘도 힘차게 달려볼까요?")
 
     fun finish() = speak("러닝을 종료합니다. 수고하셨습니다.")
 
     fun kilometer(kilometers: Int, elapsedSeconds: Int) {
-        val pace = if (kilometers > 0) elapsedSeconds / kilometers else 0
-        speak("${kilometers}킬로미터 완료. 페이스 ${pace / 60}분 ${pace % 60}초.")
+        speak(RunningVoiceText.kilometer(kilometers, elapsedSeconds))
     }
 
-    fun autoPaused() = speak("자동으로 일시정지합니다.")
+    fun autoPaused() = speak("움직임이 멈춰 자동으로 일시정지합니다.")
 
-    fun autoResumed() = speak("다시 시작합니다.")
+    fun autoResumed() = speak("움직임이 감지되어 러닝을 다시 시작합니다.")
 
     fun offCourse() = speak("코스를 이탈했습니다.")
 
     fun backOnCourse() = speak("코스로 복귀했습니다.")
 
     fun nearCourseFinish() = speak("거의 다 왔습니다.")
+
+    private fun selectKoreanFemaleVoice(voices: Set<Voice>?): Voice? {
+        val korean = voices.orEmpty().filter { it.locale.language == Locale.KOREAN.language }
+        return korean.firstOrNull {
+            it.name.contains("female", ignoreCase = true) && !it.isNetworkConnectionRequired
+        } ?: korean.firstOrNull {
+            !it.name.contains("male", ignoreCase = true) && !it.isNetworkConnectionRequired
+        } ?: korean.firstOrNull { !it.isNetworkConnectionRequired }
+            ?: korean.firstOrNull()
+    }
+
+    private companion object {
+        const val GOOGLE_TTS_PACKAGE = "com.google.android.tts"
+    }
+}
+
+internal object RunningVoiceText {
+    fun kilometer(kilometers: Int, elapsedSeconds: Int): String {
+        val averagePace = if (kilometers > 0) elapsedSeconds / kilometers else 0
+        return "${kilometers}킬로미터 완료. 시간 ${duration(elapsedSeconds)}. " +
+            "평균 페이스 ${pace(averagePace)}."
+    }
+
+    private fun duration(totalSeconds: Int): String {
+        val hours = totalSeconds / 3600
+        val minutes = totalSeconds % 3600 / 60
+        val seconds = totalSeconds % 60
+        return buildList {
+            if (hours > 0) add("${hours}시간")
+            if (minutes > 0) add("${minutes}분")
+            if (seconds > 0 || isEmpty()) add("${seconds}초")
+        }.joinToString(" ")
+    }
+
+    private fun pace(secondsPerKilometer: Int): String =
+        "${secondsPerKilometer / 60}분 ${secondsPerKilometer % 60}초"
 }
