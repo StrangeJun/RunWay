@@ -19,6 +19,7 @@ class ThemeDataStore @Inject constructor(
     companion object {
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         private val KEY_ACCENT_COLOR = stringPreferencesKey("accent_color")
+        private val KEY_VOICE_NAME = stringPreferencesKey("voice_name")
     }
 
     val themeModeFlow: Flow<ThemeMode> = dataStore.data.map { prefs ->
@@ -41,5 +42,11 @@ class ThemeDataStore @Inject constructor(
 
     suspend fun setAccentColor(color: AccentColor) {
         dataStore.edit { it[KEY_ACCENT_COLOR] = color.name }
+    }
+
+    val voiceNameFlow: Flow<String?> = dataStore.data.map { it[KEY_VOICE_NAME] }
+
+    suspend fun setVoiceName(name: String) {
+        dataStore.edit { it[KEY_VOICE_NAME] = name }
     }
 }

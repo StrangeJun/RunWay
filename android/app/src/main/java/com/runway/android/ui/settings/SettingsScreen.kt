@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +51,8 @@ fun SettingsScreen(
 ) {
     val currentMode by viewModel.themeMode.collectAsState()
     val currentAccent by viewModel.accentColor.collectAsState()
+    val selectedVoice by viewModel.selectedVoiceName.collectAsState()
+    val voices = viewModel.availableVoices
 
     Column(
         modifier = Modifier
@@ -136,6 +139,35 @@ fun SettingsScreen(
                 selected = currentAccent,
                 onSelect = viewModel::setAccentColor,
             )
+
+            if (voices.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(28.dp))
+                Text(
+                    text = "음성 안내",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "▶ 버튼으로 미리 들어보고 선택하세요",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    voices.forEach { voice ->
+                        val isSelected = selectedVoice == voice.name
+                            || (selectedVoice == null && voices.indexOf(voice) == 0)
+                        VoiceTile(
+                            displayName = voice.displayName,
+                            requiresNetwork = voice.requiresNetwork,
+                            selected = isSelected,
+                            onSelect = { viewModel.selectVoice(voice.name) },
+                            onPreview = { viewModel.previewVoice(voice.name) },
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(28.dp))
         }
     }
@@ -261,6 +293,67 @@ private fun ThemeOptionTile(
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(22.dp),
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VoiceTile(
+    displayName: String,
+    requiresNetwork: Boolean,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    onPreview: () -> Unit,
+) {
+    Surface(
+        onClick = onSelect,
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            width = if (selected) 2.dp else 1.dp,
+            color = if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.outline,
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = displayName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                            else MaterialTheme.colorScheme.onSurface,
+                )
+                if (requiresNetwork) {
+                    Text(
+                        text = "인터넷 연결 필요",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            IconButton(onClick = onPreview) {
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = "미리 듣기",
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
             }
         }
     }

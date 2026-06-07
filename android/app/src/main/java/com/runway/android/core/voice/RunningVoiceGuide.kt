@@ -3,101 +3,102 @@ package com.runway.android.core.voice
 import android.content.Context
 import android.speech.tts.TextToSpeech
 import android.speech.tts.Voice
+import com.runway.android.core.datastore.ThemeDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
+
+data class VoiceOption(
+    val name: String,
+    val displayName: String,
+    val requiresNetwork: Boolean,
+)
 
 @Singleton
 class RunningVoiceGuide @Inject constructor(
     @ApplicationContext context: Context,
+    private val themeDataStore: ThemeDataStore,
+    @Named("appScope") private val appScope: CoroutineScope,
 ) : TextToSpeech.OnInitListener {
     private val pending = ConcurrentLinkedQueue<String>()
     private val textToSpeech = TextToSpeech(context.applicationContext, this)
     @Volatile private var ready = false
 
+    /** 초기화 후 사용 가능한 한국어 음성 목록 */
+    var availableVoices: List<VoiceOption> = emptyList()
+        private set
+
     override fun onInit(status: Int) {
         if (status != TextToSpeech.SUCCESS) return
         textToSpeech.language = Locale.KOREA
-        textToSpeech.setSpeechRate(1.08f)
-        textToSpeech.setPitch(1.08f)
-        selectKoreanFemaleVoice(textToSpeech.voices)?.let { textToSpeech.voice = it }
-        ready = true
-        while (true) {
-            val message = pending.poll() ?: break
-            speak(message)
+        textToSpeech.setSpeechRate(1.0f)
+        textToSpeech.setPitch(1.0f)
+
+        val koreanVoices = textToSpeech.voices
+            .orEmpty()
+            .filter { it.locale.language == Locale.KOREAN.language }
+            .sortedWith(compareBy({ it.isNetworkConnectionRequired }, { it.quality * -1 }))
+
+        availableVoices = koreanVoices.mapIndexed { i, v ->
+            VoiceOption(
+                name = v.name,
+                displayName = "음성 ${i + 1}${if (v.isNetworkConnectionRequired) " (온라인)" else ""}",
+                requiresNetwork = v.isNetworkConnectionRequired,
+            )
+        }
+
+        // 저장된 선택이 있으면 복원, 없으면 오프라인 첫 번째 음성
+        appScope.launch {
+            val saved = themeDataStore.voiceNameFlow.firstOrNull()
+            val target = saved?.let { name -> koreanVoices.firstOrNull { it.name == name } }
+                ?: koreanVoices.firstOrNull { !it.isNetworkConnectionRequired }
+            target?.let { textToSpeech.voice = it }
+            ready = true
+            while (true) { speak(pending.poll() ?: break) }
         }
     }
+
+    /** 설정 화면에서 호출 — 선택한 음성을 즉시 적용 */
+    fun applyVoice(voiceName: String) {
+        if (!ready) return
+        textToSpeech.voices
+            ?.firstOrNull { it.name == voiceName }
+            ?.let { textToSpeech.voice = it }
+    }
+
+    /** 미리 듣기용 — 짧은 샘플 재생 */
+    fun preview() = speak("러닝을 시작합니다.")
 
     fun speak(message: String) {
         if (message.isBlank()) return
-        if (!ready) {
-            pending.offer(message)
-            return
-        }
-        textToSpeech.speak(
-            message,
-            TextToSpeech.QUEUE_ADD,
-            null,
-            "pathfinder-${System.nanoTime()}",
-        )
+        if (!ready) { pending.offer(message); return }
+        textToSpeech.speak(message, TextToSpeech.QUEUE_FLUSH, null, "rw-${System.nanoTime()}")
     }
 
-    fun start() = speak("러닝을 시작합니다. 오늘도 힘차게 달려볼까요?")
+    // ── 간결해진 대사 ──────────────────────────────────────────────
 
-    fun finish() = speak("러닝을 종료합니다. 수고하셨습니다.")
+    fun start() = speak("러닝을 시작합니다.")
+
+    fun finish() = speak("수고하셨습니다.")
 
     fun kilometer(kilometers: Int, elapsedSeconds: Int) {
-        speak(RunningVoiceText.kilometer(kilometers, elapsedSeconds))
+        val pace = if (kilometers > 0) elapsedSeconds / kilometers else 0
+        speak("${kilometers}킬로미터. 페이스 ${pace / 60}분 ${pace % 60}초.")
     }
 
-    fun autoPaused() = speak("속도가 줄어 자동으로 일시정지합니다.")
+    fun autoPaused() = speak("일시정지.")
 
-    fun autoResumed() = speak("다시 달리기 시작했습니다.")
+    fun autoResumed() = speak("재개합니다.")
 
-    fun offCourse() =
-        speak("코스를 이탈했습니다. 안전하게 코스로 돌아와 주세요.")
+    fun offCourse() = speak("코스 이탈.")
 
-    fun backOnCourse() =
-        speak("코스로 복귀했습니다. 러닝을 계속합니다.")
+    fun backOnCourse() = speak("코스 복귀.")
 
-    fun nearCourseFinish() =
-        speak("코스의 90퍼센트를 완주했습니다. 조금만 더 힘내세요.")
-
-    private fun selectKoreanFemaleVoice(voices: Set<Voice>?): Voice? {
-        val korean = voices.orEmpty().filter { it.locale.language == Locale.KOREAN.language }
-        return korean.firstOrNull {
-            it.name.contains("female", ignoreCase = true) && !it.isNetworkConnectionRequired
-        } ?: korean.firstOrNull {
-            !it.name.contains("male", ignoreCase = true) && !it.isNetworkConnectionRequired
-        } ?: korean.firstOrNull { !it.isNetworkConnectionRequired }
-            ?: korean.firstOrNull()
-    }
-}
-
-internal object RunningVoiceText {
-    fun kilometer(kilometers: Int, elapsedSeconds: Int): String {
-        val averagePace = if (kilometers > 0) elapsedSeconds / kilometers else 0
-        return buildString {
-            append("${kilometers}킬로미터 완료. ")
-            append("시간 ${duration(elapsedSeconds)}. ")
-            append("평균 페이스 ${pace(averagePace)}.")
-        }
-    }
-
-    private fun duration(totalSeconds: Int): String {
-        val hours = totalSeconds / 3600
-        val minutes = totalSeconds % 3600 / 60
-        val seconds = totalSeconds % 60
-        return buildList {
-            if (hours > 0) add("${hours}시간")
-            if (minutes > 0) add("${minutes}분")
-            if (seconds > 0 || isEmpty()) add("${seconds}초")
-        }.joinToString(" ")
-    }
-
-    private fun pace(secondsPerKilometer: Int): String {
-        return "${secondsPerKilometer / 60}분 ${secondsPerKilometer % 60}초"
-    }
+    fun nearCourseFinish() = speak("거의 다 왔습니다.")
 }
