@@ -35,6 +35,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.data.running.model.RunningStatsResponse
 import com.runway.android.ui.components.StatsSummaryCard
 import com.runway.android.ui.components.StreakCard
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,8 +53,8 @@ fun StatsScreen(
             title = {
                 Text(
                     text = "통계",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             },
             navigationIcon = {
@@ -60,7 +62,7 @@ fun StatsScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "뒤로",
-                        tint = MaterialTheme.colorScheme.onBackground,
+                        tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             },
@@ -89,8 +91,14 @@ fun StatsScreen(
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primary,
                         selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                        containerColor = MaterialTheme.colorScheme.surface,
+                        containerColor = SurfaceContainerDark,
                         labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = viewModel.selectedPeriodIndex == index,
+                        borderColor = OutlineVariantDark,
+                        selectedBorderColor = MaterialTheme.colorScheme.primary,
                     ),
                 )
             }
@@ -163,6 +171,14 @@ private fun StatsContent(
             currentStreak = stats.currentStreakDays,
             longestStreak = stats.longestStreakDays,
             modifier = Modifier.fillMaxWidth(),
+        )
+
+        // 섹션 헤더
+        Text(
+            text = "핵심 지표".uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
         )
 
         // 핵심 지표 2열 그리드

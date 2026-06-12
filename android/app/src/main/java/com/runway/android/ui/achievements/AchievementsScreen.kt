@@ -30,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.ui.components.AchievementCard
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,8 +48,8 @@ fun AchievementsScreen(
             title = {
                 Text(
                     text = "업적",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             },
             navigationIcon = {
@@ -55,7 +57,7 @@ fun AchievementsScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "뒤로",
-                        tint = MaterialTheme.colorScheme.onBackground,
+                        tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             },
@@ -126,8 +128,8 @@ fun AchievementsScreen(
                         if (unlocked.isNotEmpty()) {
                             item {
                                 Text(
-                                    text = "달성한 업적 (${unlocked.size})",
-                                    style = MaterialTheme.typography.labelLarge,
+                                    text = "달성한 업적 (${unlocked.size})".uppercase(),
+                                    style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.padding(vertical = 4.dp),
                                 )
@@ -141,8 +143,8 @@ fun AchievementsScreen(
                             item {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "미달성 업적 (${locked.size})",
-                                    style = MaterialTheme.typography.labelLarge,
+                                    text = "미달성 업적 (${locked.size})".uppercase(),
+                                    style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(vertical = 4.dp),
                                 )

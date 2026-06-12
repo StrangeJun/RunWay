@@ -30,6 +30,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,6 +44,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.util.formatDistance
 import com.runway.android.core.util.formatDuration
 import com.runway.android.ui.components.RunHistoryCard
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,27 +60,28 @@ fun MyRunsScreen(
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding(),
     ) {
-        // 상단 바
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "뒤로 가기",
-                    tint = MaterialTheme.colorScheme.onBackground,
+        // 상단 바 — Kinetic Volt: transparent TopAppBar, headlineSmall title, onSurface tint
+        TopAppBar(
+            title = {
+                Text(
+                    text = "내 러닝",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
-            }
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = "내 러닝 기록",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-        }
+            },
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "뒤로 가기",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.background,
+            ),
+        )
 
         when {
             viewModel.isLoading -> {
@@ -133,7 +138,7 @@ fun MyRunsScreen(
                     // 월 요약
                     item {
                         MonthlySummaryBar(summary = viewModel.monthlySummary)
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        HorizontalDivider(color = OutlineVariantDark)
                     }
 
                     // 런 목록
@@ -229,7 +234,7 @@ private fun MonthlySummaryBar(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        color = SurfaceContainerDark,
     ) {
         Row(
             modifier = Modifier
@@ -261,13 +266,12 @@ private fun SummaryStatItem(
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = value,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
