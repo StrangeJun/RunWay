@@ -53,7 +53,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.posture.PostureCategoryResult
 import com.runway.android.core.posture.PostureResult
 import com.runway.android.core.posture.local.PostureAnalysisEntity
+import com.runway.android.ui.theme.OutlineVariantDark
 import com.runway.android.ui.theme.RunwayTheme
+import com.runway.android.ui.theme.SurfaceContainerDark
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -111,10 +113,19 @@ fun PostureResultScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("자세 분석 결과") },
+                title = {
+                    Text(
+                        "자세 분석 결과",
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "뒤로",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
                     }
                 },
                 actions = {
@@ -190,8 +201,8 @@ private fun PostureResultContent(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            color = SurfaceContainerDark,
+            border = BorderStroke(1.dp, OutlineVariantDark),
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
@@ -245,7 +256,7 @@ private fun PostureResultContent(
         if (hasReferenceData) {
             Spacer(Modifier.height(6.dp))
             Text(
-                "참고 지표",
+                "참고 지표".uppercase(),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth(),
@@ -297,13 +308,13 @@ private fun PostureCategoryCard(
     isReference: Boolean = false,
 ) {
     val borderColor = if (isReference)
-        MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+        OutlineVariantDark.copy(alpha = 0.5f)
     else
-        MaterialTheme.colorScheme.outline
+        OutlineVariantDark
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = SurfaceContainerDark),
         border = BorderStroke(1.dp, borderColor),
         elevation = CardDefaults.cardElevation(0.dp),
         shape = MaterialTheme.shapes.extraLarge,
@@ -413,8 +424,8 @@ private fun PostureDisclaimerCard() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        color = SurfaceContainerDark.copy(alpha = 0.7f),
+        border = BorderStroke(1.dp, OutlineVariantDark.copy(alpha = 0.5f)),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),

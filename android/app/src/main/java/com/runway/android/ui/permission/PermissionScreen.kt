@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +34,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.runway.android.BuildConfig
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
 
 @Composable
 fun PermissionScreen(
@@ -145,7 +148,8 @@ private fun PermissionItem(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
+        color = SurfaceContainerDark,
+        border = BorderStroke(1.dp, OutlineVariantDark),
     ) {
         Row(
             modifier = Modifier.padding(20.dp),

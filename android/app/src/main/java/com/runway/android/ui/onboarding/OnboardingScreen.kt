@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.runway.android.ui.theme.OutlineVariantDark
 import kotlinx.coroutines.launch
 
 private data class OnboardingPage(
@@ -87,6 +88,17 @@ fun OnboardingScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
+        // ── RUNWAY branding ────────────────────────────────────────────────
+        Text(
+            text = "RUNWAY",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 20.dp),
+        )
+
         // ── Page content ──────────────────────────────────────────────────
         HorizontalPager(
             state = pagerState,
@@ -176,7 +188,7 @@ fun OnboardingScreen(
                                 color = if (index == pagerState.currentPage)
                                     MaterialTheme.colorScheme.primary
                                 else
-                                    MaterialTheme.colorScheme.outline,
+                                    OutlineVariantDark,
                                 shape = CircleShape,
                             ),
                     )

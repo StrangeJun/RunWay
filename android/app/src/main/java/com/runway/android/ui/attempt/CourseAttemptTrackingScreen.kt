@@ -79,6 +79,8 @@ import com.runway.android.ui.components.RouteMapView
 import com.runway.android.ui.components.RunMetricCard
 import com.runway.android.ui.components.RunningControlButton
 import com.runway.android.ui.components.rememberBatteryOptimizationIgnored
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -237,8 +239,8 @@ fun CourseAttemptTrackingScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),
             shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            color = SurfaceContainerDark,
+            border = BorderStroke(1.dp, OutlineVariantDark),
         ) {
             Row(
                 modifier = Modifier
@@ -251,14 +253,14 @@ fun CourseAttemptTrackingScreen(
                     unit = "km",
                     modifier = Modifier.weight(1f),
                 )
-                VerticalDivider(color = MaterialTheme.colorScheme.outline)
+                VerticalDivider(color = OutlineVariantDark)
                 RunMetricCard(
                     label = "PACE",
                     value = viewModel.paceText,
                     unit = "/km",
                     modifier = Modifier.weight(1f),
                 )
-                VerticalDivider(color = MaterialTheme.colorScheme.outline)
+                VerticalDivider(color = OutlineVariantDark)
                 RunMetricCard(
                     label = "SPEED",
                     value = viewModel.speedText,
@@ -393,7 +395,7 @@ fun CourseAttemptTrackingScreen(
                     icon = Icons.Filled.Stop,
                     onClick = { showStopSheet = true },
                     size = 60.dp,
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = SurfaceContainerDark,
                     contentColor = MaterialTheme.colorScheme.error,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
                 )
@@ -489,7 +491,7 @@ private fun StopConfirmSheet(
     ModalBottomSheet(
         onDismissRequest = onContinue,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = SurfaceContainerDark,
     ) {
         Column(
             modifier = Modifier
@@ -547,8 +549,8 @@ private fun StopConfirmSheet(
                     onClick = onFinish,
                     shape = MaterialTheme.shapes.extraLarge,
                     color = if (completed) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surface,
-                    border = if (!completed) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+                            else SurfaceContainerDark,
+                    border = if (!completed) BorderStroke(1.dp, OutlineVariantDark) else null,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
@@ -636,7 +638,7 @@ private fun CourseMapPanel(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
+            color = SurfaceContainerDark,
             border = BorderStroke(1.dp, statusColor(trackStatus).copy(alpha = 0.45f)),
         ) {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -716,7 +718,7 @@ private fun statusDetail(status: CourseTrackStatus, meters: Double?): String {
 private fun CoursePill() {
     Surface(
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface,
+        color = SurfaceContainerDark,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
     ) {
         Text(

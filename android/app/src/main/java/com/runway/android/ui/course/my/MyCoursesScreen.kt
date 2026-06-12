@@ -37,6 +37,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.data.course.model.CourseResponse
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,6 +53,7 @@ fun MyCoursesScreen(
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding(),
     ) {
+        // ─── TopAppBar ───
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -61,13 +64,13 @@ fun MyCoursesScreen(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "뒤로 가기",
-                    tint = MaterialTheme.colorScheme.onBackground,
+                    tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = "내 코스",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onBackground,
             )
         }
@@ -165,8 +168,8 @@ private fun MyCourseCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        color = SurfaceContainerDark,
+        border = BorderStroke(1.dp, OutlineVariantDark),
         onClick = onClick,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {

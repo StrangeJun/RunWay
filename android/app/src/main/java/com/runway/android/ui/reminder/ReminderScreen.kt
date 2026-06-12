@@ -1,6 +1,7 @@
 package com.runway.android.ui.reminder
 
 import android.app.TimePickerDialog
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
 import java.util.Calendar
 
 @Composable
@@ -67,7 +70,7 @@ fun ReminderScreen(
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = "러닝 리마인더",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onBackground,
             )
         }
@@ -80,8 +83,8 @@ fun ReminderScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),
             shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 1.dp,
+            color = SurfaceContainerDark,
+            border = BorderStroke(1.dp, OutlineVariantDark),
         ) {
             Row(
                 modifier = Modifier
@@ -131,8 +134,8 @@ fun ReminderScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),
             shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 1.dp,
+            color = SurfaceContainerDark,
+            border = BorderStroke(1.dp, OutlineVariantDark),
             onClick = {
                 TimePickerDialog(
                     context,
@@ -188,10 +191,9 @@ fun ReminderScreen(
                 .padding(horizontal = 20.dp),
         ) {
             Text(
-                text = "반복 요일",
-                style = MaterialTheme.typography.titleSmall,
-                color = if (viewModel.enabled) MaterialTheme.colorScheme.onSurface
-                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                text = "반복 요일".uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
             val days = listOf(

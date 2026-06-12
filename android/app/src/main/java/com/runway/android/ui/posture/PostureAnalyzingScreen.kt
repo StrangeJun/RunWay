@@ -1,5 +1,6 @@
 package com.runway.android.ui.posture
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -17,13 +18,23 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun PostureAnalyzingScreen(modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        CircularProgressIndicator(modifier = Modifier.size(64.dp), strokeWidth = 4.dp)
+        CircularProgressIndicator(
+            modifier = Modifier.size(64.dp),
+            strokeWidth = 4.dp,
+            color = MaterialTheme.colorScheme.primary,
+        )
         Spacer(Modifier.height(24.dp))
-        Text("자세를 분석하고 있어요...", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "자세를 분석하고 있어요...",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
         Spacer(Modifier.height(8.dp))
         Text(
             "분석에는 약 1분 정도 소요됩니다",

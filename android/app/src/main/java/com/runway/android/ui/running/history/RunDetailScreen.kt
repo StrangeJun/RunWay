@@ -179,7 +179,7 @@ fun RunDetailScreen(
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding(),
     ) {
-        // ─── 상단 바 ───
+        // ─── TopAppBar ───
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -190,13 +190,13 @@ fun RunDetailScreen(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "뒤로 가기",
-                    tint = MaterialTheme.colorScheme.onBackground,
+                    tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = "러닝 상세",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.weight(1f),
             )
@@ -471,7 +471,7 @@ fun RunDetailScreen(
                         RunSplitsCard(splits = viewModel.splits)
                     }
 
-                    // ─── 코스 만들기 ───
+                    // ─── 코스 만들기 ─── lime green pill CTA
                     if (viewModel.canCreateCourse) {
                         item {
                             Button(
@@ -479,8 +479,10 @@ fun RunDetailScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .navigationBarsPadding(),
+                                shape = MaterialTheme.shapes.extraLarge,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary,
                                 ),
                             ) {
                                 Icon(

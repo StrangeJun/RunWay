@@ -1,5 +1,6 @@
 package com.runway.android.ui.leaderboard
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,7 @@ fun LeaderboardScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .padding(24.dp),
         contentAlignment = Alignment.Center,
     ) {
