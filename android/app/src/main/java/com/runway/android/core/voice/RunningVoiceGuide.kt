@@ -3,15 +3,22 @@ package com.runway.android.core.voice
 import android.content.Context
 import android.speech.tts.TextToSpeech
 import android.speech.tts.Voice
+import com.runway.android.core.datastore.VoiceGuideDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.Locale
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 @Singleton
 class RunningVoiceGuide @Inject constructor(
     @ApplicationContext context: Context,
+    private val voiceGuideDataStore: VoiceGuideDataStore,
+    @Named("appScope") private val appScope: CoroutineScope,
 ) : TextToSpeech.OnInitListener {
     private val pending = ConcurrentLinkedQueue<String>()
     private val textToSpeech = TextToSpeech(
@@ -38,6 +45,14 @@ class RunningVoiceGuide @Inject constructor(
 
     fun speak(message: String) {
         if (message.isBlank()) return
+        appScope.launch {
+            if (voiceGuideDataStore.enabledFlow.first()) {
+                speakEnabled(message)
+            }
+        }
+    }
+
+    private fun speakEnabled(message: String) {
         if (!ready) {
             pending.offer(message)
             return
