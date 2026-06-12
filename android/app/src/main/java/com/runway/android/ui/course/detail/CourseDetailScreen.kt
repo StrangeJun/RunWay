@@ -39,6 +39,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -61,6 +62,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -71,6 +74,9 @@ import com.runway.android.core.share.ShareUtils
 import com.runway.android.data.attempt.model.LeaderboardItem
 import com.runway.android.data.attempt.model.MyBestAttemptResponse
 import com.runway.android.ui.components.RouteMapView
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
+import com.runway.android.ui.theme.SurfaceContainerHighDark
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -201,7 +207,6 @@ fun CourseDetailScreen(
         )
     }
 
-    // 보관 성공 다이얼로그
     // 삭제 확인 다이얼로그
     if (viewModel.showDeleteDialog) {
         AlertDialog(
@@ -458,17 +463,31 @@ private fun CourseDetailContent(
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
     ) {
-        // ─── Route preview (클릭 → 전체 지도) ───
+        // ─── Map header (300dp) with gradient overlay ───
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp)
-                .clip(MaterialTheme.shapes.medium)
+                .height(300.dp)
                 .clickable { onNavigateToMap(viewModel.courseId) },
         ) {
             RouteMapView(
                 points = viewModel.coursePoints.map { MapPoint(it.latitude, it.longitude) },
                 modifier = Modifier.fillMaxSize(),
+            )
+            // Bottom gradient overlay
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                MaterialTheme.colorScheme.background.copy(alpha = 0.85f),
+                            ),
+                        ),
+                    ),
             )
             // "자세히 보기" badge
             Surface(
@@ -476,8 +495,8 @@ private fun CourseDetailContent(
                     .align(Alignment.BottomEnd)
                     .padding(10.dp),
                 shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                color = SurfaceContainerDark.copy(alpha = 0.92f),
+                border = BorderStroke(1.dp, OutlineVariantDark),
             ) {
                 Text(
                     text = "지도 자세히 보기",
@@ -498,7 +517,8 @@ private fun CourseDetailContent(
             ) {
                 Text(
                     text = course.name,
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.weight(1f),
                 )
@@ -548,10 +568,10 @@ private fun CourseDetailContent(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            HorizontalDivider(color = OutlineVariantDark)
             Spacer(modifier = Modifier.height(20.dp))
 
-            // ─── 통계 행 (count-up) ───
+            // ─── 통계 카드 (count-up) ───
             var statsTriggered by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { statsTriggered = true }
             val animatedDistance by animateFloatAsState(
@@ -569,13 +589,23 @@ private fun CourseDetailContent(
                 animationSpec = tween(1200),
                 label = "completions",
             )
-            Row(
+
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                shape = MaterialTheme.shapes.extraLarge,
+                color = SurfaceContainerDark,
+                border = BorderStroke(1.dp, OutlineVariantDark),
             ) {
-                StatItem(label = "거리", value = formatDistance(animatedDistance.toDouble()))
-                StatItem(label = "도전", value = "${animatedAttempts}회")
-                StatItem(label = "완주", value = "${animatedCompletions}회")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    StatItem(label = "거리", value = formatDistance(animatedDistance.toDouble()))
+                    StatItem(label = "도전", value = "${animatedAttempts}회")
+                    StatItem(label = "완주", value = "${animatedCompletions}회")
+                }
             }
 
             // ─── 평점 행 ───
@@ -615,13 +645,11 @@ private fun CourseDetailContent(
                     }
                 }
                 if (!viewModel.hasRated) {
-                    androidx.compose.material3.Surface(
+                    Surface(
                         onClick = viewModel::openRateDialog,
                         shape = MaterialTheme.shapes.extraLarge,
-                        color = MaterialTheme.colorScheme.surface,
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp, MaterialTheme.colorScheme.outline
-                        ),
+                        color = SurfaceContainerDark,
+                        border = BorderStroke(1.dp, OutlineVariantDark),
                     ) {
                         Text(
                             text = "평가하기",
@@ -643,11 +671,11 @@ private fun CourseDetailContent(
             // ─── 설명 ───
             if (!course.description.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(20.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                HorizontalDivider(color = OutlineVariantDark)
                 Spacer(modifier = Modifier.height(20.dp))
                 Text(
-                    text = "코스 설명",
-                    style = MaterialTheme.typography.titleSmall,
+                    text = "코스 설명".uppercase(),
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(6.dp))
@@ -664,7 +692,7 @@ private fun CourseDetailContent(
                     course.recommendedTime != null || !course.warnings.isNullOrBlank()
             if (hasMetadata) {
                 Spacer(modifier = Modifier.height(20.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                HorizontalDivider(color = OutlineVariantDark)
                 Spacer(modifier = Modifier.height(20.dp))
                 CourseMetadataSection(course = course)
             }
@@ -672,7 +700,7 @@ private fun CourseDetailContent(
             // ─── 초안 상태 + 소유자 → 공개하기 + 삭제 버튼 ───
             if (course.status == "draft" && course.isOwner) {
                 Spacer(modifier = Modifier.height(20.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                HorizontalDivider(color = OutlineVariantDark)
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -716,74 +744,83 @@ private fun CourseDetailContent(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            HorizontalDivider(color = OutlineVariantDark)
             Spacer(modifier = Modifier.height(20.dp))
 
             // ─── 리더보드 섹션 ───
-            Row(
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                shape = MaterialTheme.shapes.extraLarge,
+                color = SurfaceContainerDark,
+                border = BorderStroke(1.dp, OutlineVariantDark),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Filled.EmojiEvents,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "리더보드",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                }
-                Surface(
-                    onClick = { onNavigateToLeaderboard(viewModel.courseId) },
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                ) {
-                    Text(
-                        text = "순위 보기",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // ─── 인라인 Top 5 미리보기 ───
-            when {
-                viewModel.isLoadingLeaderboard -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        contentAlignment = Alignment.Center,
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.EmojiEvents,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "리더보드".uppercase(),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Surface(
+                            onClick = { onNavigateToLeaderboard(viewModel.courseId) },
+                            shape = MaterialTheme.shapes.extraLarge,
+                            color = SurfaceContainerHighDark,
+                            border = BorderStroke(1.dp, OutlineVariantDark),
+                        ) {
+                            Text(
+                                text = "순위 보기",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            )
+                        }
                     }
-                }
-                viewModel.previewLeaderboard.isEmpty() -> {
-                    Text(
-                        text = "아직 완주 기록이 없습니다.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 8.dp),
-                    )
-                }
-                else -> {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        viewModel.previewLeaderboard.forEach { item ->
-                            LeaderboardPreviewRow(item = item)
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // ─── 인라인 Top 5 미리보기 ───
+                    when {
+                        viewModel.isLoadingLeaderboard -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        }
+                        viewModel.previewLeaderboard.isEmpty() -> {
+                            Text(
+                                text = "아직 완주 기록이 없습니다.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 8.dp),
+                            )
+                        }
+                        else -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                viewModel.previewLeaderboard.forEach { item ->
+                                    LeaderboardPreviewRow(item = item)
+                                }
+                            }
                         }
                     }
                 }
@@ -791,7 +828,7 @@ private fun CourseDetailContent(
 
             // ─── 내 기록 섹션 ───
             Spacer(modifier = Modifier.height(20.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            HorizontalDivider(color = OutlineVariantDark)
             Spacer(modifier = Modifier.height(20.dp))
             if (viewModel.myBestAttempt != null) {
                 MyBestAttemptSection(best = viewModel.myBestAttempt!!)
@@ -805,9 +842,9 @@ private fun CourseDetailContent(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "내 기록",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        text = "내 기록".uppercase(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
@@ -820,47 +857,61 @@ private fun CourseDetailContent(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ─── 도전 CTA ───
-            val hasCompletions = (viewModel.myBestAttempt?.completionCount ?: 0) > 0
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraLarge,
-                color = if (viewModel.isStartingAttempt)
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                else
-                    MaterialTheme.colorScheme.primary,
-                onClick = { if (!viewModel.isStartingAttempt) viewModel.startAttempt() },
+            // ─── 도전 CTA — lime green pill, fixed bottom ───
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
+                            ),
+                        ),
+                    )
+                    .padding(bottom = 16.dp),
             ) {
-                Row(
-                    modifier = Modifier.padding(vertical = 16.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = if (viewModel.isStartingAttempt)
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                    else
+                        MaterialTheme.colorScheme.primary,
+                    onClick = { if (!viewModel.isStartingAttempt) viewModel.startAttempt() },
                 ) {
-                    if (viewModel.isStartingAttempt) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            strokeWidth = 2.dp,
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "도전 시작 중…",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Filled.PlayArrow,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (hasCompletions) "다시 도전하기" else "코스 도전하기",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
+                    val hasCompletions = (viewModel.myBestAttempt?.completionCount ?: 0) > 0
+                    Row(
+                        modifier = Modifier.padding(vertical = 16.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (viewModel.isStartingAttempt) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "도전 시작 중…",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Filled.PlayArrow,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (hasCompletions) "다시 도전하기" else "코스 도전하기",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        }
                     }
                 }
             }
@@ -876,7 +927,8 @@ private fun StatItem(label: String, value: String) {
         Text(
             text = value,
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
@@ -939,8 +991,8 @@ private fun formatDistance(meters: Double): String = when {
 @Composable
 private fun CourseMetadataSection(course: com.runway.android.data.course.model.CourseDetailResponse) {
     Text(
-        text = "코스 정보",
-        style = MaterialTheme.typography.titleSmall,
+        text = "코스 정보".uppercase(),
+        style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Spacer(modifier = Modifier.height(10.dp))
@@ -987,6 +1039,12 @@ private fun MetadataChip(label: String) {
     SuggestionChip(
         onClick = {},
         label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+        colors = SuggestionChipDefaults.suggestionChipColors(
+            containerColor = SurfaceContainerHighDark,
+            labelColor = MaterialTheme.colorScheme.onSurface,
+            iconContentColor = MaterialTheme.colorScheme.primary,
+        ),
+        border = BorderStroke(1.dp, OutlineVariantDark),
     )
 }
 
@@ -1004,16 +1062,17 @@ private fun MyBestAttemptSection(best: MyBestAttemptResponse) {
         )
         Spacer(modifier = Modifier.width(6.dp))
         Text(
-            text = "내 기록",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onBackground,
+            text = "내 기록".uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
     Spacer(modifier = Modifier.height(12.dp))
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.extraLarge,
+        color = SurfaceContainerDark,
+        border = BorderStroke(1.dp, OutlineVariantDark),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),

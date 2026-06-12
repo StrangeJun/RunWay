@@ -58,7 +58,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.posture.local.PostureAnalysisEntity
 import com.runway.android.core.posture.local.MAX_POSTURE_ANALYSIS_HISTORY
+import com.runway.android.ui.theme.OutlineVariantDark
 import com.runway.android.ui.theme.RunwayTheme
+import com.runway.android.ui.theme.SurfaceContainerDark
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -121,13 +123,30 @@ fun PostureHomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("자세 분석") },
+                title = {
+                    Column {
+                        Text(
+                            text = "RUNWAY POSTURE",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            text = "자세 분석",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                 ),
                 actions = {
                     IconButton(onClick = { showHelp = true }) {
-                        Icon(Icons.Filled.Info, contentDescription = "이용 방법")
+                        Icon(
+                            Icons.Filled.Info,
+                            contentDescription = "이용 방법",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 },
             )
@@ -172,9 +191,9 @@ fun PostureHomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "분석 이력",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        text = "분석 이력".uppercase(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
                         text = "${history.size}개",
@@ -205,8 +224,8 @@ private fun PostureEmptyState() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        color = SurfaceContainerDark,
+        border = BorderStroke(1.dp, OutlineVariantDark),
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
@@ -244,8 +263,8 @@ private fun PostureHeroCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        color = SurfaceContainerDark,
+        border = BorderStroke(1.dp, OutlineVariantDark),
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Row(
@@ -291,6 +310,7 @@ private fun PostureHeroCard(
                 Button(
                     onClick = onStartCapture,
                     modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.extraLarge,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 ) {
                     Icon(Icons.Filled.VideoCameraBack, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -300,6 +320,7 @@ private fun PostureHeroCard(
                 Button(
                     onClick = onSelectVideo,
                     modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.extraLarge,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -333,8 +354,8 @@ private fun PostureHistoryCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        color = SurfaceContainerDark,
+        border = BorderStroke(1.dp, OutlineVariantDark),
     ) {
         Row(
             modifier = Modifier

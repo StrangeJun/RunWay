@@ -36,11 +36,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.ui.theme.AccentColor
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
 import com.runway.android.ui.theme.ThemeMode
 
 @Composable
@@ -57,6 +60,7 @@ fun SettingsScreen(
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding(),
     ) {
+        // ─── TopAppBar ───
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -86,41 +90,53 @@ fun SettingsScreen(
         ) {
             Spacer(modifier = Modifier.height(20.dp))
 
+            // ─── Section: 테마 ───
             Text(
-                text = "테마",
+                text = "테마".uppercase(),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
             Spacer(modifier = Modifier.height(12.dp))
 
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                ThemeOptionTile(
-                    icon = Icons.Filled.DarkMode,
-                    title = "다크",
-                    description = "항상 어두운 테마를 사용합니다",
-                    selected = currentMode == ThemeMode.DARK,
-                    onClick = { viewModel.setThemeMode(ThemeMode.DARK) },
-                )
-                ThemeOptionTile(
-                    icon = Icons.Filled.LightMode,
-                    title = "라이트",
-                    description = "항상 밝은 테마를 사용합니다",
-                    selected = currentMode == ThemeMode.LIGHT,
-                    onClick = { viewModel.setThemeMode(ThemeMode.LIGHT) },
-                )
-                ThemeOptionTile(
-                    icon = Icons.Filled.BrightnessMedium,
-                    title = "시스템 설정",
-                    description = "기기의 다크 모드 설정을 따릅니다",
-                    selected = currentMode == ThemeMode.SYSTEM,
-                    onClick = { viewModel.setThemeMode(ThemeMode.SYSTEM) },
-                )
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = SurfaceContainerDark,
+                border = BorderStroke(1.dp, OutlineVariantDark),
+            ) {
+                Column(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
+                ) {
+                    ThemeOptionTile(
+                        icon = Icons.Filled.DarkMode,
+                        title = "다크",
+                        description = "항상 어두운 테마를 사용합니다",
+                        selected = currentMode == ThemeMode.DARK,
+                        onClick = { viewModel.setThemeMode(ThemeMode.DARK) },
+                    )
+                    ThemeOptionTile(
+                        icon = Icons.Filled.LightMode,
+                        title = "라이트",
+                        description = "항상 밝은 테마를 사용합니다",
+                        selected = currentMode == ThemeMode.LIGHT,
+                        onClick = { viewModel.setThemeMode(ThemeMode.LIGHT) },
+                    )
+                    ThemeOptionTile(
+                        icon = Icons.Filled.BrightnessMedium,
+                        title = "시스템 설정",
+                        description = "기기의 다크 모드 설정을 따릅니다",
+                        selected = currentMode == ThemeMode.SYSTEM,
+                        onClick = { viewModel.setThemeMode(ThemeMode.SYSTEM) },
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(28.dp))
+
+            // ─── Section: 컨셉 색상 ───
             Text(
-                text = "컨셉 색상",
+                text = "컨셉 색상".uppercase(),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -131,10 +147,20 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(14.dp))
-            AccentColorPicker(
-                selected = currentAccent,
-                onSelect = viewModel::setAccentColor,
-            )
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = SurfaceContainerDark,
+                border = BorderStroke(1.dp, OutlineVariantDark),
+            ) {
+                Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
+                    AccentColorPicker(
+                        selected = currentAccent,
+                        onSelect = viewModel::setAccentColor,
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(28.dp))
         }
@@ -155,23 +181,25 @@ private fun AccentColorPicker(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(7.dp),
             ) {
+                val isSelected = accent == selected
                 Box(
                     modifier = Modifier
                         .size(42.dp)
+                        .scale(if (isSelected) 1.15f else 1f)
                         .background(accent.accentColor, CircleShape)
                         .border(
-                            width = if (accent == selected) 3.dp else 1.dp,
-                            color = if (accent == selected) {
-                                MaterialTheme.colorScheme.onBackground
+                            width = if (isSelected) 2.dp else 1.dp,
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.primary
                             } else {
-                                MaterialTheme.colorScheme.outline
+                                OutlineVariantDark
                             },
                             shape = CircleShape,
                         )
                         .clickable { onSelect(accent) },
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (accent == selected) {
+                    if (isSelected) {
                         Icon(
                             imageVector = Icons.Filled.Check,
                             contentDescription = "${accent.displayName} 선택됨",
@@ -183,7 +211,7 @@ private fun AccentColorPicker(
                 Text(
                     text = accent.displayName,
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (accent == selected) {
+                    color = if (isSelected) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -202,66 +230,54 @@ private fun ThemeOptionTile(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            width = if (selected) 2.dp else 1.dp,
-            color = if (selected) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.outline,
-        ),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                .size(44.dp)
+                .background(
+                    color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+                    shape = MaterialTheme.shapes.large,
+                ),
+            contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(
-                        color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                                else MaterialTheme.colorScheme.surfaceVariant,
-                        shape = MaterialTheme.shapes.large,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (selected) MaterialTheme.colorScheme.primary
-                           else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (selected) MaterialTheme.colorScheme.primary
+                       else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(22.dp),
+            )
+        }
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-                            else MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (selected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
-            if (selected) {
-                Icon(
-                    imageVector = Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
+        if (selected) {
+            Icon(
+                imageVector = Icons.Filled.CheckCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp),
+            )
         }
     }
 }
