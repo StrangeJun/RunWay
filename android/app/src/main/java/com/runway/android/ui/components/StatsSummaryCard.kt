@@ -12,9 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.runway.android.ui.theme.GlassBorderDark
-import com.runway.android.ui.theme.GlassSurfaceDark
 import com.runway.android.ui.theme.LocalIsDarkTheme
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
 
 @Composable
 fun StatsSummaryCard(
@@ -26,8 +26,8 @@ fun StatsSummaryCard(
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        color = if (isDark) GlassSurfaceDark else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, if (isDark) GlassBorderDark else MaterialTheme.colorScheme.outline),
+        color = if (isDark) SurfaceContainerDark else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, if (isDark) OutlineVariantDark else MaterialTheme.colorScheme.outline),
     ) {
         Row(
             modifier = Modifier

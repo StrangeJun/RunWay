@@ -22,9 +22,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.runway.android.ui.theme.GlassBorderDark
-import com.runway.android.ui.theme.GlassSurfaceDark
 import com.runway.android.ui.theme.LocalIsDarkTheme
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
 
 data class RunHistoryItem(
     val runId: String,
@@ -49,8 +49,8 @@ fun RunHistoryCard(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = if (isDark) GlassSurfaceDark else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, if (isDark) GlassBorderDark else MaterialTheme.colorScheme.outline),
+        color = if (isDark) SurfaceContainerDark else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, if (isDark) OutlineVariantDark else MaterialTheme.colorScheme.outline),
         onClick = onClick,
     ) {
         Row(

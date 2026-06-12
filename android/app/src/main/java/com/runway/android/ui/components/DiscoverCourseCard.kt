@@ -40,9 +40,9 @@ import androidx.compose.ui.unit.sp
 import com.runway.android.data.course.model.GeoPoint
 import com.runway.android.data.course.model.NearbyCourseItem
 import com.runway.android.ui.discover.DiscoverViewModel
-import com.runway.android.ui.theme.GlassBorderDark
-import com.runway.android.ui.theme.GlassSurfaceDark
 import com.runway.android.ui.theme.LocalIsDarkTheme
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
 
 private val DarkBgTop = Color(0xFF0A0A0A)
 private val DarkBgBottom = Color(0xFF141414)
@@ -65,8 +65,8 @@ fun DiscoverCourseCard(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = if (isDark) GlassSurfaceDark else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, if (isDark) GlassBorderDark else MaterialTheme.colorScheme.outline),
+        color = if (isDark) SurfaceContainerDark else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, if (isDark) OutlineVariantDark else MaterialTheme.colorScheme.outline),
         onClick = onClick,
     ) {
         Column {

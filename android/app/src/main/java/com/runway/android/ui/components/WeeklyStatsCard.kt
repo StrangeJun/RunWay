@@ -53,7 +53,7 @@ fun WeeklyStatsCard(
         modifier = modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.extraLarge)
-            .background(MaterialTheme.colorScheme.primary),
+            .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
         // Decorative circle — partially bleeds off the top-right corner
         Box(
@@ -68,7 +68,7 @@ fun WeeklyStatsCard(
             Text(
                 text = "THIS WEEK",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -77,13 +77,13 @@ fun WeeklyStatsCard(
                 Text(
                     text = "%.1f".format(animatedDist),
                     style = MaterialTheme.typography.displayMedium,
-                    color = MaterialTheme.colorScheme.onPrimary,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "km",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
             }
@@ -105,13 +105,13 @@ private fun WeeklyStatItem(label: String, value: String) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onPrimary,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
     }
 }

@@ -181,7 +181,7 @@ fun RunHeroSection(
                 modifier = Modifier.size(96.dp).scale(startButtonScale),
                 interactionSource = startButtonInteraction,
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.primaryContainer,
                 shadowElevation = 14.dp,
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -189,7 +189,7 @@ fun RunHeroSection(
                         text = "시작",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
             }
