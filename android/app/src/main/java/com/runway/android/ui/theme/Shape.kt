@@ -4,11 +4,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 
-// Corner radii mirroring Lovable's --radius scale (base = 1rem ≈ 16dp)
 val RunwayShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),    // Filter chips, small badges
-    small = RoundedCornerShape(12.dp),         // Icon containers, avatar fallbacks
-    medium = RoundedCornerShape(16.dp),        // Default cards, list items
-    large = RoundedCornerShape(20.dp),         // Input fields, primary buttons
-    extraLarge = RoundedCornerShape(24.dp),    // Stats card, map container, metric grid
+    extraSmall = RoundedCornerShape(10.dp),   // 칩, 배지
+    small      = RoundedCornerShape(14.dp),   // 아이콘 컨테이너
+    medium     = RoundedCornerShape(20.dp),   // 기본 카드, 입력 필드
+    large      = RoundedCornerShape(28.dp),   // 대형 카드
+    extraLarge = RoundedCornerShape(32.dp),   // 통계 카드, 맵 컨테이너
 )
+
+/** 버튼 full-pill — RunwayPrimaryButton / RunwayLoadingButton 전용 */
+val PillShape = RoundedCornerShape(999.dp)
