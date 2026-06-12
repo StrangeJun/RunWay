@@ -65,7 +65,7 @@ import com.runway.android.core.map.MapPoint
 import com.runway.android.ui.home.RunGoal
 import com.runway.android.ui.theme.LocalIsDarkTheme
 
-private val HeroScrimDark = Color(0xFF0A0B10)
+private val HeroScrimDark = Color(0xFF0A0A0A)
 private val HeroScrimLight = Color(0xFFF5F5FA)
 
 @Composable
@@ -189,7 +189,7 @@ fun RunHeroSection(
                         text = "시작",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF0A0B10),
+                        color = MaterialTheme.colorScheme.onPrimary,
                     )
                 }
             }
