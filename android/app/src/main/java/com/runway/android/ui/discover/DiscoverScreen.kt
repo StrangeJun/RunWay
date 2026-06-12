@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,6 +69,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.ui.components.DiscoverCourseCard
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -161,10 +164,10 @@ fun DiscoverScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = 20.dp)
+                    .border(1.dp, OutlineVariantDark, MaterialTheme.shapes.extraLarge),
                 shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 1.dp,
+                color = SurfaceContainerDark,
             ) {
                 TextField(
                     value = viewModel.keyword,
@@ -224,7 +227,7 @@ fun DiscoverScreen(
             ModalBottomSheet(
                 onDismissRequest = { showFilterSheet = false },
                 sheetState = sheetState,
-                containerColor = MaterialTheme.colorScheme.surface,
+                containerColor = SurfaceContainerDark,
             ) {
                 FilterSheetContent(viewModel = viewModel, onDismiss = { showFilterSheet = false })
             }
@@ -294,10 +297,10 @@ fun DiscoverScreen(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
+                        .padding(horizontal = 20.dp)
+                        .border(1.dp, OutlineVariantDark, MaterialTheme.shapes.extraLarge),
                     shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 1.dp,
+                    color = SurfaceContainerDark,
                 ) {
                     TextField(
                         value = viewModel.keyword,
@@ -507,9 +510,9 @@ private fun DiscoverViewModeSelector(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier,
+        modifier = modifier.border(1.dp, OutlineVariantDark, MaterialTheme.shapes.medium),
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = SurfaceContainerDark,
     ) {
         Row(modifier = Modifier.padding(4.dp)) {
             listOf(
@@ -522,11 +525,11 @@ private fun DiscoverViewModeSelector(
                     modifier = Modifier.weight(1f),
                     shape = MaterialTheme.shapes.small,
                     color = if (selected) {
-                        MaterialTheme.colorScheme.surface
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                     } else {
                         Color.Transparent
                     },
-                    shadowElevation = if (selected) 1.dp else 0.dp,
+                    shadowElevation = 0.dp,
                 ) {
                     Row(
                         modifier = Modifier.padding(vertical = 10.dp),
@@ -549,7 +552,7 @@ private fun DiscoverViewModeSelector(
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                             color = if (selected) {
-                                MaterialTheme.colorScheme.onSurface
+                                MaterialTheme.colorScheme.primary
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
@@ -605,7 +608,7 @@ private fun FilterSheetContent(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        HorizontalDivider(color = OutlineVariantDark.copy(alpha = 0.5f))
         Spacer(modifier = Modifier.height(20.dp))
 
         if (viewModel.viewMode == DiscoverViewMode.LIST) {
@@ -722,7 +725,9 @@ private fun SheetChip(
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = if (selected) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.surfaceVariant,
+                else SurfaceContainerDark,
+        border = if (selected) null
+                 else androidx.compose.foundation.BorderStroke(1.dp, OutlineVariantDark),
         onClick = onClick,
     ) {
         Text(

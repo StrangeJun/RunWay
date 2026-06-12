@@ -1,6 +1,7 @@
 package com.runway.android.ui.course.library
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.data.course.model.ParticipatedCourseItem
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -174,10 +177,10 @@ private fun CreatedCourseCard(course: CourseResponse, onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .border(1.dp, OutlineVariantDark, MaterialTheme.shapes.large),
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
+        color = SurfaceContainerDark,
         onClick = onClick,
     ) {
         Row(
@@ -275,10 +278,10 @@ private fun FavoriteCourseCard(course: CourseResponse, onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .border(1.dp, OutlineVariantDark, MaterialTheme.shapes.large),
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
+        color = SurfaceContainerDark,
         onClick = onClick,
     ) {
         Row(
@@ -363,10 +366,10 @@ private fun ParticipatedCourseCard(course: ParticipatedCourseItem, onClick: () -
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .border(1.dp, OutlineVariantDark, MaterialTheme.shapes.large),
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
+        color = SurfaceContainerDark,
         onClick = onClick,
     ) {
         Row(
