@@ -158,7 +158,7 @@ private fun AccentColorPicker(
                 Box(
                     modifier = Modifier
                         .size(42.dp)
-                        .background(accent.color, CircleShape)
+                        .background(accent.accentColor, CircleShape)
                         .border(
                             width = if (accent == selected) 3.dp else 1.dp,
                             color = if (accent == selected) {

@@ -13,86 +13,86 @@ val LocalIsDarkTheme = compositionLocalOf { true }
 
 enum class ThemeMode { DARK, LIGHT, SYSTEM }
 
+/**
+ * User-selectable accent color — drives primaryContainer (the glow/neon accent).
+ * Primary (interactive buttons) stays WHITE regardless of accent.
+ */
 enum class AccentColor(
     val displayName: String,
-    val color: Color,
-    val onColor: Color,
-    val darkContainer: Color,
-    val lightContainer: Color,
+    val accentColor: Color,
+    val onAccentColor: Color,
 ) {
-    GREEN("초록", RunwayGreen, OnRunwayGreen, Color(0xFF1C2E14), Color(0xFFD6F5B0)),
-    WHITE("화이트", RunwayWhite, OnRunwayWhite, Color(0xFF1E1E1E), Color(0xFFF0F0F0)),
-    ENERGY_ORANGE("오렌지", RunwayEnergyOrange, OnRunwayOrange, Color(0xFF3D1A0A), Color(0xFFFFD5C2)),
-    ELECTRIC_BLUE("블루", RunwayElectricBlue, OnRunwayBlue, Color(0xFF0A1E3D), Color(0xFFC2DCFF)),
-    RED("빨강", RunwayRed, OnSurfaceDark, Color(0xFF3D1B20), Color(0xFFFFDADA)),
-    ORANGE("주황", RunwayOrange, OnSurfaceDark, Color(0xFF3B2414), Color(0xFFFFDCC2)),
-    YELLOW("노랑", RunwayYellow, OnSurfaceDark, Color(0xFF342D12), Color(0xFFFFEFA8)),
-    BLUE("파랑", RunwayBlue, OnSurfaceDark, Color(0xFF142B3D), Color(0xFFCDE8FF)),
-    PURPLE("보라", RunwayPurple, OnSurfaceDark, Color(0xFF2D1D3D), Color(0xFFEBD8FF)),
+    GREEN("초록", RunwayGreen, OnRunwayGreen),
+    ORANGE("오렌지", AccentOrange, OnAccentOrange),
+    ELECTRIC_BLUE("블루", AccentBlue, OnAccentBlue),
+    RED("빨강", AccentRed, OnAccentRed),
+    YELLOW("노랑", AccentYellow, OnAccentYellow),
+    PURPLE("보라", AccentPurple, OnAccentPurple),
 }
 
 private fun runwayDarkColorScheme(accent: AccentColor) = darkColorScheme(
+    // Primary = WHITE — CTA buttons (login, signup, etc.)
+    primary = PrimaryWhite,
+    onPrimary = OnPrimaryDark,
+    primaryContainer = accent.accentColor,      // Lime green glow/accent
+    onPrimaryContainer = accent.onAccentColor,
+
+    secondary = SurfaceContainerDark,           // Card / elevated surface
+    onSecondary = OnSurfaceDark,
+    secondaryContainer = SurfaceContainerHighDark,
+    onSecondaryContainer = OnSurfaceDark,
+
     background = BackgroundDark,
     surface = SurfaceDark,
     surfaceVariant = MutedDark,
 
-    primary = accent.color,
-    onPrimary = accent.onColor,
-    primaryContainer = accent.darkContainer,
-    onPrimaryContainer = accent.color,
-
-    secondary = SecondaryContainerDark,
-    onSecondary = OnSurfaceWhite,
-    secondaryContainer = SecondaryContainerDark,
-    onSecondaryContainer = OnSurfaceWhite,
-
-    error = DestructiveRed,
-    onError = OnSurfaceWhite,
-    errorContainer = Color(0xFF3B1410),
-    onErrorContainer = DestructiveRed,
-
-    onBackground = OnSurfaceWhite,
-    onSurface = OnSurfaceWhite,
+    onBackground = OnSurfaceDark,
+    onSurface = OnSurfaceDark,
     onSurfaceVariant = OnSurfaceMuted,
 
     outline = BorderColorDark,
-    outlineVariant = BorderColorDark,
+    outlineVariant = OutlineVariantDark,
 
-    inverseSurface = OnSurfaceWhite,
+    error = DestructiveRed,
+    onError = OnSurfaceDark,
+    errorContainer = Color(0xFF3B1410),
+    onErrorContainer = DestructiveRed,
+
+    inverseSurface = OnSurfaceDark,
     inverseOnSurface = BackgroundDark,
-    inversePrimary = accent.color,
+    inversePrimary = accent.accentColor,
 )
 
 private fun runwayLightColorScheme(accent: AccentColor) = lightColorScheme(
+    primary = accent.accentColor,               // Light mode: accent as primary
+    onPrimary = accent.onAccentColor,
+    primaryContainer = accent.accentColor.copy(alpha = 0.2f),
+    onPrimaryContainer = Color(0xFF111119),
+
+    secondary = Color(0xFFE8E8F0),
+    onSecondary = Color(0xFF111119),
+    secondaryContainer = Color(0xFFEEEEF4),
+    onSecondaryContainer = Color(0xFF111119),
+
     background = BackgroundLight,
     surface = SurfaceLight,
     surfaceVariant = MutedLight,
 
-    primary = accent.color,
-    onPrimary = accent.onColor,
-    primaryContainer = accent.lightContainer,
-    onPrimaryContainer = OnSurfaceDark,
-
-    secondary = SecondaryContainerLight,
-    onSecondary = OnSurfaceDark,
-    secondaryContainer = SecondaryContainerLight,
-    onSecondaryContainer = OnSurfaceDark,
-
-    error = DestructiveRed,
-    onError = OnSurfaceWhite,
-    errorContainer = Color(0xFFFFEDEB),
-    onErrorContainer = DestructiveRed,
-
-    onBackground = OnSurfaceDark,
-    onSurface = OnSurfaceDark,
+    onBackground = OnSurfaceDarkLight,
+    onSurface = OnSurfaceDarkLight,
     onSurfaceVariant = OnSurfaceMutedLight,
 
     outline = BorderColorLight,
     outlineVariant = BorderColorLight,
 
-    inverseSurface = OnSurfaceDark,
+    error = DestructiveRed,
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFFEDEB),
+    onErrorContainer = DestructiveRed,
+
+    inverseSurface = OnSurfaceDarkLight,
     inverseOnSurface = BackgroundLight,
-    inversePrimary = accent.color,
+    inversePrimary = accent.accentColor,
 )
 
 @Composable

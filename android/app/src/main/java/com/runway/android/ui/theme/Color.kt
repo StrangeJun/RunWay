@@ -46,7 +46,19 @@ val OnRunwayGreen       = Color(0xFF102000)     // on-primary-fixed
 val OnRunwayGreenVariant= Color(0xFF304F00)     // on-primary-fixed-variant
 
 // ─── User-selectable accent colors ───
-// Legacy mapping for Theme.kt AccentColor enum
+// Primary accent options (for primaryContainer glow)
+val AccentOrange        = Color(0xFFFFA45B)
+val OnAccentOrange      = Color(0xFF1F0A00)
+val AccentBlue          = Color(0xFF65B7FF)
+val OnAccentBlue        = Color(0xFF001B3D)
+val AccentRed           = Color(0xFFFF7474)
+val OnAccentRed         = Color(0xFF3D1B1F)
+val AccentYellow        = Color(0xFFF3D45C)
+val OnAccentYellow      = Color(0xFF332D12)
+val AccentPurple        = Color(0xFFC58BFF)
+val OnAccentPurple      = Color(0xFF2D1D3D)
+
+// Legacy mapping for older references (if any)
 val RunwayWhite         = Color(0xFFFFFFFF)
 val OnRunwayWhite       = Color(0xFF0A0A0A)
 val RunwayEnergyOrange  = Color(0xFFFF6B35)
