@@ -23,6 +23,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,6 +70,8 @@ import com.runway.android.ui.components.BatteryOptimizationCard
 import com.runway.android.ui.components.LocationPermissionCard
 import com.runway.android.ui.components.RunningControlButton
 import com.runway.android.ui.components.rememberBatteryOptimizationIgnored
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
 import com.runway.android.ui.theme.WarningYellow
 
 @Composable
@@ -253,8 +256,7 @@ fun RunningTrackingScreen(
                 isRunning = isRunning,
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                    .fillMaxWidth(),
             )
         }
 
@@ -341,84 +343,77 @@ private fun FreeRunDataPanel(
     isRunning: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+        Text(
+            text = if (isRunning) "GPS · ACTIVE" else "PAUSED",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        AnimatedContent(
+            targetState = distanceText,
+            transitionSpec = {
+                (slideInVertically(tween(250)) { it } + fadeIn(tween(250))) togetherWith
+                    (slideOutVertically(tween(200)) { -it } + fadeOut(tween(200)))
+            },
+            label = "distanceSlot",
+        ) { text ->
+            Text(
+                text = text,
+                fontSize = 84.sp,
+                lineHeight = 88.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+            )
+        }
+        Text(
+            text = "km",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(32.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = if (isRunning) "자유 러닝" else "일시정지 중",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            CompactMetricBlock(
+                label = "TIME",
+                value = timerText,
+                unit = "",
+                modifier = Modifier.weight(1f),
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            AnimatedContent(
-                targetState = distanceText,
-                transitionSpec = {
-                    (slideInVertically(tween(250)) { it } + fadeIn(tween(250))) togetherWith
-                        (slideOutVertically(tween(200)) { -it } + fadeOut(tween(200)))
-                },
-                label = "distanceSlot",
-            ) { text ->
-                Text(
-                    text = text,
-                    fontSize = 84.sp,
-                    lineHeight = 88.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center,
-                )
-            }
-            Text(
-                text = "km",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
+            CompactMetricBlock(
+                label = "AVG PACE",
+                value = paceText,
+                unit = "/km",
+                modifier = Modifier.weight(1f),
             )
-            Spacer(modifier = Modifier.height(32.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                CompactMetricBlock(
-                    label = "TIME",
-                    value = timerText,
-                    unit = "",
-                    modifier = Modifier.weight(1f),
-                )
-                CompactMetricBlock(
-                    label = "AVG PACE",
-                    value = paceText,
-                    unit = "/km",
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                CompactMetricBlock(
-                    label = "CADENCE",
-                    value = cadenceText,
-                    unit = "spm",
-                    modifier = Modifier.weight(1f),
-                )
-                CompactMetricBlock(
-                    label = "SPEED",
-                    value = speedText,
-                    unit = "km/h",
-                    modifier = Modifier.weight(1f),
-                )
-            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            CompactMetricBlock(
+                label = "CADENCE",
+                value = cadenceText,
+                unit = "spm",
+                modifier = Modifier.weight(1f),
+            )
+            CompactMetricBlock(
+                label = "SPEED",
+                value = speedText,
+                unit = "km/h",
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
@@ -432,8 +427,9 @@ private fun CompactMetricBlock(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clip(RoundedCornerShape(20.dp))
+            .background(SurfaceContainerDark)
+            .border(1.dp, OutlineVariantDark, RoundedCornerShape(20.dp))
             .padding(vertical = 16.dp, horizontal = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
