@@ -1,5 +1,10 @@
 package com.runway.android.ui.running
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,21 +21,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.DirectionsRun
-import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
-import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,16 +39,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.ui.components.RouteMapView
 import com.runway.android.ui.components.RunwayPrimaryButton
 import com.runway.android.ui.course.CreateCourseDialog
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerDark
+import kotlinx.coroutines.delay
 
 @Composable
 fun RunResultScreen(
@@ -93,38 +95,66 @@ fun RunResultScreen(
                 .statusBarsPadding()
                 .padding(bottom = 160.dp),
         ) {
-            // Top bar
+
+            // 1. Ambient top glow
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .height(200.dp),
             ) {
-                Text(
-                    text = "러닝 완료",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.align(Alignment.Center),
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                0f to MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                                1f to Color.Transparent,
+                            ),
+                        ),
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Distance summary
+            // 2. Hero section — centered
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    text = "RUN COMPLETE",
-                    style = MaterialTheme.typography.labelLarge,
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // "RUN COMPLETE" badge
+                Surface(
+                    shape = CircleShape,
                     color = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+                    shadowElevation = 16.dp,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "RUN COMPLETE",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            letterSpacing = 2.sp,
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Big animated distance
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         text = "%.2f".format(animatedDist),
-                        style = MaterialTheme.typography.displayMedium,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        style = MaterialTheme.typography.displayLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
@@ -134,67 +164,28 @@ fun RunResultScreen(
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 }
+
+                // Duration • pace
                 Text(
-                    text = "자유 런",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = "${viewModel.timerText} • ${viewModel.paceText}/km",
+                    style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+
+                Spacer(modifier = Modifier.height(32.dp))
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ─── Result cards 2x2 ───
-            AnimatedVisibility(
-                visible = cardsVisible,
-                enter = slideInVertically(tween(350)) { it / 2 } + fadeIn(tween(350)),
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        ResultCard(
-                            icon = Icons.Filled.Timer,
-                            label = "TIME",
-                            value = viewModel.timerText,
-                            modifier = Modifier.weight(1f),
-                        )
-                        ResultCard(
-                            icon = Icons.AutoMirrored.Filled.DirectionsRun,
-                            label = "PACE",
-                            value = viewModel.paceText,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        ResultCard(
-                            icon = Icons.Filled.LocalFireDepartment,
-                            label = "CALORIES",
-                            value = viewModel.caloriesText,
-                            modifier = Modifier.weight(1f),
-                        )
-                        ResultCard(
-                            icon = Icons.AutoMirrored.Filled.DirectionsWalk,
-                            label = "STEPS",
-                            value = viewModel.stepsText,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ─── Route map preview ───
+            // 3. Route map card
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(140.dp)
+                    .height(260.dp)
                     .padding(horizontal = 20.dp)
                     .clip(MaterialTheme.shapes.extraLarge)
                     .clickable(enabled = viewModel.runId != null && !viewModel.isLoadingRoute) {
                         viewModel.runId?.let(onOpenRunDetail)
                     },
+                contentAlignment = Alignment.Center,
             ) {
                 if (viewModel.isLoadingRoute) {
                     Box(
@@ -210,28 +201,32 @@ fun RunResultScreen(
                         points = viewModel.routePoints,
                         modifier = Modifier.fillMaxSize(),
                     )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clickable(enabled = viewModel.runId != null) {
-                                viewModel.runId?.let(onOpenRunDetail)
-                            },
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 4. Stats row — TIME and CALORIES
+            AnimatedVisibility(
+                visible = cardsVisible,
+                enter = slideInVertically(tween(350)) { it / 2 } + fadeIn(tween(350)),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    MetricCard(
+                        label = "TIME",
+                        value = viewModel.timerText,
+                        modifier = Modifier.weight(1f),
                     )
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(10.dp),
-                        shape = MaterialTheme.shapes.large,
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    ) {
-                        Text(
-                            text = "지도 자세히 보기",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        )
-                    }
+                    MetricCard(
+                        label = "CALORIES",
+                        value = viewModel.caloriesText,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
@@ -241,6 +236,12 @@ fun RunResultScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        0.3f to MaterialTheme.colorScheme.background,
+                    ),
+                )
                 .padding(horizontal = 20.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -270,13 +271,6 @@ fun RunResultScreen(
                     }
                 }
             } else {
-                Text(
-                    text = "방금 달린 경로를 다른 사람이 도전할 수 있는 코스로 만들어보세요.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
                 RunwayPrimaryButton(
                     text = "이 러닝으로 코스 만들기",
                     onClick = { viewModel.onShowCreateDialog() },
@@ -284,9 +278,12 @@ fun RunResultScreen(
                 )
             }
             if (viewModel.runId != null) {
-                TextButton(
+                OutlinedButton(
                     onClick = { onShareImage(viewModel.runId) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(58.dp),
+                    shape = MaterialTheme.shapes.extraLarge,
                 ) {
                     Text(
                         text = "공유 이미지 만들기",
@@ -326,34 +323,24 @@ fun RunResultScreen(
 }
 
 @Composable
-private fun ResultCard(
-    icon: ImageVector,
+private fun MetricCard(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
 ) {
     Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        shape = MaterialTheme.shapes.large,
+        color = SurfaceContainerDark,
+        border = BorderStroke(1.dp, OutlineVariantDark),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(14.dp),
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleLarge,
