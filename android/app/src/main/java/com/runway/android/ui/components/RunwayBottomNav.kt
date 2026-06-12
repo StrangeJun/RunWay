@@ -1,5 +1,6 @@
 package com.runway.android.ui.components
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -9,16 +10,34 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.runway.android.ui.navigation.MainTab
+import com.runway.android.ui.theme.LocalIsDarkTheme
 
 @Composable
 fun RunwayBottomNav(
     currentTab: MainTab,
     onTabSelected: (MainTab) -> Unit,
 ) {
+    val isDark = LocalIsDarkTheme.current
+    val topBorderColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
+
     NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .drawBehind {
+                drawLine(
+                    color = topBorderColor,
+                    start = Offset(0f, 0f),
+                    end = Offset(size.width, 0f),
+                    strokeWidth = 1.dp.toPx(),
+                )
+            },
+        containerColor = if (isDark) Color.White.copy(alpha = 0.04f)
+                         else MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
     ) {
         MainTab.entries.forEach { tab ->
