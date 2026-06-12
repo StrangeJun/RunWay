@@ -24,11 +24,11 @@ enum class AccentColor(
     WHITE("화이트", RunwayWhite, OnRunwayWhite, Color(0xFF1E1E1E), Color(0xFFF0F0F0)),
     ENERGY_ORANGE("오렌지", RunwayEnergyOrange, OnRunwayOrange, Color(0xFF3D1A0A), Color(0xFFFFD5C2)),
     ELECTRIC_BLUE("블루", RunwayElectricBlue, OnRunwayBlue, Color(0xFF0A1E3D), Color(0xFFC2DCFF)),
-    RED("빨강", RunwayRed, OnRunwayGreen, Color(0xFF3D1B20), Color(0xFFFFDADA)),
-    ORANGE("주황", RunwayOrange, OnRunwayGreen, Color(0xFF3B2414), Color(0xFFFFDCC2)),
-    YELLOW("노랑", RunwayYellow, OnRunwayGreen, Color(0xFF342D12), Color(0xFFFFEFA8)),
-    BLUE("파랑", RunwayBlue, OnRunwayGreen, Color(0xFF142B3D), Color(0xFFCDE8FF)),
-    PURPLE("보라", RunwayPurple, OnRunwayGreen, Color(0xFF2D1D3D), Color(0xFFEBD8FF)),
+    RED("빨강", RunwayRed, OnSurfaceDark, Color(0xFF3D1B20), Color(0xFFFFDADA)),
+    ORANGE("주황", RunwayOrange, OnSurfaceDark, Color(0xFF3B2414), Color(0xFFFFDCC2)),
+    YELLOW("노랑", RunwayYellow, OnSurfaceDark, Color(0xFF342D12), Color(0xFFFFEFA8)),
+    BLUE("파랑", RunwayBlue, OnSurfaceDark, Color(0xFF142B3D), Color(0xFFCDE8FF)),
+    PURPLE("보라", RunwayPurple, OnSurfaceDark, Color(0xFF2D1D3D), Color(0xFFEBD8FF)),
 }
 
 private fun runwayDarkColorScheme(accent: AccentColor) = darkColorScheme(

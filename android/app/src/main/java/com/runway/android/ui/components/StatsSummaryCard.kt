@@ -20,7 +20,7 @@ import com.runway.android.ui.theme.LocalIsDarkTheme
 fun StatsSummaryCard(
     label: String,
     value: String,
-    modifier: Modifier = Modifier.fillMaxWidth(),
+    modifier: Modifier = Modifier,
 ) {
     val isDark = LocalIsDarkTheme.current
     Surface(
