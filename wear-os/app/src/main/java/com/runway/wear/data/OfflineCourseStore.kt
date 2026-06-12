@@ -24,6 +24,7 @@ data class OfflineCourse(
     val distanceMeters: Double,
     val distanceFromMeMeters: Double,
     val isLoop: Boolean,
+    val isPublic: Boolean,
     val points: List<OfflineCoursePoint>,
 ) {
     fun toJson() = JSONObject()
@@ -33,6 +34,7 @@ data class OfflineCourse(
         .put("distanceMeters", distanceMeters)
         .put("distanceFromMeMeters", distanceFromMeMeters)
         .put("isLoop", isLoop)
+        .put("isPublic", isPublic)
         .put("points", JSONArray().apply { points.forEach { put(it.toJson()) } })
 
     companion object {
@@ -43,6 +45,7 @@ data class OfflineCourse(
             distanceMeters = json.getDouble("distanceMeters"),
             distanceFromMeMeters = json.optDouble("distanceFromMeMeters", 0.0),
             isLoop = json.optBoolean("isLoop"),
+            isPublic = json.optBoolean("isPublic", true),
             points = json.getJSONArray("points").let { points ->
                 buildList {
                     for (index in 0 until points.length()) {
@@ -72,7 +75,7 @@ object OfflineCourseRepository {
 
 class OfflineCourseStore(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences(
-        "pathfinder_offline_courses",
+        "runway_offline_courses",
         Context.MODE_PRIVATE,
     )
 

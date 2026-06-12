@@ -33,7 +33,7 @@ fun RunwayLogoAnimation(
         modifier = modifier.size(240.dp),
         contentAlignment = Alignment.Center,
     ) {
-        PathFinderMarkDrawAnimation(
+        RunWayMarkDrawAnimation(
             progress = clampedProgress,
             modifier = Modifier.fillMaxSize(),
         )
@@ -41,7 +41,7 @@ fun RunwayLogoAnimation(
 }
 
 @Composable
-private fun PathFinderMarkDrawAnimation(
+private fun RunWayMarkDrawAnimation(
     progress: Float,
     modifier: Modifier = Modifier,
 ) {
@@ -85,7 +85,7 @@ private fun PathFinderMarkDrawAnimation(
 
         Image(
             painter = painterResource(id = R.drawable.app_logo_mark),
-            contentDescription = "PathFinder Logo",
+            contentDescription = "RunWay Logo",
             contentScale = ContentScale.Fit,
             modifier = Modifier
                 .fillMaxSize(0.68f)
@@ -111,7 +111,7 @@ private fun easeInOut(value: Float): Float {
 
 @Preview(showBackground = true, backgroundColor = 0xFF000000)
 @Composable
-private fun PathFinderLogoAnimationPreview() {
+private fun RunWayLogoAnimationPreview() {
     RunwayTheme {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             RunwayLogoAnimation(progress = 0.6f)

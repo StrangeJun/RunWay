@@ -2,11 +2,13 @@
 
 ## 1. 프로젝트 개요
 
-**RunWay** — 위치 기반 러닝 코스 공유 및 경쟁 앱.
+**RunWay** — GPS 기반 러닝 코스 공유 및 경쟁 플랫폼.
 
 - 사용자가 GPS로 러닝 경로를 기록하고, 이를 코스로 등록해 공개한다.
 - 다른 사용자는 주변 코스를 탐색하고, 해당 코스에 도전하여 완주 기록을 남긴다.
 - 코스별 리더보드에서 완주 기록을 비교한다.
+- Galaxy Watch 6용 Wear OS 앱으로 폰 없이 독립 실행 가능.
+- MediaPipe + TensorFlow Lite 기반 On-Device AI 러닝 자세 분석 제공.
 - 핵심 플로우: `런 시작 → GPS 수집 → 런 완료 → 코스 생성 → 코스 탐색 → 코스 도전 → 리더보드`
 
 ---
@@ -16,14 +18,17 @@
 ```
 RunWay/
 ├── backend/       # Spring Boot 백엔드
-├── android/       # Kotlin Android 클라이언트 (개발 중)
-├── docs/          # 기술 명세서, API 명세서
+├── android/       # Kotlin Android 클라이언트
+├── wear-os/       # Kotlin Wear OS 클라이언트 (Galaxy Watch 6)
+├── docs/          # 기술 명세서, API 명세서, 로드맵
 ├── design/        # Lovable 기반 UI 프로토타입
+├── sample/        # 테스트용 Samsung Health GPX 파일
 └── CLAUDE.md
 ```
 
-- `backend/` — Spring Boot API 서버. Phase 1 MVP 완료. 모든 백엔드 코드는 이 디렉토리 안에서만 다룬다.
-- `android/` — Kotlin Android 클라이언트. Phase B-3~B-6 구현 완료, 개발 진행 중.
+- `backend/` — Spring Boot API 서버. Phase 1 MVP 완료 + 확장 API 추가. 모든 백엔드 코드는 이 디렉토리 안에서만 다룬다.
+- `android/` — Kotlin Android 클라이언트. 인증·러닝·코스·도전·AI 자세 분석 전체 구현 완료.
+- `wear-os/` — Galaxy Watch 6용 Wear OS 앱. 독립 실행, 코스 도전, 폰 연동 구현 완료.
 - `docs/` — 설계 문서. 구현 전 반드시 참고해야 한다.
 - `design/` — Lovable 기반 React/Vite UI 프로토타입. Android UI 설계 참고용.
 
@@ -54,7 +59,7 @@ RunWay/
 
 ### 완료된 작업
 
-**Backend (Phase 1 — MVP 완료)**
+**Backend (Phase 1 완료 + 확장)**
 
 | 단계 | 작업 |
 |------|------|
@@ -62,27 +67,39 @@ RunWay/
 | Phase 1-1B | User Entity, UserRepository, enum 클래스, Security/JWT 기반 클래스 |
 | Phase 1-2 | Auth API — 회원가입, 로그인, 토큰 재발급, 로그아웃 |
 | Phase 1-3 | Running API — 런 시작/일시정지/재개/완료/중단, GPS 포인트 배치 저장, 기록 조회 |
-| Phase 1-4 | Course API — 코스 생성, 수정, 공개/보관, 인근 코스 탐색, 코스 상세 조회 |
+| Phase 1-4 | Course API — 코스 생성, 수정, 공개, 인근 코스 탐색, 코스 상세 조회 |
 | Phase 1-5 | Course Attempt API — 코스 시도 시작/완주/포기, 리더보드 조회 |
+| 확장 | 프로필 이미지 업로드, 러닝 통계/최고기록, 업적, 코스 평점/신고/즐겨찾기, Privacy Zone |
 
-**Android (Phase B — 진행 중)**
+**Android (Phase B — 완료)**
 
 | 단계 | 작업 |
 |------|------|
 | Phase B-3 | 인증 UI — LoginScreen, SignupScreen, Hilt + Retrofit + DataStore 연동 |
-| Phase B-4 | 홈 + 메인 네비게이션 — MainScaffold (BottomNav 4탭), HomeScreen |
-| Phase B-5 | 러닝 추적 UI — RunningTrackingScreen, RunResultScreen, Canvas RouteMap |
+| Phase B-4 | 홈 + 메인 네비게이션 — MainScaffold (BottomNav 5탭), HomeScreen |
+| Phase B-5 | 러닝 추적 UI — RunningTrackingScreen, RunResultScreen, RouteMapView |
 | Phase B-6 | Running API 백엔드 연동 — GPS 배치 전송, pause/resume/finish API |
+| Phase B-7~B-10 | 코스 생성, 주변 탐색, 코스 상세, 코스 도전 + 리더보드 |
+| Phase B-11~B-14 | Google Maps 연동, 자세 분석(MediaPipe + TFLite), 프로필·통계·업적 |
+| Phase B-15 | GPS 필터링, ForegroundService, 크래시 복구(PendingPointQueue + TrackingSessionStore) |
+| Phase B-16 | 코스 도전 지도 오버레이, 실제 GPS 기반 Nearby Discovery, HomeScreen 연동 |
 
-### 다음 작업 (Android)
+**Wear OS (완료)**
 
-| 단계 | 작업 | 브랜치 |
-|------|------|--------|
-| Phase B-7 | 완료된 런에서 코스 생성 (`POST /api/courses/from-run/{runId}`) | `feature/android-course-create` |
-| Phase B-8 | 주변 코스 탐색 — DiscoverScreen (`GET /api/courses/nearby`) | `feature/android-discover` |
-| Phase B-9 | 코스 상세 조회 | `feature/android-course-detail` |
-| Phase B-10 | 코스 도전 + 리더보드 | `feature/android-attempt-leaderboard` |
-| Phase 2+ | GPS 경로 검증, 완주 인증 이미지, 코스 사용 통계, 소셜 기능 | — |
+| 단계 | 작업 |
+|------|------|
+| Wear Phase 1 | 기본 러닝 추적 — HealthServices, FusedLocationProvider, ForegroundService |
+| Wear Phase 2 | 코스 도전 — DataLayer 동기화, 경로 투영 진행도, 이탈 감지/자동 일시정지 |
+| Wear Phase 3 | AOD(Ambient Mode), 오프라인 런 저장 및 폰 업로드, 음성 안내 |
+
+### 다음 작업
+
+| 단계 | 작업 |
+|------|------|
+| B-17 | Privacy Zone 좌표 마스킹, Backend 데이터 무결성 방어, Global Leaderboard 탭 정리 |
+| B-18 | Auto-Pause, 1km Splits, km 마일스톤 알림 |
+| B-19 | My Courses 화면, 온보딩, 코스 신고 |
+| B-20 | Personal Records, 코스 키워드 검색, 페이스 차트 |
 
 ---
 
@@ -207,24 +224,52 @@ RunWay/
 ## 9. Android 규칙
 
 - Android 코드는 `android/` 하위에만 구현한다.
-- Phase B-3~B-6이 구현 완료되어 있다. 구현 내용을 파악한 후 다음 Phase를 진행한다.
 - 구현 전에 반드시 기존 코드와 `docs/api-specification.md`를 확인한다.
 
 ### 현재 스택
 
 - Kotlin 2.0.21, Jetpack Compose (Material 3), Navigation Compose 2.8.4
 - Retrofit2 2.11.0, OkHttp 4.12.0, Gson
-- DataStore Preferences 1.1.1, Hilt 2.52 (KSP)
+- Room 2.6.1, DataStore Preferences 1.1.1, Hilt 2.52 (KSP)
 - Coroutines + Flow, `NetworkResult<T>`, `safeApiCall`
-- GPS: Fused Location Provider (Foreground Service — Phase B-11 이후 실제 연동 예정)
-- 지도: Google Maps SDK 또는 Kakao Map SDK (Phase B-9 이후 예정)
+- GPS: Fused Location Provider + ForegroundService (`RunTrackingService`)
+- 지도: Google Maps SDK 19.0.0 + Maps Compose 4.4.1
+- AI/ML: MediaPipe Pose Landmarker 0.10.35, TensorFlow Lite
+- 카메라: CameraX 1.4.1, Media3 ExoPlayer 1.5.1
+- 이미지: Coil 2.7.0
+- Wear OS 연동: Play Services Wearable 19.0.0
 
 ### Android 연동 핵심 규칙
 
-- GPS 포인트는 5~20개 단위 batch 전송. 단건 실시간 전송하지 않는다.
-- 네트워크 실패 시 local queue 보관 후 재전송한다.
-- JWT Access Token 만료 시 OkHttp Interceptor에서 자동으로 Refresh Token으로 재발급한다.
+- GPS 포인트는 5초마다 batch 전송. 단건 실시간 전송하지 않는다.
+- 네트워크 실패 시 Room `PendingPointQueue`에 보관 후 재전송한다.
+- JWT Access Token 만료 시 `TokenAuthenticator`(OkHttp)에서 자동 재발급한다.
 - 코스 기반 러닝 시 서버에서 `runningRecordId`와 `courseAttemptId`를 함께 반환한다. GPS 포인트 저장은 `runningRecordId`로, 완주/포기 처리는 `courseAttemptId`로 한다.
+- 앱 강제 종료 후 재시작 시 `TrackingSessionStore`(DataStore)로 런 상태를 복구한다.
+
+---
+
+## 9-1. Wear OS 규칙
+
+- Wear OS 코드는 `wear-os/` 하위에만 구현한다.
+- android/와 wear-os/ 간 코드를 직접 공유하지 않는다. DataLayer(MessageClient, DataClient)로 통신한다.
+
+### 현재 스택
+
+- Kotlin, Jetpack Compose Wear Material 3
+- HealthServices (`ExerciseClient`) + FusedLocationProvider (듀얼 GPS)
+- Wearable DataLayer (MessageClient + DataClient)
+- Android TextToSpeech (오프라인 한국어 음성)
+- `AmbientLifecycleObserver` (AOD)
+- `RunForegroundService` (FOREGROUND_SERVICE_TYPE_LOCATION)
+
+### Wear OS 핵심 규칙
+
+- 코스 동기화는 폰에서 DataClient로 워치에 오프라인 저장 (`OfflineCourseStore`).
+- 경로 이탈 감지 기준: 20m. 이탈 시 자동 일시정지 + FLP 복귀 모니터 시작.
+- 수동 재개는 경로 이탈 중 차단한다.
+- 완주 조건: 진행도 100% AND 종착점 30m 이내.
+- 폰 미연결 시 런 데이터를 `PendingWatchRunStore`에 저장, 연결 시 자동 업로드.
 
 ---
 

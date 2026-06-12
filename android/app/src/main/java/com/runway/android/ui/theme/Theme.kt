@@ -14,28 +14,29 @@ val LocalIsDarkTheme = compositionLocalOf { true }
 enum class ThemeMode { DARK, LIGHT, SYSTEM }
 
 /**
- * User-selectable accent color — drives primaryContainer (the glow/neon accent).
- * Primary (interactive buttons) stays WHITE regardless of accent.
+ * User-selectable accent color — drives primary (buttons, active states, highlights, text accents).
+ * primaryContainer is a darker tint of the accent for chip/badge backgrounds.
  */
 enum class AccentColor(
     val displayName: String,
     val accentColor: Color,
     val onAccentColor: Color,
+    val darkContainer: Color,
 ) {
-    GREEN("초록", RunwayGreen, OnRunwayGreen),
-    ORANGE("오렌지", AccentOrange, OnAccentOrange),
-    ELECTRIC_BLUE("블루", AccentBlue, OnAccentBlue),
-    RED("빨강", AccentRed, OnAccentRed),
-    YELLOW("노랑", AccentYellow, OnAccentYellow),
-    PURPLE("보라", AccentPurple, OnAccentPurple),
+    GREEN("초록", RunwayGreen, OnRunwayGreen, Color(0xFF1C2E14)),
+    ORANGE("오렌지", AccentOrange, OnAccentOrange, Color(0xFF3D1A0A)),
+    ELECTRIC_BLUE("블루", AccentBlue, OnAccentBlue, Color(0xFF0A1E3D)),
+    RED("빨강", AccentRed, OnAccentRed, Color(0xFF3D1B20)),
+    YELLOW("노랑", AccentYellow, OnAccentYellow, Color(0xFF342D12)),
+    PURPLE("보라", AccentPurple, OnAccentPurple, Color(0xFF2D1D3D)),
 }
 
 private fun runwayDarkColorScheme(accent: AccentColor) = darkColorScheme(
-    // Primary = WHITE — CTA buttons (login, signup, etc.)
-    primary = PrimaryWhite,
-    onPrimary = OnPrimaryDark,
-    primaryContainer = accent.accentColor,      // Lime green glow/accent
-    onPrimaryContainer = accent.onAccentColor,
+    // Primary = accent color — drives highlights, active nav, focused borders, metric accents
+    primary = accent.accentColor,
+    onPrimary = accent.onAccentColor,
+    primaryContainer = accent.darkContainer,
+    onPrimaryContainer = accent.accentColor,
 
     secondary = SurfaceContainerDark,           // Card / elevated surface
     onSecondary = OnSurfaceDark,
@@ -64,10 +65,10 @@ private fun runwayDarkColorScheme(accent: AccentColor) = darkColorScheme(
 )
 
 private fun runwayLightColorScheme(accent: AccentColor) = lightColorScheme(
-    primary = accent.accentColor,               // Light mode: accent as primary
+    primary = accent.accentColor,
     onPrimary = accent.onAccentColor,
-    primaryContainer = accent.accentColor.copy(alpha = 0.2f),
-    onPrimaryContainer = Color(0xFF111119),
+    primaryContainer = accent.darkContainer,
+    onPrimaryContainer = accent.accentColor,
 
     secondary = Color(0xFFE8E8F0),
     onSecondary = Color(0xFF111119),

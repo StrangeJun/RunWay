@@ -40,7 +40,7 @@ server:
 
 app:
   upload-dir: ${UPLOAD_DIR:/opt/runway/uploads}
-  base-url: ${BASE_URL:https://pathfinder.run}
+  base-url: ${BASE_URL:https://runway.run}
 
 springdoc:
   swagger-ui:

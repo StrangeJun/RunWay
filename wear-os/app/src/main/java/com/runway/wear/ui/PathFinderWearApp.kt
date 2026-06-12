@@ -120,7 +120,7 @@ private val Muted = Color(0xFF9AA3AF)
 private val Danger = Color(0xFFFF665E)
 
 @Composable
-fun PathFinderWearApp(
+fun RunWayWearApp(
     viewModel: WatchViewModel = viewModel(),
     launchToken: Int = 0,
     isAmbient: Boolean = false,
@@ -202,7 +202,7 @@ private fun LaunchAnimationScreen() {
     ) {
         Image(
             painter = painterResource(R.drawable.app_logo_mark),
-            contentDescription = "PathFinder",
+            contentDescription = "RunWay",
             modifier = Modifier
                 .size(72.dp)
                 .graphicsLayer {
@@ -213,7 +213,7 @@ private fun LaunchAnimationScreen() {
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            "PathFinder",
+            "RunWay",
             color = Color.White.copy(alpha = alpha),
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
@@ -232,10 +232,10 @@ private fun HomeScreen(
     WatchPage(scrollable = true) {
         Image(
             painter = painterResource(R.drawable.app_logo_mark),
-            contentDescription = "PathFinder",
+            contentDescription = "RunWay",
             modifier = Modifier.size(if (compact) 34.dp else 52.dp),
         )
-        Text("PathFinder", fontWeight = FontWeight.Bold, fontSize = if (compact) 16.sp else 18.sp)
+        Text("RunWay", fontWeight = FontWeight.Bold, fontSize = if (compact) 16.sp else 18.sp)
         GpsStatusIndicator(state.gpsReady)
         ConnectionLabel(state.isPhoneConnected)
         PrimaryAction(
@@ -268,9 +268,9 @@ private fun HomeScreen(
 private fun CourseListScreen(state: WatchRunState, viewModel: WatchViewModel) {
     val courses by OfflineCourseRepository.courses.collectAsStateWithLifecycle()
     WatchPage(scrollable = true) {
-        BackTitle("저장된 주변 코스", viewModel::navigateBack)
+        BackTitle("저장된 코스", viewModel::navigateBack)
         SecondaryAction(
-            label = if (state.isSyncingCourses) "불러오는 중..." else "현재 위치 주변 저장",
+            label = if (state.isSyncingCourses) "불러오는 중..." else "주변 코스 불러오기",
             icon = Icons.Filled.Route,
             onClick = viewModel::syncNearbyCourses,
             color = if (state.isPhoneConnected) Accent else Muted,
@@ -303,7 +303,27 @@ private fun CourseCard(course: OfflineCourse, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
-        Text(course.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Text(course.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.weight(1f, fill = false))
+            Box(
+                modifier = Modifier
+                    .background(
+                        if (course.isPublic) Accent.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.1f),
+                        RoundedCornerShape(4.dp),
+                    )
+                    .padding(horizontal = 4.dp, vertical = 1.dp),
+            ) {
+                Text(
+                    if (course.isPublic) "공개" else "개인",
+                    color = if (course.isPublic) Accent else Muted,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
         Text(
             "%.1fkm · 현재 위치에서 %.0fm".format(
                 course.distanceMeters / 1000.0,
@@ -321,7 +341,26 @@ private fun CourseDetailScreen(state: WatchRunState, viewModel: WatchViewModel) 
         .firstOrNull { it.courseId == state.selectedCourseId }
     WatchPage(scrollable = true) {
         BackTitle("코스 도전", viewModel::navigateBack)
-        Text(course?.name ?: state.courseName.orEmpty(), fontWeight = FontWeight.Bold, fontSize = 17.sp)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(course?.name ?: state.courseName.orEmpty(), fontWeight = FontWeight.Bold, fontSize = 17.sp, modifier = Modifier.weight(1f, fill = false))
+            if (course != null) {
+                Box(
+                    modifier = Modifier
+                        .background(
+                            if (course.isPublic) Accent.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.1f),
+                            RoundedCornerShape(4.dp),
+                        )
+                        .padding(horizontal = 5.dp, vertical = 2.dp),
+                ) {
+                    Text(
+                        if (course.isPublic) "공개" else "개인",
+                        color = if (course.isPublic) Accent else Muted,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
         Text(
             "%.2f km".format((course?.distanceMeters ?: state.courseDistanceMeters) / 1000.0),
             color = Accent,

@@ -86,7 +86,7 @@ class RunningVoiceGuide(context: Context) : TextToSpeech.OnInitListener {
             message,
             TextToSpeech.QUEUE_FLUSH,
             null,
-            "pathfinder-watch-${System.nanoTime()}",
+            "runway-watch-${System.nanoTime()}",
         )
     }
 

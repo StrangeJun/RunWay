@@ -43,7 +43,7 @@ public class UserService {
     @Value("${app.upload-dir:/opt/runway/uploads}")
     private String uploadDir;
 
-    @Value("${app.base-url:https://pathfinder.run}")
+    @Value("${app.base-url:https://runway.run}")
     private String baseUrl;
 
     private final UserRepository userRepository;

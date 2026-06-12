@@ -106,7 +106,7 @@ data class WatchRunPoint(
 
 class PendingWatchRunStore(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences(
-        "pathfinder_pending_watch_runs",
+        "runway_pending_watch_runs",
         Context.MODE_PRIVATE,
     )
 

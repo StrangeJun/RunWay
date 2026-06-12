@@ -1,4 +1,4 @@
-# PathFinder for Galaxy Watch
+# RunWay for Galaxy Watch
 
 Galaxy Watch runner companion based on `docs/wear-os-development-plan.md`.
 

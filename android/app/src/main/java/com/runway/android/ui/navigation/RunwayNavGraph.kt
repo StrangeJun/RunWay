@@ -88,7 +88,7 @@ fun RunwayNavGraph() {
 
         composable(
             route = RunwayRoutes.LOGIN,
-            deepLinks = listOf(navDeepLink { uriPattern = "pathfinder://auth/login" }),
+            deepLinks = listOf(navDeepLink { uriPattern = "runway://auth/login" }),
         ) {
             LoginScreen(
                 onNavigateToSignup = { navController.navigate(RunwayRoutes.SIGNUP) },

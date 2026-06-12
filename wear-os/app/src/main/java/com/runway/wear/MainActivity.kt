@@ -18,7 +18,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.wear.ambient.AmbientLifecycleObserver
-import com.runway.wear.ui.PathFinderWearApp
+import com.runway.wear.ui.RunWayWearApp
 
 class MainActivity : ComponentActivity() {
     private var launchToken by mutableIntStateOf(0)
@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
                     watchViewModel.refreshConnection()
                 }
             }
-            PathFinderWearApp(watchViewModel, launchToken, isAmbient)
+            RunWayWearApp(watchViewModel, launchToken, isAmbient)
         }
     }
 

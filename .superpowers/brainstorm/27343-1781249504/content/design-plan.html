@@ -1,0 +1,148 @@
+<h2>전체 디자인 리디자인 계획</h2>
+<p class="subtitle">승인하시면 구현을 시작합니다. 범위와 변경사항을 확인해주세요.</p>
+
+<!-- 1. 컬러 팔레트 -->
+<div class="section">
+  <h3>① 컬러 팔레트 변경</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+    <div style="background: #1a1a1a; border-radius: 12px; padding: 16px;">
+      <p style="color: #666; font-size: 11px; text-transform: uppercase; margin-bottom: 12px;">현재</p>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 36px; height: 24px; border-radius: 4px; background: #111119;"></div>
+          <span style="color: #aaa; font-size: 12px;">Background <code>#111119</code></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 36px; height: 24px; border-radius: 4px; background: #1B1B2B;"></div>
+          <span style="color: #aaa; font-size: 12px;">Surface <code>#1B1B2B</code></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 36px; height: 24px; border-radius: 4px; background: #222232;"></div>
+          <span style="color: #aaa; font-size: 12px;">Muted <code>#222232</code></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 36px; height: 24px; border-radius: 4px; background: #A4E168;"></div>
+          <span style="color: #aaa; font-size: 12px;">Primary <code>#A4E168</code></span>
+        </div>
+      </div>
+    </div>
+    <div style="background: #1a1a1a; border-radius: 12px; padding: 16px; border: 1px solid #A4E168;">
+      <p style="color: #A4E168; font-size: 11px; text-transform: uppercase; margin-bottom: 12px;">변경 후 ✓</p>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 36px; height: 24px; border-radius: 4px; background: #0A0A0A; border: 1px solid #333;"></div>
+          <span style="color: #aaa; font-size: 12px;">Background <code>#0A0A0A</code> 순수 블랙</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 36px; height: 24px; border-radius: 4px; background: #141414;"></div>
+          <span style="color: #aaa; font-size: 12px;">Surface <code>#141414</code></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 36px; height: 24px; border-radius: 4px; background: #1E1E1E;"></div>
+          <span style="color: #aaa; font-size: 12px;">Muted <code>#1E1E1E</code></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 36px; height: 24px; border-radius: 4px; background: #A4E168;"></div>
+          <span style="color: #aaa; font-size: 12px;">Primary <code>#A4E168</code> 유지</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 선택 가능 악센트 컬러 -->
+  <div style="margin-top: 12px; background: #1a1a1a; border-radius: 12px; padding: 16px;">
+    <p style="color: #888; font-size: 11px; text-transform: uppercase; margin-bottom: 12px;">선택 가능한 악센트 컬러 (신규 추가)</p>
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <div style="text-align: center;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #A4E168; margin: 0 auto 4px;"></div>
+        <p style="color: #aaa; font-size: 10px;">Green<br>(기본)</p>
+      </div>
+      <div style="text-align: center;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #FFFFFF; margin: 0 auto 4px;"></div>
+        <p style="color: #aaa; font-size: 10px;">White<br>(신규)</p>
+      </div>
+      <div style="text-align: center;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #FF6B35; margin: 0 auto 4px;"></div>
+        <p style="color: #aaa; font-size: 10px;">Orange<br>(신규)</p>
+      </div>
+      <div style="text-align: center;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #4D9EFF; margin: 0 auto 4px;"></div>
+        <p style="color: #aaa; font-size: 10px;">Blue<br>(신규)</p>
+      </div>
+      <div style="text-align: center;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #FF7474; margin: 0 auto 4px;"></div>
+        <p style="color: #aaa; font-size: 10px;">Red<br>(유지)</p>
+      </div>
+      <div style="text-align: center;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #C58BFF; margin: 0 auto 4px;"></div>
+        <p style="color: #aaa; font-size: 10px;">Purple<br>(유지)</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. 코너 & 글래스 -->
+<div class="section">
+  <h3>② 코너 반경 & 글래스모피즘 카드</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+    <div>
+      <p style="color: #666; font-size: 11px; text-transform: uppercase; margin-bottom: 8px;">현재 카드</p>
+      <div style="background: #1B1B2B; border-radius: 16px; padding: 16px; border: 1px solid #2B2B3D;">
+        <p style="color: #aaa; font-size: 13px; margin: 0;">카드 16dp</p>
+        <p style="color: #666; font-size: 11px; margin: 4px 0 0;">단색 배경, 테두리 없음</p>
+      </div>
+      <div style="background: #A4E168; border-radius: 20px; padding: 14px; margin-top: 10px; text-align: center;">
+        <p style="color: #111; font-size: 13px; font-weight: 600; margin: 0;">버튼 20dp</p>
+      </div>
+    </div>
+    <div>
+      <p style="color: #A4E168; font-size: 11px; text-transform: uppercase; margin-bottom: 8px;">변경 후 ✓</p>
+      <div style="background: rgba(255,255,255,0.05); border-radius: 24px; padding: 16px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);">
+        <p style="color: #aaa; font-size: 13px; margin: 0;">카드 24dp</p>
+        <p style="color: #666; font-size: 11px; margin: 4px 0 0;">글래스 배경 + 흰색 테두리</p>
+      </div>
+      <div style="background: #A4E168; border-radius: 50px; padding: 14px; margin-top: 10px; text-align: center;">
+        <p style="color: #111; font-size: 13px; font-weight: 600; margin: 0;">버튼 full-pill</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. 영향받는 파일 수 -->
+<div class="section">
+  <h3>③ 변경 범위 (전체 ~40개 파일)</h3>
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px;">
+    <div style="background: #1a1a1a; border-radius: 10px; padding: 14px; border: 1px solid #2a2a2a;">
+      <p style="color: #A4E168; font-weight: 700; font-size: 20px; margin-bottom: 4px;">3</p>
+      <p style="color: #888; font-size: 12px; margin: 0;">디자인 토큰<br><span style="color: #555;">Color, Shape, Theme</span></p>
+    </div>
+    <div style="background: #1a1a1a; border-radius: 10px; padding: 14px; border: 1px solid #2a2a2a;">
+      <p style="color: #A4E168; font-weight: 700; font-size: 20px; margin-bottom: 4px;">12</p>
+      <p style="color: #888; font-size: 12px; margin: 0;">공통 컴포넌트<br><span style="color: #555;">버튼, 카드, 네비게이션…</span></p>
+    </div>
+    <div style="background: #1a1a1a; border-radius: 10px; padding: 14px; border: 1px solid #2a2a2a;">
+      <p style="color: #A4E168; font-weight: 700; font-size: 20px; margin-bottom: 4px;">25+</p>
+      <p style="color: #888; font-size: 12px; margin: 0;">화면 파일<br><span style="color: #555;">로그인~리더보드 전체</span></p>
+    </div>
+  </div>
+  <div style="margin-top: 12px; padding: 12px 16px; background: #1a1a1a; border-radius: 10px; border-left: 3px solid #4D9EFF;">
+    <p style="color: #aaa; font-size: 12px; margin: 0;">구현 순서: 디자인 토큰 → 컴포넌트 → 화면 순으로 진행합니다. 스플래시 화면은 제외합니다.</p>
+  </div>
+</div>
+
+<div class="options" style="margin-top: 24px;">
+  <div class="option" data-choice="approve" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content">
+      <h3>승인 — 구현 시작</h3>
+      <p>위 계획대로 전체 디자인 리디자인을 진행합니다</p>
+    </div>
+  </div>
+  <div class="option" data-choice="revise" onclick="toggleSelect(this)">
+    <div class="letter">↩</div>
+    <div class="content">
+      <h3>수정 필요</h3>
+      <p>터미널에서 변경하고 싶은 부분을 알려주세요</p>
+    </div>
+  </div>
+</div>

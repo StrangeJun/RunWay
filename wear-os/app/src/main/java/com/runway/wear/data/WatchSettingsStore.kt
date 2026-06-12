@@ -11,7 +11,7 @@ data class WatchSettings(
 
 class WatchSettingsStore(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences(
-        "pathfinder_watch_settings",
+        "runway_watch_settings",
         Context.MODE_PRIVATE,
     )
 

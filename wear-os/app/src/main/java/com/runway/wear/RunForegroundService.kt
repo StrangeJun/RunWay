@@ -22,7 +22,7 @@ class RunForegroundService : Service() {
         createChannel()
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("러닝 진행 중")
-            .setContentText("PathFinder가 러닝을 기록하고 있습니다")
+            .setContentText("RunWay가 러닝을 기록하고 있습니다")
             .setSmallIcon(R.drawable.app_logo_mark)
             .setOngoing(true)
             .setSilent(true)
