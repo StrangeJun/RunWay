@@ -53,10 +53,14 @@ docker-data/
 !**/gradle/wrapper/gradle-wrapper.jar
 !**/gradle/wrapper/gradle-wrapper.properties
 
-# ─── Docs ────────────────────────────────────────────────
-# docs/ 는 커밋 대상 (project-overview.md 등)
-
 # ─── Kotlin compiler session files ───────────────────────
 **/.kotlin/sessions/
-docs/test-sample/*.mov
-docs/test-sample/*.mp4
+
+# ─── Repo-only: android / backend / wear-os ─────────────
+docs/
+design/
+sample/
+tools/
+.superpowers/
+CLAUDE.md
+pathfinder_code_all.pdf
