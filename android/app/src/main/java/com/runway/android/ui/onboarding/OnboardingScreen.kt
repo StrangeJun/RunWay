@@ -90,7 +90,7 @@ fun OnboardingScreen(
     ) {
         // ── RUNWAY branding ────────────────────────────────────────────────
         Text(
-            text = "RUNWAY",
+            text = "RunWay",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier

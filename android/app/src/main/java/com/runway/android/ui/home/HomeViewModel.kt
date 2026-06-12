@@ -18,8 +18,13 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import com.runway.android.BuildConfig
+import com.runway.android.core.datastore.VoiceGuideDataStore
 import com.runway.android.core.result.NetworkResult
+import com.runway.android.data.attempt.model.MyBestAttemptResponse
+import com.runway.android.data.course.model.GeoPoint
 import com.runway.android.data.course.model.NearbyCourseItem
+import com.runway.android.data.course.model.CourseResponse
+import com.runway.android.domain.attempt.CourseAttemptRepository
 import com.runway.android.data.running.model.RunSummaryResponse
 import com.runway.android.data.running.model.RunningStatsResponse
 import com.runway.android.domain.course.CourseRepository
@@ -56,7 +61,9 @@ class HomeViewModel @Inject constructor(
     private val runningRepository: RunningRepository,
     private val userRepository: UserRepository,
     private val courseRepository: CourseRepository,
+    private val attemptRepository: CourseAttemptRepository,
     private val fusedLocationClient: FusedLocationProviderClient,
+    private val voiceGuideDataStore: VoiceGuideDataStore,
     @Named("noAuth") private val okHttpClient: OkHttpClient,
 ) : ViewModel() {
     private val airKoreaClient = AirKoreaClient(okHttpClient)
@@ -79,12 +86,107 @@ class HomeViewModel @Inject constructor(
         private set
     var currentLocation by mutableStateOf<MapPoint?>(null)
         private set
+    var isVoiceGuideEnabled by mutableStateOf(true)
+        private set
+    var savedCourses by mutableStateOf<List<CourseResponse>>(emptyList())
+        private set
+    var isLoadingSavedCourses by mutableStateOf(false)
+        private set
+    var savedCoursesError by mutableStateOf<String?>(null)
+        private set
+    var showCoursePicker by mutableStateOf(false)
+        private set
     var selectedGoal by mutableStateOf<RunGoal?>(null)
         private set
     var showGoalSheet by mutableStateOf(false)
 
+    var coursePreview by mutableStateOf<CourseResponse?>(null)
+        private set
+    var previewPoints by mutableStateOf<List<GeoPoint>>(emptyList())
+        private set
+    var previewBestTimeSeconds by mutableStateOf<Int?>(null)
+        private set
+    var previewAvgRating by mutableStateOf<Double?>(null)
+        private set
+    var previewRatingCount by mutableStateOf<Long?>(null)
+        private set
+    var isLoadingPreview by mutableStateOf(false)
+        private set
+
     val locationPermissionGranted: Boolean
         get() = hasLocationPermission()
+
+    init {
+        viewModelScope.launch {
+            voiceGuideDataStore.enabledFlow.collect { isVoiceGuideEnabled = it }
+        }
+    }
+
+    fun updateVoiceGuideEnabled(enabled: Boolean) {
+        isVoiceGuideEnabled = enabled
+        viewModelScope.launch { voiceGuideDataStore.setEnabled(enabled) }
+    }
+
+    fun openCoursePicker() {
+        showCoursePicker = true
+        loadSavedCourses()
+    }
+
+    fun closeCoursePicker() {
+        showCoursePicker = false
+    }
+
+    fun selectCoursePreview(course: CourseResponse) {
+        coursePreview = course
+        previewPoints = emptyList()
+        previewBestTimeSeconds = null
+        previewAvgRating = null
+        previewRatingCount = null
+        isLoadingPreview = true
+        viewModelScope.launch {
+            val j1 = launch {
+                when (val r = courseRepository.getCoursePoints(course.courseId)) {
+                    is NetworkResult.Success -> previewPoints = r.data.points.map { GeoPoint(it.latitude, it.longitude) }
+                    else -> {}
+                }
+            }
+            val j2 = launch {
+                when (val r = attemptRepository.getMyBestAttempt(course.courseId)) {
+                    is NetworkResult.Success -> previewBestTimeSeconds = r.data.bestTimeSeconds
+                    else -> {}
+                }
+            }
+            val j3 = launch {
+                when (val r = courseRepository.getCourseDetail(course.courseId)) {
+                    is NetworkResult.Success -> {
+                        previewAvgRating = r.data.avgRating
+                        previewRatingCount = r.data.ratingCount
+                    }
+                    else -> {}
+                }
+            }
+            j1.join(); j2.join(); j3.join()
+            isLoadingPreview = false
+        }
+    }
+
+    fun dismissCoursePreview() {
+        coursePreview = null
+        previewPoints = emptyList()
+    }
+
+    fun loadSavedCourses() {
+        viewModelScope.launch {
+            isLoadingSavedCourses = true
+            savedCoursesError = null
+            when (val result = courseRepository.getFavoriteCourses(size = 50)) {
+                is NetworkResult.Success -> savedCourses = result.data.content
+                is NetworkResult.ApiError -> savedCoursesError = result.message
+                is NetworkResult.NetworkError -> savedCoursesError = "네트워크 연결을 확인해 주세요."
+            }
+            isLoadingSavedCourses = false
+        }
+    }
 
     fun openGoalSheet()  { showGoalSheet = true }
     fun closeGoalSheet() { showGoalSheet = false }
@@ -246,6 +348,7 @@ class HomeViewModel @Inject constructor(
             // silent fail — weather is non-critical
         }
     }
+
 
     @Suppress("DEPRECATION")
     private fun resolveAirKoreaStationCandidates(

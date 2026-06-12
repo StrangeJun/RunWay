@@ -1,6 +1,5 @@
 package com.runway.android.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +25,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.runway.android.data.running.model.PersonalRecordItem
 import com.runway.android.data.running.model.PersonalRecordsResponse
+import com.runway.android.ui.components.runwayCardFrame
+import com.runway.android.ui.theme.LocalIsDarkTheme
+import com.runway.android.ui.theme.SurfaceContainerDark
 
 @Composable
 fun PersonalRecordsSection(
@@ -53,12 +55,14 @@ fun PersonalRecordsSection(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        val isDark = LocalIsDarkTheme.current
         if (records == null || records.totalCompletedRuns == 0L) {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .runwayCardFrame(MaterialTheme.shapes.extraLarge),
                 shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                color = if (isDark) SurfaceContainerDark else MaterialTheme.colorScheme.surface,
             ) {
                 Text(
                     text = "완료된 러닝 기록이 쌓이면 개인 최고 기록이 표시됩니다.",
@@ -114,11 +118,13 @@ private fun PersonalRecordCard(
     item: PersonalRecordItem,
     onClick: (runId: String) -> Unit,
 ) {
+    val isDark = LocalIsDarkTheme.current
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .runwayCardFrame(MaterialTheme.shapes.extraLarge),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        color = if (isDark) SurfaceContainerDark else MaterialTheme.colorScheme.surface,
         onClick = { onClick(item.runId) },
     ) {
         Row(

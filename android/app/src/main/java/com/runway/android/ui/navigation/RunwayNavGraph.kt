@@ -179,6 +179,9 @@ fun RunwayNavGraph() {
                 onNavigateToCourseDetail = { courseId ->
                     navController.navigate(RunwayRoutes.courseDetail(courseId))
                 },
+                onNavigateToMapDetail = { courseId ->
+                    navController.navigate(RunwayRoutes.courseMapDetail(courseId))
+                },
                 onNavigateToMyRuns = { navController.navigate(RunwayRoutes.MY_RUNS) },
                 onNavigateToCourses = { navController.navigate(RunwayRoutes.MY_COURSES) },
                 onNavigateToRunDetail = { runId ->

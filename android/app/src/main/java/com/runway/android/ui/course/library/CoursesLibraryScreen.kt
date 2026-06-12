@@ -49,6 +49,7 @@ import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.data.course.model.ParticipatedCourseItem
 import com.runway.android.ui.theme.OutlineVariantDark
 import com.runway.android.ui.theme.SurfaceContainerDark
+import com.runway.android.ui.components.runwayCardFrame
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -178,7 +179,7 @@ private fun CreatedCourseCard(course: CourseResponse, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
-            .border(1.dp, OutlineVariantDark, MaterialTheme.shapes.large),
+            .runwayCardFrame(MaterialTheme.shapes.large),
         shape = MaterialTheme.shapes.large,
         color = SurfaceContainerDark,
         onClick = onClick,
@@ -279,7 +280,7 @@ private fun FavoriteCourseCard(course: CourseResponse, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
-            .border(1.dp, OutlineVariantDark, MaterialTheme.shapes.large),
+            .runwayCardFrame(MaterialTheme.shapes.large),
         shape = MaterialTheme.shapes.large,
         color = SurfaceContainerDark,
         onClick = onClick,
@@ -367,7 +368,7 @@ private fun ParticipatedCourseCard(course: ParticipatedCourseItem, onClick: () -
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
-            .border(1.dp, OutlineVariantDark, MaterialTheme.shapes.large),
+            .runwayCardFrame(MaterialTheme.shapes.large),
         shape = MaterialTheme.shapes.large,
         color = SurfaceContainerDark,
         onClick = onClick,

@@ -1036,16 +1036,18 @@ private fun CourseMetadataSection(course: com.runway.android.data.course.model.C
 
 @Composable
 private fun MetadataChip(label: String) {
-    SuggestionChip(
-        onClick = {},
-        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-        colors = SuggestionChipDefaults.suggestionChipColors(
-            containerColor = SurfaceContainerHighDark,
-            labelColor = MaterialTheme.colorScheme.onSurface,
-            iconContentColor = MaterialTheme.colorScheme.primary,
-        ),
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = SurfaceContainerHighDark,
         border = BorderStroke(1.dp, OutlineVariantDark),
-    )
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+        )
+    }
 }
 
 @Composable

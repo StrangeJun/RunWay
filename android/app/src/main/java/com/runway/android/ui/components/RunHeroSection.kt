@@ -36,11 +36,14 @@ import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Thunderstorm
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.Umbrella
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -76,6 +79,9 @@ fun RunHeroSection(
     weatherInfo: WeatherInfo? = null,
     currentLocation: MapPoint? = null,
     hasLocationPermission: Boolean = false,
+    onSelectCourse: () -> Unit = {},
+    isVoiceGuideEnabled: Boolean = true,
+    onVoiceGuideEnabledChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val isDark = LocalIsDarkTheme.current
@@ -107,59 +113,44 @@ fun RunHeroSection(
                 ),
         )
 
-        // ── Header tagline ────────────────────────────────────────────────
         Column(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(horizontal = 20.dp, vertical = 14.dp),
+                .padding(start = 20.dp, top = 18.dp),
         ) {
             Text(
-                text = BuildConfig.APP_NAME.uppercase(),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 2.8.sp,
+                text = "RunWay",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 3.sp,
                 color = MaterialTheme.colorScheme.primary,
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = "Run your way.",
-                fontSize = 28.sp,
+                style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-0.5).sp,
-                color = onHero,
+                color = Color.White,
             )
         }
 
-        // ── GPS status + weather summary ──────────────────────────────────
-        GpsStatusPill(
-            pillBg = pillBg,
-            onPill = onHero,
+        Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 102.dp)
-                .padding(horizontal = 20.dp),
-        )
-        WeatherSummaryPill(
-            weatherInfo = weatherInfo,
-            pillBg = pillBg,
-            onPill = onHero,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 142.dp)
-                .padding(horizontal = 20.dp),
-        )
-
-        // ── 스크롤 유도 애니메이션 (좌/우) ──────────────────────────────────
-        ScrollHintIndicator(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 28.dp, bottom = 88.dp),
-        )
-        ScrollHintIndicator(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 28.dp, bottom = 88.dp),
-        )
+                .padding(top = 92.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            GpsStatusPill(
+                pillBg = pillBg,
+                onPill = onHero,
+            )
+            WeatherSummaryPill(
+                weatherInfo = weatherInfo,
+                pillBg = Color(0xCC151918),
+                onPill = onHero,
+            )
+        }
 
         // ── 시작 button + 목표 설정 ─────────────────────────────────────────
         val startButtonInteraction = remember { MutableInteractionSource() }
@@ -173,55 +164,137 @@ fun RunHeroSection(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 80.dp),
+                .padding(bottom = 30.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Surface(
-                onClick = onStartRun,
-                modifier = Modifier.size(96.dp).scale(startButtonScale),
-                interactionSource = startButtonInteraction,
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-                shadowElevation = 14.dp,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(22.dp),
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "시작",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                    )
+                HeroAction(
+                    icon = Icons.Outlined.Map,
+                    label = "COURSE",
+                    onClick = onSelectCourse,
+                )
+                Surface(
+                    onClick = onStartRun,
+                    modifier = Modifier.size(80.dp).scale(startButtonScale),
+                    interactionSource = startButtonInteraction,
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    shadowElevation = 14.dp,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "시작",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    }
                 }
+                HeroToggle(
+                    icon = if (isVoiceGuideEnabled) {
+                        Icons.AutoMirrored.Filled.VolumeUp
+                    } else {
+                        Icons.AutoMirrored.Filled.VolumeOff
+                    },
+                    label = if (isVoiceGuideEnabled) "음성 안내 ON" else "음성 안내 OFF",
+                    selected = isVoiceGuideEnabled,
+                    onClick = { onVoiceGuideEnabledChange(!isVoiceGuideEnabled) },
+                )
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
 
             Surface(
                 onClick = onSetGoal,
-                shape = RoundedCornerShape(50),
-                color = if (selectedGoal != null) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                } else {
-                    pillBg
-                },
+                shape = CircleShape,
+                color = Color.Transparent,
             ) {
-                Text(
-                    text = when (selectedGoal) {
-                        is RunGoal.TimeGoal -> "목표설정: ${selectedGoal.label()}"
-                        is RunGoal.DistanceGoal -> "목표설정: ${selectedGoal.label()}"
-                        is RunGoal.IntervalGoal -> "목표설정: ${selectedGoal.label()}"
-                        null -> "목표 설정"
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (selectedGoal != null) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        onHero.copy(alpha = 0.65f)
-                    },
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
-                )
+                Column(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text("◎", color = onHero, fontSize = 21.sp)
+                    Text(
+                        text = when (selectedGoal) {
+                            is RunGoal.TimeGoal -> selectedGoal.label()
+                            is RunGoal.DistanceGoal -> selectedGoal.label()
+                            is RunGoal.IntervalGoal -> selectedGoal.label()
+                            null -> "목표 설정"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = onHero,
+                    )
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun HeroAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.width(76.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = Color.White.copy(alpha = 0.08f),
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(icon, contentDescription = label, tint = Color.White, modifier = Modifier.size(22.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+@Composable
+private fun HeroToggle(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.width(76.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+        } else {
+            Color.White.copy(alpha = 0.08f)
+        },
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.72f),
+                modifier = Modifier.size(22.dp),
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
         }
     }
 }

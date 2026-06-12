@@ -4,7 +4,6 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,7 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.core.posture.local.PostureAnalysisEntity
 import com.runway.android.core.posture.local.MAX_POSTURE_ANALYSIS_HISTORY
-import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.components.runwayCardFrame
 import com.runway.android.ui.theme.RunwayTheme
 import com.runway.android.ui.theme.SurfaceContainerDark
 import java.text.SimpleDateFormat
@@ -126,7 +125,7 @@ fun PostureHomeScreen(
                 title = {
                     Column {
                         Text(
-                            text = "RUNWAY POSTURE",
+                            text = "RunWay Posture",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -222,10 +221,11 @@ fun PostureHomeScreen(
 @Composable
 private fun PostureEmptyState() {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .runwayCardFrame(MaterialTheme.shapes.extraLarge),
         shape = MaterialTheme.shapes.extraLarge,
         color = SurfaceContainerDark,
-        border = BorderStroke(1.dp, OutlineVariantDark),
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
@@ -261,10 +261,11 @@ private fun PostureHeroCard(
     onSelectVideo: () -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .runwayCardFrame(MaterialTheme.shapes.extraLarge),
         shape = MaterialTheme.shapes.extraLarge,
         color = SurfaceContainerDark,
-        border = BorderStroke(1.dp, OutlineVariantDark),
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Row(
@@ -352,10 +353,11 @@ private fun PostureHistoryCard(
 
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .runwayCardFrame(MaterialTheme.shapes.extraLarge),
         shape = MaterialTheme.shapes.extraLarge,
         color = SurfaceContainerDark,
-        border = BorderStroke(1.dp, OutlineVariantDark),
     ) {
         Row(
             modifier = Modifier

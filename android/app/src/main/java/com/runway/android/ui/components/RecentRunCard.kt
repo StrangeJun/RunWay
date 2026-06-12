@@ -44,19 +44,21 @@ fun RecentRunCard(
     if (onClick != null) {
         Surface(
             onClick = onClick,
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier
+                .fillMaxWidth()
+                .runwayCardFrame(MaterialTheme.shapes.extraLarge),
             shape = MaterialTheme.shapes.extraLarge,
             color = if (isDark) SurfaceContainerDark else MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, if (isDark) OutlineVariantDark else MaterialTheme.colorScheme.outline),
         ) {
             RecentRunCardContent(run)
         }
     } else {
         Surface(
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier
+                .fillMaxWidth()
+                .runwayCardFrame(MaterialTheme.shapes.extraLarge),
             shape = MaterialTheme.shapes.extraLarge,
             color = if (isDark) SurfaceContainerDark else MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, if (isDark) OutlineVariantDark else MaterialTheme.colorScheme.outline),
         ) {
             RecentRunCardContent(run)
         }

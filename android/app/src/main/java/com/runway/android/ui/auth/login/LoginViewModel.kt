@@ -56,4 +56,21 @@ class LoginViewModel @Inject constructor(
             isLoading = false
         }
     }
+
+    fun setGoogleError(message: String) {
+        error = message
+    }
+
+    fun loginWithGoogle(idToken: String) {
+        viewModelScope.launch {
+            isLoading = true
+            error = null
+            when (val result = authRepository.loginWithGoogle(idToken)) {
+                is NetworkResult.Success -> _navigateToHome.emit(Unit)
+                is NetworkResult.ApiError -> error = result.message ?: "Google 로그인에 실패했습니다."
+                is NetworkResult.NetworkError -> error = "네트워크 오류가 발생했습니다."
+            }
+            isLoading = false
+        }
+    }
 }

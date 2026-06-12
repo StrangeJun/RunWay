@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.runway.android.ui.components.runwayCardFrame
 import com.runway.android.ui.theme.AccentColor
 import com.runway.android.ui.theme.OutlineVariantDark
 import com.runway.android.ui.theme.SurfaceContainerDark
@@ -53,7 +54,6 @@ fun SettingsScreen(
 ) {
     val currentMode by viewModel.themeMode.collectAsState()
     val currentAccent by viewModel.accentColor.collectAsState()
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -99,10 +99,11 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .runwayCardFrame(MaterialTheme.shapes.extraLarge),
                 shape = MaterialTheme.shapes.extraLarge,
                 color = SurfaceContainerDark,
-                border = BorderStroke(1.dp, OutlineVariantDark),
             ) {
                 Column(
                     modifier = Modifier.padding(vertical = 4.dp),
@@ -134,31 +135,39 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // ─── Section: 컨셉 색상 ───
             Text(
-                text = "컨셉 색상".uppercase(),
+                text = "포인트 색상",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = "아이콘, 버튼과 강조 텍스트에 적용됩니다",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .runwayCardFrame(MaterialTheme.shapes.extraLarge),
                 shape = MaterialTheme.shapes.extraLarge,
                 color = SurfaceContainerDark,
-                border = BorderStroke(1.dp, OutlineVariantDark),
             ) {
-                Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
-                    AccentColorPicker(
-                        selected = currentAccent,
-                        onSelect = viewModel::setAccentColor,
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Text(
+                        text = "버튼, 강조 표시와 카드 테두리에 적용됩니다.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Spacer(Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        AccentColor.entries.forEach { accent ->
+                            AccentColorOption(
+                                accent = accent,
+                                selected = accent == currentAccent,
+                                onClick = { viewModel.setAccentColor(accent) },
+                            )
+                        }
+                    }
                 }
             }
 
@@ -168,57 +177,49 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun AccentColorPicker(
-    selected: AccentColor,
-    onSelect: (AccentColor) -> Unit,
+private fun AccentColorOption(
+    accent: AccentColor,
+    selected: Boolean,
+    onClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+    Column(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        AccentColor.entries.forEach { accent ->
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(7.dp),
-            ) {
-                val isSelected = accent == selected
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .scale(if (isSelected) 1.15f else 1f)
-                        .background(accent.accentColor, CircleShape)
-                        .border(
-                            width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                OutlineVariantDark
-                            },
-                            shape = CircleShape,
-                        )
-                        .clickable { onSelect(accent) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (isSelected) {
-                        Icon(
-                            imageVector = Icons.Filled.Check,
-                            contentDescription = "${accent.displayName} 선택됨",
-                            tint = Color(0xFF111119),
-                            modifier = Modifier.size(22.dp),
-                        )
-                    }
-                }
-                Text(
-                    text = accent.displayName,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isSelected) {
-                        MaterialTheme.colorScheme.primary
+        Box(
+            modifier = Modifier
+                .size(if (selected) 42.dp else 36.dp)
+                .background(accent.accentColor, CircleShape)
+                .then(
+                    if (selected) {
+                        Modifier.border(2.dp, Color.White.copy(alpha = 0.9f), CircleShape)
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                        Modifier
+                    }
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = "${accent.displayName} 선택됨",
+                    tint = accent.onAccentColor,
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = accent.displayName,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
     }
 }
 

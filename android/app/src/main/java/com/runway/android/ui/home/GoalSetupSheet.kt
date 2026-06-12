@@ -48,13 +48,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.runway.android.ui.components.RunwayPrimaryButton
+import com.runway.android.ui.components.runwayCardFrame
+import com.runway.android.ui.theme.SurfaceContainerDark
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
-
-private val SheetBg = Color(0xFF16171F)
-private val ChipBg = Color(0xFF1E1F2A)
-private val DividerColor = Color(0xFF2A2B38)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,14 +65,14 @@ fun GoalSetupSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = SheetBg,
+        containerColor = SurfaceContainerDark,
         dragHandle = {
             Box(
                 modifier = Modifier
                     .padding(top = 12.dp, bottom = 4.dp)
                     .width(36.dp)
                     .height(4.dp)
-                    .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(2.dp)),
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f), RoundedCornerShape(2.dp)),
             )
         },
     ) {
@@ -143,38 +141,48 @@ private fun GoalSetupContent(
                 text = "목표 설정",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             TextButton(onClick = onDismiss) {
-                Text("취소", color = Color.White.copy(alpha = 0.5f))
+                Text("취소", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
-        HorizontalDivider(color = DividerColor)
+        HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
 
-        Row(
+        // 탭 선택
+        androidx.compose.material3.Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .runwayCardFrame(MaterialTheme.shapes.medium),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
         ) {
-            GoalTab.entries.forEach { tab ->
-                val active = tab == selectedTab
-                Text(
-                    text = tab.label,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                    color = if (active) Color(0xFF0A0B10) else Color.White.copy(alpha = 0.65f),
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(if (active) MaterialTheme.colorScheme.primary else ChipBg)
-                        .clickable { selectedTab = tab }
-                        .padding(horizontal = 18.dp, vertical = 9.dp),
-                )
+            Row(modifier = Modifier.padding(4.dp)) {
+                GoalTab.entries.forEach { tab ->
+                    val active = tab == selectedTab
+                    androidx.compose.material3.Surface(
+                        onClick = { selectedTab = tab },
+                        modifier = Modifier.weight(1f),
+                        shape = MaterialTheme.shapes.small,
+                        color = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    ) {
+                        Text(
+                            text = tab.label,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                            color = if (active) MaterialTheme.colorScheme.onPrimary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 9.dp),
+                        )
+                    }
+                }
             }
         }
 
-        HorizontalDivider(color = DividerColor)
+        HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
 
         when (selectedTab) {
             GoalTab.TIME -> TimeGoalContent(
@@ -241,7 +249,7 @@ private fun GoalSetupContent(
         }
 
         Spacer(Modifier.height(14.dp))
-        HorizontalDivider(color = DividerColor)
+        HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
         Spacer(Modifier.height(12.dp))
 
         RunwayPrimaryButton(
@@ -581,7 +589,7 @@ private fun DistanceWheelPicker(
             text = ".",
             fontSize = 34.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = Color.White.copy(alpha = 0.85f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
             modifier = Modifier.padding(horizontal = 2.dp),
         )
         WheelPicker(
@@ -686,7 +694,8 @@ private fun <T> WheelPicker(
                     fontSize = if (selected) 34.sp else 20.sp,
                     lineHeight = if (selected) 38.sp else 24.sp,
                     fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
-                    color = if (selected) Color.White else Color.White.copy(alpha = 0.28f),
+                    color = if (selected) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
                     textAlign = TextAlign.Center,
                 )
             }
@@ -696,43 +705,50 @@ private fun <T> WheelPicker(
 
 @Composable
 private fun WheelFrame(content: @Composable RowScope.() -> Unit) {
-    Box(
+    val primary = MaterialTheme.colorScheme.primary
+    androidx.compose.material3.Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(166.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(Color.White.copy(alpha = 0.035f))
-            .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(18.dp)),
-        contentAlignment = Alignment.Center,
+            .runwayCardFrame(MaterialTheme.shapes.extraLarge),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(54.dp)
-                .align(Alignment.Center)
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.03f),
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.13f),
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.03f),
+                .height(166.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            // 선택 하이라이트 바
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .align(Alignment.Center)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                primary.copy(alpha = 0.02f),
+                                primary.copy(alpha = 0.12f),
+                                primary.copy(alpha = 0.02f),
+                            ),
                         ),
+                    )
+                    .border(
+                        width = 1.dp,
+                        color = primary.copy(alpha = 0.20f),
+                        shape = RoundedCornerShape(10.dp),
                     ),
-                )
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                    shape = RoundedCornerShape(10.dp),
-                ),
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            content = content,
-        )
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                content = content,
+            )
+        }
     }
 }
 
@@ -750,7 +766,7 @@ private fun UnitLabel(text: String) {
 @Composable
 private fun SectionDivider() {
     Spacer(Modifier.height(6.dp))
-    HorizontalDivider(color = DividerColor)
+    HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
     Spacer(Modifier.height(6.dp))
 }
 
@@ -761,7 +777,7 @@ private fun IntervalSection(title: String, content: @Composable () -> Unit) {
             text = title,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(10.dp))
         content()
@@ -774,7 +790,7 @@ private fun GoalSectionLabel(text: String) {
         text = text,
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.SemiBold,
-        color = Color.White.copy(alpha = 0.58f),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
 
@@ -783,7 +799,7 @@ private fun ToggleRow(options: List<String>, selectedIndex: Int, onSelect: (Int)
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(ChipBg),
+            .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
         options.forEachIndexed { idx, label ->
             val active = idx == selectedIndex
@@ -791,7 +807,8 @@ private fun ToggleRow(options: List<String>, selectedIndex: Int, onSelect: (Int)
                 text = label,
                 fontSize = 13.sp,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                color = if (active) Color(0xFF0A0B10) else Color.White.copy(alpha = 0.58f),
+                color = if (active) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
                     .background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent)
@@ -804,22 +821,18 @@ private fun ToggleRow(options: List<String>, selectedIndex: Int, onSelect: (Int)
 
 @Composable
 private fun GoalSummaryBox(text: String) {
-    Box(
+    androidx.compose.material3.Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.05f))
-            .border(
-                1.dp,
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.30f),
-                RoundedCornerShape(14.dp),
-            )
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .runwayCardFrame(MaterialTheme.shapes.extraLarge),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.07f),
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.88f),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.90f),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
         )
     }
 }

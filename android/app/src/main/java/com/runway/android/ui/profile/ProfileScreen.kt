@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.runway.android.ui.components.PersonalRecordsSection
+import com.runway.android.ui.components.runwayCardFrame
 import com.runway.android.ui.theme.DisplayFontFamily
 import com.runway.android.ui.theme.OutlineVariantDark
 import com.runway.android.ui.theme.SurfaceContainerDark
@@ -132,10 +133,11 @@ fun ProfileScreen(
             } else {
                 // ─── Header card: avatar + name + email ───
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .runwayCardFrame(MaterialTheme.shapes.extraLarge),
                     shape = MaterialTheme.shapes.extraLarge,
                     color = SurfaceContainerDark,
-                    border = BorderStroke(1.dp, OutlineVariantDark),
                 ) {
                     Column(
                         modifier = Modifier
@@ -330,10 +332,11 @@ fun ProfileScreen(
                     )
 
                     Surface(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .runwayCardFrame(MaterialTheme.shapes.extraLarge),
                         shape = MaterialTheme.shapes.extraLarge,
                         color = SurfaceContainerDark,
-                        border = BorderStroke(1.dp, OutlineVariantDark),
                     ) {
                         Column(modifier = Modifier.padding(20.dp)) {
                             Text(
@@ -404,10 +407,11 @@ fun ProfileScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .runwayCardFrame(MaterialTheme.shapes.extraLarge),
                 shape = MaterialTheme.shapes.extraLarge,
                 color = SurfaceContainerDark,
-                border = BorderStroke(1.dp, OutlineVariantDark),
             ) {
                 Column {
                     MenuRow(
@@ -456,10 +460,11 @@ fun ProfileScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .runwayCardFrame(MaterialTheme.shapes.extraLarge),
                 shape = MaterialTheme.shapes.extraLarge,
                 color = SurfaceContainerDark,
-                border = BorderStroke(1.dp, OutlineVariantDark),
             ) {
                 Column {
                     MenuRow(

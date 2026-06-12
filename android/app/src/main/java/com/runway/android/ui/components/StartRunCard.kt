@@ -1,6 +1,5 @@
 package com.runway.android.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,8 +21,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.runway.android.ui.components.runwayCardFrame
 import com.runway.android.ui.theme.LocalIsDarkTheme
-import com.runway.android.ui.theme.OutlineVariantDark
 import com.runway.android.ui.theme.SurfaceContainerDark
 
 @Composable
@@ -34,10 +33,11 @@ fun StartRunCard(
     val isDark = LocalIsDarkTheme.current
     Surface(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .runwayCardFrame(MaterialTheme.shapes.extraLarge),
         shape = MaterialTheme.shapes.extraLarge,
         color = if (isDark) SurfaceContainerDark else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, if (isDark) OutlineVariantDark else MaterialTheme.colorScheme.outline),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),

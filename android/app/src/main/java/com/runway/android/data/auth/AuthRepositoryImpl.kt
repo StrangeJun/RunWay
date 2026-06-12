@@ -3,6 +3,7 @@ package com.runway.android.data.auth
 import com.runway.android.core.datastore.TokenDataStore
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.core.result.safeApiCall
+import com.runway.android.data.auth.model.GoogleLoginRequest
 import com.runway.android.data.auth.model.LoginRequest
 import com.runway.android.data.auth.model.LoginResponse
 import com.runway.android.data.auth.model.LogoutRequest
@@ -61,6 +62,14 @@ class AuthRepositoryImpl @Inject constructor(
         val refreshToken = tokenDataStore.getRefreshTokenBlocking()
             ?: return NetworkResult.ApiError(401, "UNAUTHORIZED", "로그인 상태가 아닙니다.")
         val result = safeApiCall { authApi.reissue(ReissueRequest(refreshToken)) }
+        if (result is NetworkResult.Success) {
+            tokenDataStore.saveTokens(result.data.accessToken, result.data.refreshToken)
+        }
+        return result
+    }
+
+    override suspend fun loginWithGoogle(idToken: String): NetworkResult<LoginResponse> {
+        val result = safeApiCall { authApi.loginWithGoogle(GoogleLoginRequest(idToken)) }
         if (result is NetworkResult.Success) {
             tokenDataStore.saveTokens(result.data.accessToken, result.data.refreshToken)
         }

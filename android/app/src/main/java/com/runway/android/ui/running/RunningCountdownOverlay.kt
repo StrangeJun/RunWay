@@ -41,9 +41,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.runway.android.BuildConfig
+import com.runway.android.ui.theme.SurfaceContainerLowestDark
 import kotlinx.coroutines.delay
-
-private val CountdownBackground = Color(0xFF07070E)
 
 @Composable
 fun RunningCountdownOverlay(
@@ -82,7 +81,7 @@ fun RunningCountdownOverlay(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(CountdownBackground)
+            .background(SurfaceContainerLowestDark)
             .pointerInput(Unit) {
                 detectTapGestures {
                     skipped = true
@@ -98,7 +97,7 @@ fun RunningCountdownOverlay(
             fontSize = 13.sp,
             fontWeight = FontWeight.ExtraBold,
             letterSpacing = 5.sp,
-            color = Color.White.copy(alpha = 0.10f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f),
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 60.dp),
@@ -108,7 +107,7 @@ fun RunningCountdownOverlay(
         Text(
             text = "화면을 탭하면 바로 시작",
             fontSize = 13.sp,
-            color = Color.White.copy(alpha = 0.35f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 72.dp),
@@ -158,7 +157,7 @@ fun RunningCountdownOverlay(
                     text = if (c == 0) "GO!" else c.toString(),
                     fontSize = if (c == 0) 72.sp else 116.sp,
                     fontWeight = FontWeight.Black,
-                    color = if (c == 0) primary else Color.White,
+                    color = if (c == 0) primary else MaterialTheme.colorScheme.onSurface,
                 )
             }
         }

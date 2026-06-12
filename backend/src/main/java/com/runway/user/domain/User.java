@@ -50,14 +50,23 @@ public class User {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    @Column(name = "social_provider", length = 20)
+    private String socialProvider;
+
+    @Column(name = "social_id", length = 255)
+    private String socialId;
+
     @Builder
     private User(String email, String passwordHash, String nickname,
-                 String profileImageUrl, String bio) {
+                 String profileImageUrl, String bio,
+                 String socialProvider, String socialId) {
         this.email = email;
         this.passwordHash = passwordHash;
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
         this.bio = bio;
+        this.socialProvider = socialProvider;
+        this.socialId = socialId;
     }
 
     @PrePersist
@@ -80,6 +89,11 @@ public class User {
 
     public void updateRefreshTokenHash(String refreshTokenHash) {
         this.refreshTokenHash = refreshTokenHash;
+    }
+
+    public void linkSocial(String provider, String id) {
+        this.socialProvider = provider;
+        this.socialId = id;
     }
 
     public void softDelete() {

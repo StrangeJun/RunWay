@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -39,11 +40,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -170,32 +174,50 @@ fun RunningTrackingScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding(),
+            .statusBarsPadding()
+            .navigationBarsPadding(),
     ) {
-        // ─── Status row ───
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .padding(vertical = 4.dp),
+            contentAlignment = Alignment.Center,
         ) {
-            RecordingPill(state = viewModel.runningState)
             Text(
                 text = when {
-                    viewModel.isConnecting -> "GPS 연결 중..."
-                    viewModel.gpsStatus == GpsStatus.PERMISSION_REQUIRED -> "위치 권한 필요"
-                    viewModel.gpsStatus == GpsStatus.WAITING_FOR_FIX -> "GPS 신호 수신 중..."
-                    viewModel.runningState == RunningState.AUTO_PAUSED -> "자동 일시정지 중"
-                    !isRunning -> "일시정지"
+                    viewModel.isConnecting -> "GPS · Connecting"
+                    viewModel.gpsStatus == GpsStatus.PERMISSION_REQUIRED -> "GPS · Permission Required"
+                    viewModel.gpsStatus == GpsStatus.WAITING_FOR_FIX -> "GPS · Waiting"
                     else -> "GPS · Active"
                 },
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = { showExitDialog = true }) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "뒤로",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            Text(
+                text = if (isRunning) "Active Tracking" else "Paused",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(modifier = Modifier.size(48.dp))
+        }
 
         // ─── Milestone banner ───
         viewModel.milestoneMessage?.let { msg ->
@@ -263,46 +285,43 @@ fun RunningTrackingScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // ─── Controls ───
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (viewModel.isFinishing) {
+        if (viewModel.isFinishing) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(60.dp),
                     color = MaterialTheme.colorScheme.error,
                     strokeWidth = 3.dp,
                 )
-            } else {
+            }
+        } else if (isRunning) {
+            TrackingActionButton(
+                icon = Icons.Filled.Pause,
+                label = "PAUSE",
+                onClick = viewModel::pause,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 RunningControlButton(
                     icon = Icons.Filled.Stop,
                     onClick = viewModel::finish,
-                    size = 60.dp,
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    size = 64.dp,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
                     contentColor = MaterialTheme.colorScheme.error,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
                 )
-            }
-
-            Spacer(modifier = Modifier.width(24.dp))
-
-            if (isRunning) {
-                RunningControlButton(
-                    icon = Icons.Filled.Pause,
-                    onClick = viewModel::pause,
-                    size = 84.dp,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                )
-            } else {
-                // Shows resume for both PAUSED and AUTO_PAUSED
-                RunningControlButton(
+                Spacer(modifier = Modifier.width(24.dp))
+                TrackingActionButton(
                     icon = Icons.Filled.PlayArrow,
+                    label = "RESUME",
                     onClick = viewModel::resume,
-                    size = 84.dp,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
                 )
             }
         }
@@ -320,7 +339,7 @@ fun RunningTrackingScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(44.dp))
+        Spacer(modifier = Modifier.height(32.dp))
     }
 
     AnimatedVisibility(
@@ -350,12 +369,6 @@ private fun FreeRunDataPanel(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(
-            text = if (isRunning) "GPS · ACTIVE" else "PAUSED",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
         AnimatedContent(
             targetState = distanceText,
             transitionSpec = {
@@ -366,8 +379,8 @@ private fun FreeRunDataPanel(
         ) { text ->
             Text(
                 text = text,
-                fontSize = 84.sp,
-                lineHeight = 88.sp,
+                fontSize = 92.sp,
+                lineHeight = 96.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
@@ -376,7 +389,7 @@ private fun FreeRunDataPanel(
         Text(
             text = "km",
             style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Bold,
         )
         Spacer(modifier = Modifier.height(32.dp))
@@ -385,15 +398,15 @@ private fun FreeRunDataPanel(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             CompactMetricBlock(
-                label = "TIME",
-                value = timerText,
-                unit = "",
+                label = "PACE",
+                value = paceText,
+                unit = "/km",
                 modifier = Modifier.weight(1f),
             )
             CompactMetricBlock(
-                label = "AVG PACE",
-                value = paceText,
-                unit = "/km",
+                label = "TIME",
+                value = timerText,
+                unit = "",
                 modifier = Modifier.weight(1f),
             )
         }
@@ -403,15 +416,15 @@ private fun FreeRunDataPanel(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             CompactMetricBlock(
-                label = "CADENCE",
-                value = cadenceText,
-                unit = "spm",
+                label = "CALORIES",
+                value = "--",
+                unit = "kcal",
                 modifier = Modifier.weight(1f),
             )
             CompactMetricBlock(
-                label = "SPEED",
-                value = speedText,
-                unit = "km/h",
+                label = "CADENCE",
+                value = cadenceText,
+                unit = "spm",
                 modifier = Modifier.weight(1f),
             )
         }
@@ -427,16 +440,15 @@ private fun CompactMetricBlock(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(SurfaceContainerDark)
-            .border(1.dp, OutlineVariantDark, RoundedCornerShape(20.dp))
-            .padding(vertical = 16.dp, horizontal = 10.dp),
+            .padding(vertical = 14.dp, horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.primary,
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
@@ -455,46 +467,35 @@ private fun CompactMetricBlock(
 }
 
 @Composable
-private fun RecordingPill(state: RunningState) {
-    val infiniteTransition = rememberInfiniteTransition(label = "dot")
-    val dotAlpha by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 0.15f,
-        animationSpec = InfiniteRepeatableSpec(tween(700), repeatMode = RepeatMode.Reverse),
-        label = "dot_alpha",
-    )
-
-    val pillColor: Color = when (state) {
-        RunningState.RUNNING -> MaterialTheme.colorScheme.primary
-        RunningState.PAUSED -> MaterialTheme.colorScheme.onSurfaceVariant
-        RunningState.AUTO_PAUSED -> WarningYellow
-    }
-
-    val label: String = when (state) {
-        RunningState.RUNNING -> "RECORDING"
-        RunningState.PAUSED -> "PAUSED"
-        RunningState.AUTO_PAUSED -> "AUTO PAUSED"
-    }
-
+private fun TrackingActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Surface(
+        onClick = onClick,
+        modifier = modifier.size(84.dp),
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, pillColor.copy(alpha = 0.5f)),
+        color = MaterialTheme.colorScheme.primary,
+        shadowElevation = 12.dp,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            Canvas(modifier = Modifier.size(6.dp)) {
-                drawCircle(
-                    color = pillColor.copy(alpha = if (state == RunningState.RUNNING) dotAlpha else 0.5f),
-                )
-            }
-            Spacer(modifier = Modifier.width(6.dp))
+            Icon(
+                icon,
+                contentDescription = label,
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(28.dp),
+            )
             Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = pillColor,
+                label,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                ),
+                color = MaterialTheme.colorScheme.onPrimary,
             )
         }
     }

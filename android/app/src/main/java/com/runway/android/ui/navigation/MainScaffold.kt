@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -38,6 +39,7 @@ fun MainScaffold(
     onStartRun: () -> Unit = {},
     onLogout: () -> Unit = {},
     onNavigateToCourseDetail: (String) -> Unit = {},
+    onNavigateToMapDetail: (String) -> Unit = {},
     onNavigateToMyRuns: () -> Unit = {},
     onNavigateToCourses: () -> Unit = {},
     onNavigateToRunDetail: (String) -> Unit = {},
@@ -85,6 +87,7 @@ fun MainScaffold(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             RunwayBottomNav(
                 currentTab = currentTab,
@@ -102,6 +105,7 @@ fun MainScaffold(
                     onStartRun = onStartRun,
                     onSeeAllRuns = onNavigateToMyRuns,
                     onNavigateToCourseDetail = onNavigateToCourseDetail,
+                    onNavigateToMapDetail = onNavigateToMapDetail,
                     onNavigateToDiscover = { currentTabOrdinal = MainTab.DISCOVER.ordinal },
                     onNavigateToRunDetail = onNavigateToRunDetail,
                     viewModel = homeViewModel,

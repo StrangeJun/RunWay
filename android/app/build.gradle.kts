@@ -33,6 +33,7 @@ android {
         manifestPlaceholders["MAPS_API_KEY"] = localProps.getProperty("MAPS_API_KEY") ?: ""
         buildConfigField("String", "OPENWEATHER_API_KEY", "\"${localProps.getProperty("OPENWEATHER_API_KEY") ?: ""}\"")
         buildConfigField("String", "AIRKOREA_API_KEY", "\"${localProps.getProperty("AIRKOREA_API_KEY") ?: ""}\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${localProps.getProperty("GOOGLE_WEB_CLIENT_ID") ?: ""}\"")
 
     }
 
@@ -109,6 +110,7 @@ dependencies {
     // ─── Location ───
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("com.google.android.gms:play-services-wearable:19.0.0")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("org.locationtech.proj4j:proj4j:1.4.3")
 
     // ─── Google Maps ───

@@ -1,6 +1,7 @@
 package com.runway.android.ui.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -15,9 +16,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.runway.android.ui.navigation.MainTab
-import com.runway.android.ui.theme.GlassBorderDark
-import com.runway.android.ui.theme.GlassSurfaceDark
 import com.runway.android.ui.theme.LocalIsDarkTheme
+import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.theme.SurfaceContainerLowestDark
 
 @Composable
 fun RunwayBottomNav(
@@ -25,11 +26,12 @@ fun RunwayBottomNav(
     onTabSelected: (MainTab) -> Unit,
 ) {
     val isDark = LocalIsDarkTheme.current
-    val topBorderColor = if (isDark) GlassBorderDark else Color.Black.copy(alpha = 0.06f)
+    val topBorderColor = if (isDark) OutlineVariantDark else Color.Black.copy(alpha = 0.08f)
 
     NavigationBar(
         modifier = Modifier
             .fillMaxWidth()
+            .navigationBarsPadding()
             .drawBehind {
                 drawLine(
                     color = topBorderColor,
@@ -38,7 +40,7 @@ fun RunwayBottomNav(
                     strokeWidth = 1.dp.toPx(),
                 )
             },
-        containerColor = if (isDark) GlassSurfaceDark
+        containerColor = if (isDark) SurfaceContainerLowestDark.copy(alpha = 0.96f)
                          else MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
     ) {
@@ -51,13 +53,13 @@ fun RunwayBottomNav(
                     Icon(
                         imageVector = tab.icon,
                         contentDescription = tab.label,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(20.dp),
                     )
                 },
                 label = {
                     Text(
                         text = tab.label,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelSmall,
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(

@@ -71,6 +71,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.ui.components.DiscoverCourseCard
 import com.runway.android.ui.theme.OutlineVariantDark
 import com.runway.android.ui.theme.SurfaceContainerDark
+import com.runway.android.ui.components.runwayCardFrame
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -165,7 +166,7 @@ fun DiscoverScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
-                    .border(1.dp, OutlineVariantDark, MaterialTheme.shapes.extraLarge),
+                    .runwayCardFrame(MaterialTheme.shapes.extraLarge),
                 shape = MaterialTheme.shapes.extraLarge,
                 color = SurfaceContainerDark,
             ) {
@@ -298,7 +299,7 @@ fun DiscoverScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
-                        .border(1.dp, OutlineVariantDark, MaterialTheme.shapes.extraLarge),
+                        .runwayCardFrame(MaterialTheme.shapes.extraLarge),
                     shape = MaterialTheme.shapes.extraLarge,
                     color = SurfaceContainerDark,
                 ) {
@@ -510,7 +511,7 @@ private fun DiscoverViewModeSelector(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier.border(1.dp, OutlineVariantDark, MaterialTheme.shapes.medium),
+        modifier = modifier.runwayCardFrame(MaterialTheme.shapes.medium),
         shape = MaterialTheme.shapes.medium,
         color = SurfaceContainerDark,
     ) {

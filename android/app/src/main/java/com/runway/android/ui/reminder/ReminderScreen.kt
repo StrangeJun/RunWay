@@ -1,7 +1,6 @@
 package com.runway.android.ui.reminder
 
 import android.app.TimePickerDialog
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -35,7 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.runway.android.ui.theme.OutlineVariantDark
+import com.runway.android.ui.components.runwayCardFrame
 import com.runway.android.ui.theme.SurfaceContainerDark
 import java.util.Calendar
 
@@ -81,10 +80,10 @@ fun ReminderScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = 20.dp)
+                .runwayCardFrame(MaterialTheme.shapes.extraLarge),
             shape = MaterialTheme.shapes.extraLarge,
             color = SurfaceContainerDark,
-            border = BorderStroke(1.dp, OutlineVariantDark),
         ) {
             Row(
                 modifier = Modifier
@@ -132,10 +131,10 @@ fun ReminderScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = 20.dp)
+                .runwayCardFrame(MaterialTheme.shapes.extraLarge),
             shape = MaterialTheme.shapes.extraLarge,
             color = SurfaceContainerDark,
-            border = BorderStroke(1.dp, OutlineVariantDark),
             onClick = {
                 TimePickerDialog(
                     context,

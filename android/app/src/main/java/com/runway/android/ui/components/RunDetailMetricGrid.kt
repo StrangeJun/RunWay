@@ -1,6 +1,5 @@
 package com.runway.android.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +18,9 @@ import androidx.compose.ui.unit.dp
 import com.runway.android.core.util.formatDistance
 import com.runway.android.core.util.formatDuration
 import com.runway.android.core.util.formatPace
+import com.runway.android.ui.components.runwayCardFrame
+import com.runway.android.ui.theme.LocalIsDarkTheme
+import com.runway.android.ui.theme.SurfaceContainerDark
 
 @Composable
 fun RunDetailMetricGrid(
@@ -29,11 +31,13 @@ fun RunDetailMetricGrid(
     avgHeartRateBpm: Int?,
     modifier: Modifier = Modifier,
 ) {
+    val isDark = LocalIsDarkTheme.current
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .runwayCardFrame(MaterialTheme.shapes.extraLarge),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        color = if (isDark) SurfaceContainerDark else MaterialTheme.colorScheme.surface,
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(

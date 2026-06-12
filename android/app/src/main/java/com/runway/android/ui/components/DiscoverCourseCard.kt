@@ -55,7 +55,7 @@ private val EndOrange = Color(0xFFFB923C)
 fun DiscoverCourseCard(
     course: NearbyCourseItem,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit = {},
+    onClick: () -> Unit,
 ) {
     val isPopular = DiscoverViewModel.isPopular(course)
     val isNew = DiscoverViewModel.isNew(course)
@@ -63,10 +63,11 @@ fun DiscoverCourseCard(
     val isDark = LocalIsDarkTheme.current
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .runwayCardFrame(MaterialTheme.shapes.extraLarge),
         shape = MaterialTheme.shapes.extraLarge,
         color = if (isDark) SurfaceContainerDark else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, if (isDark) OutlineVariantDark else MaterialTheme.colorScheme.outline),
         onClick = onClick,
     ) {
         Column {
@@ -224,7 +225,7 @@ fun DiscoverCourseCard(
 }
 
 @Composable
-private fun SportyCourseCanvas(
+internal fun SportyCourseCanvas(
     routePoints: List<GeoPoint>,
     courseId: String,
     accentColor: Color,

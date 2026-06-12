@@ -35,15 +35,15 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.runway.android.ui.components.CoursePreviewSheet
 import com.runway.android.ui.components.DiscoverCourseCard
 import com.runway.android.ui.components.RecentRunCard
 import com.runway.android.ui.components.RunHeroSection
 import com.runway.android.ui.components.SectionHeader
 import com.runway.android.ui.components.WeeklyStatsCard
+import com.runway.android.ui.components.SavedCoursePickerSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,6 +52,7 @@ fun HomeScreen(
     onSetGoal: () -> Unit = {},
     onSeeAllRuns: () -> Unit = {},
     onNavigateToCourseDetail: (String) -> Unit = {},
+    onNavigateToMapDetail: (String) -> Unit = {},
     onNavigateToDiscover: () -> Unit = {},
     onNavigateToRunDetail: (String) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
@@ -59,6 +60,44 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         viewModel.tryLoadNearbyCourses()
         viewModel.tryLoadWeather()
+    }
+
+    if (viewModel.showCoursePicker) {
+        SavedCoursePickerSheet(
+            courses = viewModel.savedCourses,
+            isLoading = viewModel.isLoadingSavedCourses,
+            error = viewModel.savedCoursesError,
+            onDismiss = viewModel::closeCoursePicker,
+            onRetry = viewModel::loadSavedCourses,
+            onExploreCourses = {
+                viewModel.closeCoursePicker()
+                onNavigateToDiscover()
+            },
+            onCourseSelected = { course ->
+                viewModel.closeCoursePicker()
+                viewModel.selectCoursePreview(course)
+            },
+        )
+    }
+
+    viewModel.coursePreview?.let { course ->
+        CoursePreviewSheet(
+            course = course,
+            routePoints = viewModel.previewPoints,
+            bestTimeSeconds = viewModel.previewBestTimeSeconds,
+            avgRating = viewModel.previewAvgRating,
+            ratingCount = viewModel.previewRatingCount,
+            isLoading = viewModel.isLoadingPreview,
+            onDismiss = viewModel::dismissCoursePreview,
+            onViewMap = { courseId ->
+                viewModel.dismissCoursePreview()
+                onNavigateToMapDetail(courseId)
+            },
+            onStartAttempt = { courseId ->
+                viewModel.dismissCoursePreview()
+                onNavigateToCourseDetail(courseId)
+            },
+        )
     }
 
     if (viewModel.showGoalSheet) {
@@ -71,40 +110,18 @@ fun HomeScreen(
         )
     }
 
-    val listState = rememberLazyListState()
-    val density = LocalDensity.current
-
-    // smoothstep easing: 0f = hero fully visible, 1f = hero scrolled / content revealed
-    // fade distance = 380dp for a gradual, cinematic transition
-    val eased by remember {
-        derivedStateOf {
-            val raw = if (listState.firstVisibleItemIndex > 0) 1f
-            else {
-                val fadePx = with(density) { 380.dp.toPx() }
-                (listState.firstVisibleItemScrollOffset / fadePx).coerceIn(0f, 1f)
-            }
-            // smoothstep: 3t² - 2t³  — slow start, smooth middle, slow end
-            raw * raw * (3f - 2f * raw)
-        }
-    }
-
-    // Content slide-up distance (pixels) — items translate from below as they fade in
-    val slideDistPx = with(density) { 28.dp.toPx() }
-
     PullToRefreshBox(
         isRefreshing = viewModel.isRefreshing,
         onRefresh = viewModel::refresh,
         modifier = Modifier.fillMaxSize(),
     ) {
     LazyColumn(
-        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(bottom = 24.dp),
     ) {
 
-        // ─── Run Hero: fades out as user scrolls ───
         item {
             RunHeroSection(
                 onStartRun = onStartRun,
@@ -113,45 +130,29 @@ fun HomeScreen(
                 weatherInfo = viewModel.weatherInfo,
                 currentLocation = viewModel.currentLocation,
                 hasLocationPermission = viewModel.locationPermissionGranted,
+                onSelectCourse = viewModel::openCoursePicker,
+                isVoiceGuideEnabled = viewModel.isVoiceGuideEnabled,
+                onVoiceGuideEnabledChange = viewModel::updateVoiceGuideEnabled,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillParentMaxHeight(1.08f)
-                    .graphicsLayer { alpha = 1f - eased },
+                    .fillParentMaxHeight(1.06f),
             )
         }
 
-        // ─── Weekly stats: fades in + slides up ───
-        item {
-            SectionHeader(
-                title = "이번 주",
-                modifier = Modifier.graphicsLayer {
-                    alpha = eased
-                    translationY = (1f - eased) * slideDistPx
-                },
-            )
-        }
         item {
             WeeklyStatsCard(
                 stats = viewModel.weeklyStats,
                 modifier = Modifier
-                    .padding(horizontal = 20.dp)
-                    .graphicsLayer {
-                        alpha = eased
-                        translationY = (1f - eased) * slideDistPx
-                    },
+                    .padding(horizontal = 12.dp)
+                    .padding(top = 10.dp),
             )
         }
 
-        // ─── Nearby courses: fades in + slides up ───
         item {
             SectionHeader(
                 title = "주변 코스",
                 cta = "전체 보기",
                 onCtaClick = onNavigateToDiscover,
-                modifier = Modifier.graphicsLayer {
-                    alpha = eased
-                    translationY = (1f - eased) * slideDistPx
-                },
             )
         }
         item {
@@ -160,11 +161,7 @@ fun HomeScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(160.dp)
-                            .graphicsLayer {
-                                alpha = eased
-                                translationY = (1f - eased) * slideDistPx
-                            },
+                            .height(160.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
@@ -174,11 +171,7 @@ fun HomeScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(80.dp)
-                            .graphicsLayer {
-                                alpha = eased
-                                translationY = (1f - eased) * slideDistPx
-                            },
+                            .height(80.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
@@ -195,10 +188,6 @@ fun HomeScreen(
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = 20.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.graphicsLayer {
-                            alpha = eased
-                            translationY = (1f - eased) * slideDistPx
-                        },
                     ) {
                         items(viewModel.nearbyCourses) { course ->
                             DiscoverCourseCard(

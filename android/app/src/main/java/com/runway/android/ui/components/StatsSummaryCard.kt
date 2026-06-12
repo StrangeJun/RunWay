@@ -1,6 +1,5 @@
 package com.runway.android.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,8 +11,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.runway.android.ui.components.runwayCardFrame
 import com.runway.android.ui.theme.LocalIsDarkTheme
-import com.runway.android.ui.theme.OutlineVariantDark
 import com.runway.android.ui.theme.SurfaceContainerDark
 
 @Composable
@@ -24,10 +23,9 @@ fun StatsSummaryCard(
 ) {
     val isDark = LocalIsDarkTheme.current
     Surface(
-        modifier = modifier,
+        modifier = modifier.runwayCardFrame(MaterialTheme.shapes.large),
         shape = MaterialTheme.shapes.large,
         color = if (isDark) SurfaceContainerDark else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, if (isDark) OutlineVariantDark else MaterialTheme.colorScheme.outline),
     ) {
         Row(
             modifier = Modifier

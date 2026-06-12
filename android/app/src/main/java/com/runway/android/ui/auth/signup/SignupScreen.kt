@@ -127,7 +127,7 @@ fun SignupScreen(
 
                 // ─── Branding ───
                 Text(
-                    text = "RUNWAY",
+                    text = "RunWay",
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 3.sp,

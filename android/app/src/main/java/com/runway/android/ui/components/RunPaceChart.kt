@@ -1,6 +1,5 @@
 package com.runway.android.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,6 +22,9 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import com.runway.android.core.running.RunChartPoint
+import com.runway.android.ui.components.runwayCardFrame
+import com.runway.android.ui.theme.LocalIsDarkTheme
+import com.runway.android.ui.theme.SurfaceContainerDark
 
 @Composable
 fun RunPaceChart(
@@ -45,11 +47,13 @@ fun RunPaceChart(
     val maxPace = remember(points) { points.maxOf { it.paceSecondsPerKm } }
     val paceRange = remember(minPace, maxPace) { (maxPace - minPace).coerceAtLeast(60) }
 
+    val isDark = LocalIsDarkTheme.current
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .runwayCardFrame(MaterialTheme.shapes.extraLarge),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        color = if (isDark) SurfaceContainerDark else MaterialTheme.colorScheme.surface,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(

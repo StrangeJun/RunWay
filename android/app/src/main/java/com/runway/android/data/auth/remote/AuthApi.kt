@@ -1,6 +1,7 @@
 package com.runway.android.data.auth.remote
 
 import com.runway.android.core.model.ApiResponse
+import com.runway.android.data.auth.model.GoogleLoginRequest
 import com.runway.android.data.auth.model.LoginRequest
 import com.runway.android.data.auth.model.LoginResponse
 import com.runway.android.data.auth.model.LogoutRequest
@@ -32,4 +33,7 @@ interface AuthApi {
      */
     @POST("api/auth/logout")
     suspend fun logout(@Body request: LogoutRequest): ApiResponse<Unit?>
+
+    @POST("api/auth/google")
+    suspend fun loginWithGoogle(@Body request: GoogleLoginRequest): ApiResponse<LoginResponse>
 }

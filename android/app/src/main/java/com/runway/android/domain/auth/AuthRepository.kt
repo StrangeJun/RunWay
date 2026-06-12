@@ -33,6 +33,9 @@ interface AuthRepository {
      */
     suspend fun reissue(): NetworkResult<ReissueResponse>
 
+    /** Google ID 토큰으로 로그인. 성공 시 토큰을 DataStore에 저장. */
+    suspend fun loginWithGoogle(idToken: String): NetworkResult<LoginResponse>
+
     /** 현재 로그인 상태를 관찰한다. SplashScreen → 자동 로그인 분기에 사용. */
     fun isLoggedInFlow(): Flow<Boolean>
 }

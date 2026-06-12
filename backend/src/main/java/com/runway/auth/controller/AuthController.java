@@ -2,6 +2,7 @@ package com.runway.auth.controller;
 
 import com.runway.auth.dto.*;
 import com.runway.auth.service.AuthService;
+import com.runway.auth.service.GoogleAuthService;
 import com.runway.common.response.ApiResponse;
 import com.runway.common.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final GoogleAuthService googleAuthService;
 
     @Operation(summary = "회원가입")
     @PostMapping("/signup")
@@ -44,6 +46,14 @@ public class AuthController {
             @Valid @RequestBody ReissueRequest request) {
         ReissueResponse response = authService.reissue(request);
         return ResponseEntity.ok(ApiResponse.success("토큰이 재발급되었습니다.", response));
+    }
+
+    @Operation(summary = "Google 소셜 로그인")
+    @PostMapping("/google")
+    public ResponseEntity<ApiResponse<LoginResponse>> googleLogin(
+            @Valid @RequestBody GoogleLoginRequest request) {
+        LoginResponse response = googleAuthService.loginWithGoogle(request.getIdToken());
+        return ResponseEntity.ok(ApiResponse.success("Google 로그인이 완료되었습니다.", response));
     }
 
     @Operation(summary = "로그아웃")

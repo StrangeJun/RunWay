@@ -43,7 +43,7 @@ fun RunwayLoadingButton(
         } else {
             Text(
                 text = text,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.labelLarge,
             )
         }
     }
