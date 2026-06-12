@@ -22,6 +22,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.runway.android.ui.theme.GlassBorderDark
+import com.runway.android.ui.theme.GlassSurfaceDark
+import com.runway.android.ui.theme.LocalIsDarkTheme
 
 data class RunHistoryItem(
     val runId: String,
@@ -42,11 +45,12 @@ fun RunHistoryCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val isDark = LocalIsDarkTheme.current
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        color = if (isDark) GlassSurfaceDark else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, if (isDark) GlassBorderDark else MaterialTheme.colorScheme.outline),
         onClick = onClick,
     ) {
         Row(
@@ -57,7 +61,7 @@ fun RunHistoryCard(
                 modifier = Modifier
                     .size(44.dp)
                     .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                         shape = MaterialTheme.shapes.medium,
                     ),
                 contentAlignment = Alignment.Center,
@@ -69,9 +73,7 @@ fun RunHistoryCard(
                     modifier = Modifier.size(20.dp),
                 )
             }
-
             Spacer(modifier = Modifier.width(12.dp))
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "${item.distanceFormatted} · ${item.duration}",
@@ -111,7 +113,6 @@ fun RunHistoryCard(
                     }
                 }
             }
-
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,

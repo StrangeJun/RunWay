@@ -12,6 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.runway.android.ui.theme.GlassBorderDark
+import com.runway.android.ui.theme.GlassSurfaceDark
+import com.runway.android.ui.theme.LocalIsDarkTheme
 
 @Composable
 fun StatsSummaryCard(
@@ -19,11 +22,12 @@ fun StatsSummaryCard(
     value: String,
     modifier: Modifier = Modifier.fillMaxWidth(),
 ) {
+    val isDark = LocalIsDarkTheme.current
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        color = if (isDark) GlassSurfaceDark else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, if (isDark) GlassBorderDark else MaterialTheme.colorScheme.outline),
     ) {
         Row(
             modifier = Modifier

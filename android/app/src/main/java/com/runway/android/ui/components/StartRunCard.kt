@@ -22,18 +22,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.runway.android.ui.theme.GlassBorderDark
+import com.runway.android.ui.theme.GlassSurfaceDark
+import com.runway.android.ui.theme.LocalIsDarkTheme
 
 @Composable
 fun StartRunCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val isDark = LocalIsDarkTheme.current
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        color = if (isDark) GlassSurfaceDark else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, if (isDark) GlassBorderDark else MaterialTheme.colorScheme.outline),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
@@ -52,9 +56,7 @@ fun StartRunCard(
                     modifier = Modifier.size(22.dp),
                 )
             }
-
             Spacer(modifier = Modifier.width(14.dp))
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "러닝 시작",
@@ -67,7 +69,6 @@ fun StartRunCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
