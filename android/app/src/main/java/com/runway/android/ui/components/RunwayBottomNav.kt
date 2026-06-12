@@ -15,6 +15,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.runway.android.ui.navigation.MainTab
+import com.runway.android.ui.theme.GlassBorderDark
+import com.runway.android.ui.theme.GlassSurfaceDark
 import com.runway.android.ui.theme.LocalIsDarkTheme
 
 @Composable
@@ -23,7 +25,7 @@ fun RunwayBottomNav(
     onTabSelected: (MainTab) -> Unit,
 ) {
     val isDark = LocalIsDarkTheme.current
-    val topBorderColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
+    val topBorderColor = if (isDark) GlassBorderDark else Color.Black.copy(alpha = 0.06f)
 
     NavigationBar(
         modifier = Modifier
@@ -36,7 +38,7 @@ fun RunwayBottomNav(
                     strokeWidth = 1.dp.toPx(),
                 )
             },
-        containerColor = if (isDark) Color.White.copy(alpha = 0.04f)
+        containerColor = if (isDark) GlassSurfaceDark
                          else MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
     ) {
