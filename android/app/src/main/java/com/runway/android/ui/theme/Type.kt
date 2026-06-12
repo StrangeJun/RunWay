@@ -15,10 +15,28 @@ private val fontProvider = GoogleFont.Provider(
     certificates = R.array.com_google_android_gms_fonts_certs,
 )
 
-private val notoSansKr = GoogleFont("Noto Sans KR")
-private val jetbrainsMono = GoogleFont("JetBrains Mono")
+private val soraFont        = GoogleFont("Sora")
+private val spaceGrotesk    = GoogleFont("Space Grotesk")
+private val notoSansKr      = GoogleFont("Noto Sans KR")
 
+/** Headlines, buttons, large numbers — Sora */
 val DisplayFontFamily = FontFamily(
+    Font(googleFont = soraFont, fontProvider = fontProvider, weight = FontWeight.Normal),
+    Font(googleFont = soraFont, fontProvider = fontProvider, weight = FontWeight.Medium),
+    Font(googleFont = soraFont, fontProvider = fontProvider, weight = FontWeight.SemiBold),
+    Font(googleFont = soraFont, fontProvider = fontProvider, weight = FontWeight.Bold),
+    Font(googleFont = soraFont, fontProvider = fontProvider, weight = FontWeight.ExtraBold),
+)
+
+/** Metric labels, units — Space Grotesk */
+val MetricFontFamily = FontFamily(
+    Font(googleFont = spaceGrotesk, fontProvider = fontProvider, weight = FontWeight.Normal),
+    Font(googleFont = spaceGrotesk, fontProvider = fontProvider, weight = FontWeight.Medium),
+    Font(googleFont = spaceGrotesk, fontProvider = fontProvider, weight = FontWeight.Bold),
+)
+
+/** Body text, Korean UI — Noto Sans KR */
+val BodyFontFamily = FontFamily(
     Font(googleFont = notoSansKr, fontProvider = fontProvider, weight = FontWeight.Normal),
     Font(googleFont = notoSansKr, fontProvider = fontProvider, weight = FontWeight.Medium),
     Font(googleFont = notoSansKr, fontProvider = fontProvider, weight = FontWeight.SemiBold),
@@ -26,62 +44,56 @@ val DisplayFontFamily = FontFamily(
     Font(googleFont = notoSansKr, fontProvider = fontProvider, weight = FontWeight.ExtraBold),
 )
 
-val MonoFontFamily = FontFamily(
-    Font(googleFont = jetbrainsMono, fontProvider = fontProvider, weight = FontWeight.Normal),
-    Font(googleFont = jetbrainsMono, fontProvider = fontProvider, weight = FontWeight.Medium),
-    Font(googleFont = jetbrainsMono, fontProvider = fontProvider, weight = FontWeight.Bold),
-)
-
 val RunwayTypography = Typography(
-    // ── 대형 숫자 ── 러닝 타이머 (28:14), 영웅 거리 (5.42 km)
+    // ── 러닝 대형 숫자 (0.00 km, 28:14) — Sora ExtraBold ──
     displayLarge = TextStyle(
-        fontFamily = MonoFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 64.sp,
-        letterSpacing = (-2).sp,
-        lineHeight = 70.sp,
-    ),
-    // ── 주요 통계 숫자 ── 주간 거리 (24.6 km)
-    displayMedium = TextStyle(
-        fontFamily = MonoFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 48.sp,
-        letterSpacing = (-1).sp,
-        lineHeight = 54.sp,
-    ),
-    // ── 화면 타이틀 ── "코스 탐색", "리더보드"
-    headlineLarge = TextStyle(
         fontFamily = DisplayFontFamily,
         fontWeight = FontWeight.ExtraBold,
-        fontSize = 30.sp,
-        letterSpacing = (-0.3).sp,
-        lineHeight = 38.sp,
+        fontSize = 84.sp,
+        letterSpacing = (-3.5).sp,
+        lineHeight = 84.sp,
     ),
-    // ── 섹션 헤더 / 카드 타이틀 ── "Riverside Loop"
+    // ── 주요 통계 숫자 ──
+    displayMedium = TextStyle(
+        fontFamily = DisplayFontFamily,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 64.sp,
+        letterSpacing = (-2.5).sp,
+        lineHeight = 64.sp,
+    ),
+    // ── 화면 타이틀 — Sora Bold ──
+    headlineLarge = TextStyle(
+        fontFamily = DisplayFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 32.sp,
+        letterSpacing = (-0.3).sp,
+        lineHeight = 40.sp,
+    ),
+    // ── 섹션 헤더 / 카드 타이틀 ──
     headlineMedium = TextStyle(
         fontFamily = DisplayFontFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 24.sp,
+        fontSize = 28.sp,
         letterSpacing = (-0.2).sp,
-        lineHeight = 32.sp,
+        lineHeight = 36.sp,
     ),
-    // ── 소형 화면 헤더 ── 설정, 내 기록 서브헤더
+    // ── 서브 헤더 ──
     headlineSmall = TextStyle(
         fontFamily = DisplayFontFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 21.sp,
+        fontSize = 24.sp,
         letterSpacing = 0.sp,
-        lineHeight = 28.sp,
+        lineHeight = 30.sp,
     ),
-    // ── 추적 그리드 수치 ── "5'12\"", "11.5"
+    // ── 추적 그리드 수치 — Sora ──
     titleLarge = TextStyle(
         fontFamily = DisplayFontFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 22.sp,
         letterSpacing = 0.sp,
-        lineHeight = 30.sp,
+        lineHeight = 28.sp,
     ),
-    // ── 리스트 항목 제목 / 카드 이름
+    // ── 리스트 항목 제목 ──
     titleMedium = TextStyle(
         fontFamily = DisplayFontFamily,
         fontWeight = FontWeight.SemiBold,
@@ -89,7 +101,7 @@ val RunwayTypography = Typography(
         letterSpacing = 0.sp,
         lineHeight = 25.sp,
     ),
-    // ── 서브 레이블 / 작은 제목
+    // ── 서브 레이블 ──
     titleSmall = TextStyle(
         fontFamily = DisplayFontFamily,
         fontWeight = FontWeight.Medium,
@@ -97,49 +109,47 @@ val RunwayTypography = Typography(
         letterSpacing = 0.sp,
         lineHeight = 22.sp,
     ),
-    // ── 본문 / 설명 ── 기본 읽기 텍스트
+    // ── 본문 — Noto Sans KR ──
     bodyLarge = TextStyle(
-        fontFamily = DisplayFontFamily,
+        fontFamily = BodyFontFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 18.sp,
+        letterSpacing = 0.sp,
+        lineHeight = 28.sp,
+    ),
+    bodyMedium = TextStyle(
+        fontFamily = BodyFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         letterSpacing = 0.sp,
-        lineHeight = 26.sp,
+        lineHeight = 24.sp,
     ),
-    // ── 보조 본문 ── 메타데이터, 거리·위치
-    bodyMedium = TextStyle(
-        fontFamily = DisplayFontFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        letterSpacing = 0.sp,
-        lineHeight = 23.sp,
-    ),
-    // ── 캡션 / 설명 서브텍스트
     bodySmall = TextStyle(
-        fontFamily = DisplayFontFamily,
+        fontFamily = BodyFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
         letterSpacing = 0.sp,
         lineHeight = 21.sp,
     ),
-    // ── 칩 / 배지 / 탭 레이블
+    // ── 버튼 텍스트 — Sora SemiBold ──
     labelLarge = TextStyle(
         fontFamily = DisplayFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 16.sp,
         letterSpacing = 0.sp,
         lineHeight = 20.sp,
     ),
-    // ── 소형 캡션 ── "거리", "페이스"
+    // ── 메트릭 레이블 — Space Grotesk (uppercase 적용은 호출 측에서) ──
     labelMedium = TextStyle(
-        fontFamily = DisplayFontFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        letterSpacing = 0.sp,
-        lineHeight = 18.sp,
+        fontFamily = MetricFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 12.sp,
+        letterSpacing = 1.2.sp,
+        lineHeight = 16.sp,
     ),
-    // ── 최소 레이블 ── 단위 (km, /km)
+    // ── 단위 레이블 (km, /km) ──
     labelSmall = TextStyle(
-        fontFamily = DisplayFontFamily,
+        fontFamily = MetricFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
         letterSpacing = 0.sp,
