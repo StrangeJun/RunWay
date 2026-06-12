@@ -11,8 +11,12 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.runway.android.ui.theme.GlassBorderDark
+import com.runway.android.ui.theme.GlassSurfaceDark
+import com.runway.android.ui.theme.LocalIsDarkTheme
 
 @Composable
 fun RunwayTextField(
@@ -25,6 +29,7 @@ fun RunwayTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     isError: Boolean = false,
 ) {
+    val isDark = LocalIsDarkTheme.current
     Column(modifier = modifier) {
         Text(
             text = label,
@@ -47,16 +52,16 @@ fun RunwayTextField(
             keyboardOptions = keyboardOptions,
             isError = isError,
             singleLine = true,
-            shape = MaterialTheme.shapes.medium,
+            shape = MaterialTheme.shapes.large,
             textStyle = MaterialTheme.typography.bodyMedium.copy(
                 color = MaterialTheme.colorScheme.onSurface,
             ),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                errorContainerColor = MaterialTheme.colorScheme.surface,
+                focusedContainerColor = if (isDark) GlassSurfaceDark else MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = if (isDark) GlassSurfaceDark else MaterialTheme.colorScheme.surface,
+                errorContainerColor = if (isDark) GlassSurfaceDark else MaterialTheme.colorScheme.surface,
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                unfocusedBorderColor = if (isDark) GlassBorderDark else MaterialTheme.colorScheme.outline,
                 errorBorderColor = MaterialTheme.colorScheme.error,
                 cursorColor = MaterialTheme.colorScheme.primary,
             ),
