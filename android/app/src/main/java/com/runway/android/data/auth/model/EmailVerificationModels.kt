@@ -14,4 +14,8 @@ data class PasswordResetRequest(
     val newPassword: String,
 )
 
+data class NicknameAvailabilityRequest(val nickname: String)
+
+data class NicknameAvailabilityResponse(val available: Boolean)
+
 data class ActionResponse(val accepted: Boolean)

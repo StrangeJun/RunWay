@@ -13,6 +13,8 @@ import com.runway.android.data.auth.model.SignupResponse
 import com.runway.android.data.auth.model.ActionResponse
 import com.runway.android.data.auth.model.EmailCodeRequest
 import com.runway.android.data.auth.model.PasswordResetRequest
+import com.runway.android.data.auth.model.NicknameAvailabilityRequest
+import com.runway.android.data.auth.model.NicknameAvailabilityResponse
 import com.runway.android.data.auth.model.VerificationTokenResponse
 import com.runway.android.data.auth.model.VerifyEmailCodeRequest
 import retrofit2.http.Body
@@ -22,6 +24,11 @@ interface AuthApi {
 
     @POST("api/auth/signup")
     suspend fun signup(@Body request: SignupRequest): ApiResponse<SignupResponse>
+
+    @POST("api/auth/nickname/check")
+    suspend fun checkNickname(
+        @Body request: NicknameAvailabilityRequest,
+    ): ApiResponse<NicknameAvailabilityResponse>
 
     @POST("api/auth/login")
     suspend fun login(@Body request: LoginRequest): ApiResponse<LoginResponse>

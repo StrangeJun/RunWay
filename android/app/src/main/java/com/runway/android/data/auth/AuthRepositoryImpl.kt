@@ -14,6 +14,7 @@ import com.runway.android.data.auth.model.SignupRequest
 import com.runway.android.data.auth.model.SignupResponse
 import com.runway.android.data.auth.model.EmailCodeRequest
 import com.runway.android.data.auth.model.PasswordResetRequest
+import com.runway.android.data.auth.model.NicknameAvailabilityRequest
 import com.runway.android.data.auth.model.VerifyEmailCodeRequest
 import com.runway.android.data.auth.remote.AuthApi
 import com.runway.android.domain.auth.AuthRepository
@@ -44,6 +45,16 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun requestSignupEmailCode(email: String): NetworkResult<Unit> =
         toUnitResult { authApi.requestSignupEmailCode(EmailCodeRequest(email)) }
+
+    override suspend fun checkNickname(nickname: String): NetworkResult<Boolean> = when (
+        val result = safeApiCall {
+            authApi.checkNickname(NicknameAvailabilityRequest(nickname))
+        }
+    ) {
+        is NetworkResult.Success -> NetworkResult.Success(result.data.available)
+        is NetworkResult.ApiError -> result
+        is NetworkResult.NetworkError -> result
+    }
 
     override suspend fun verifySignupEmailCode(
         email: String,

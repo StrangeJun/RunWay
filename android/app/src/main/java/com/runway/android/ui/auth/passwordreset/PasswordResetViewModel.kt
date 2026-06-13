@@ -97,8 +97,8 @@ class PasswordResetViewModel @Inject constructor(
 
     fun resetPassword() {
         val token = verificationToken ?: return
-        if (password.length < 8) {
-            error = "비밀번호는 8자 이상이어야 합니다."
+        if (password.length < 10) {
+            error = "비밀번호는 10자 이상이어야 합니다."
             return
         }
         if (password != passwordConfirm) {

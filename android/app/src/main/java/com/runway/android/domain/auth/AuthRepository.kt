@@ -16,6 +16,7 @@ interface AuthRepository {
         emailVerificationToken: String,
     ): NetworkResult<SignupResponse>
 
+    suspend fun checkNickname(nickname: String): NetworkResult<Boolean>
     suspend fun requestSignupEmailCode(email: String): NetworkResult<Unit>
     suspend fun verifySignupEmailCode(email: String, code: String): NetworkResult<String>
     suspend fun requestPasswordResetCode(email: String): NetworkResult<Unit>

@@ -42,6 +42,7 @@ public class SecurityConfig {
                                 "/api/auth/naver",
                                 "/api/auth/email-verification/**",
                                 "/api/auth/password-reset/**",
+                                "/api/auth/nickname/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",

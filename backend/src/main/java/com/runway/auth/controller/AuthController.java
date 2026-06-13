@@ -37,6 +37,18 @@ public class AuthController {
                 .body(ApiResponse.success("회원가입이 완료되었습니다.", response));
     }
 
+    @Operation(summary = "닉네임 중복 확인")
+    @PostMapping("/nickname/check")
+    public ResponseEntity<ApiResponse<NicknameAvailabilityResponse>> checkNickname(
+            @Valid @RequestBody NicknameAvailabilityRequest request) {
+        NicknameAvailabilityResponse response =
+                authService.checkNicknameAvailability(request);
+        return ResponseEntity.ok(ApiResponse.success(
+                response.available() ? "사용 가능한 닉네임입니다." : "이미 사용 중인 닉네임입니다.",
+                response
+        ));
+    }
+
     @Operation(summary = "로그인")
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(

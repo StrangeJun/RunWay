@@ -234,7 +234,23 @@ fun SignupScreen(
                         value = viewModel.password,
                         onChange = viewModel::onPasswordChange,
                         label = "PASSWORD",
-                        placeholder = "8자 이상",
+                        placeholder = "10자 이상",
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        isError = viewModel.error != null,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "10자 이상으로 입력하고 이메일·닉네임이나 흔한 비밀번호는 피해주세요.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.45f),
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    SignupInputField(
+                        value = viewModel.passwordConfirm,
+                        onChange = viewModel::onPasswordConfirmChange,
+                        label = "CONFIRM PASSWORD",
+                        placeholder = "비밀번호 다시 입력",
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         isError = viewModel.error != null,
@@ -247,6 +263,45 @@ fun SignupScreen(
                         placeholder = "러너 이름",
                         isError = viewModel.error != null,
                     )
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = viewModel::checkNickname,
+                        enabled = !viewModel.isNicknameCheckLoading &&
+                            viewModel.nickname.trim().length >= 2,
+                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        shape = MaterialTheme.shapes.large,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = NeonGreen.copy(alpha = 0.14f),
+                            contentColor = NeonGreen,
+                            disabledContainerColor = NeonGreen.copy(alpha = 0.07f),
+                            disabledContentColor = NeonGreen.copy(alpha = 0.45f),
+                        ),
+                    ) {
+                        if (viewModel.isNicknameCheckLoading) {
+                            CircularProgressIndicator(
+                                Modifier.size(18.dp),
+                                color = NeonGreen,
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Text(
+                                if (viewModel.isNicknameChecked) "닉네임 확인 완료" else "닉네임 중복 확인",
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                    viewModel.nicknameCheckMessage?.let { message ->
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (viewModel.isNicknameChecked) {
+                                NeonGreen.copy(alpha = 0.85f)
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                        )
+                    }
 
                     viewModel.error?.let {
                         Spacer(Modifier.height(8.dp))
@@ -310,7 +365,9 @@ fun SignupScreen(
             // 가입 버튼
             Button(
                 onClick = viewModel::signup,
-                enabled = !viewModel.isLoading && viewModel.isEmailVerified,
+                enabled = !viewModel.isLoading &&
+                    viewModel.isEmailVerified &&
+                    viewModel.isNicknameChecked,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = PillShape,
                 colors = ButtonDefaults.buttonColors(

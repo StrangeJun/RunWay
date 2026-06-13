@@ -30,7 +30,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
             "/api/auth/email-verification/signup/verify",
             "/api/auth/password-reset/request",
             "/api/auth/password-reset/verify",
-            "/api/auth/password-reset/confirm"
+            "/api/auth/password-reset/confirm",
+            "/api/auth/nickname/check"
     );
     private static final int MAX_REQUESTS = 10;
     private static final long WINDOW_MS   = 10_000L;

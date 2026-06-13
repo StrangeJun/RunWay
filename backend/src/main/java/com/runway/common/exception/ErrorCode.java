@@ -11,6 +11,7 @@ public enum ErrorCode {
     // 400 Bad Request
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않습니다."),
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "입력값 검증에 실패했습니다."),
+    WEAK_PASSWORD(HttpStatus.BAD_REQUEST, "비밀번호는 10자 이상이어야 하며 흔한 비밀번호나 이메일, 닉네임을 포함할 수 없습니다."),
 
     // 401 Unauthorized
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),

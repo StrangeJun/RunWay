@@ -131,7 +131,7 @@ fun PasswordResetScreen(
                         ResetField(
                             value = viewModel.password,
                             onValueChange = viewModel::onPasswordChange,
-                            placeholder = "새 비밀번호 8자 이상",
+                            placeholder = "새 비밀번호 10자 이상",
                             keyboardType = KeyboardType.Password,
                             password = true,
                         )

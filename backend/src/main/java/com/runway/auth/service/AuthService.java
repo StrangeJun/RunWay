@@ -23,6 +23,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final AuthVerificationService authVerificationService;
+    private final PasswordPolicy passwordPolicy;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -34,19 +35,30 @@ public class AuthService {
         if (userRepository.existsByEmailIgnoreCaseAndDeletedAtIsNull(email)) {
             throw new RunwayException(ErrorCode.DUPLICATED_EMAIL);
         }
-        if (userRepository.existsByNicknameAndDeletedAtIsNull(request.getNickname())) {
+        String nickname = request.getNickname().trim();
+        passwordPolicy.validate(request.getPassword(), email, nickname);
+        if (userRepository.existsByNicknameIgnoreCaseAndDeletedAtIsNull(nickname)) {
             throw new RunwayException(ErrorCode.DUPLICATED_NICKNAME);
         }
 
         User user = User.builder()
                 .email(email)
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .nickname(request.getNickname())
+                .nickname(nickname)
                 .build();
 
         User saved = userRepository.save(user);
         log.info("User signed up: {}", saved.getEmail());
         return SignupResponse.from(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public NicknameAvailabilityResponse checkNicknameAvailability(
+            NicknameAvailabilityRequest request) {
+        String nickname = request.getNickname().trim();
+        return new NicknameAvailabilityResponse(
+                !userRepository.existsByNicknameIgnoreCaseAndDeletedAtIsNull(nickname)
+        );
     }
 
     @Transactional
@@ -120,6 +132,7 @@ public class AuthService {
                     "소셜 로그인으로 가입한 계정입니다."
             );
         }
+        passwordPolicy.validate(request.getNewPassword(), user.getEmail(), user.getNickname());
         user.updatePasswordHash(passwordEncoder.encode(request.getNewPassword()));
         log.info("Password reset completed for user: {}", user.getEmail());
     }

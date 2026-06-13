@@ -22,7 +22,15 @@ class SignupViewModel @Inject constructor(
         private set
     var password by mutableStateOf("")
         private set
+    var passwordConfirm by mutableStateOf("")
+        private set
     var nickname by mutableStateOf("")
+        private set
+    var isNicknameChecked by mutableStateOf(false)
+        private set
+    var isNicknameCheckLoading by mutableStateOf(false)
+        private set
+    var nicknameCheckMessage by mutableStateOf<String?>(null)
         private set
     var emailCode by mutableStateOf("")
         private set
@@ -78,13 +86,45 @@ class SignupViewModel @Inject constructor(
     }
 
     fun onPasswordChange(value: String) {
-        password = value
+        password = value.take(72)
+        error = null
+    }
+
+    fun onPasswordConfirmChange(value: String) {
+        passwordConfirm = value.take(72)
         error = null
     }
 
     fun onNicknameChange(value: String) {
-        nickname = value
+        nickname = value.take(50)
+        isNicknameChecked = false
+        nicknameCheckMessage = null
         error = null
+    }
+
+    fun checkNickname() {
+        val normalizedNickname = nickname.trim()
+        if (normalizedNickname.length !in 2..50) {
+            error = "닉네임은 2자 이상 50자 이하로 입력해 주세요."
+            return
+        }
+        viewModelScope.launch {
+            isNicknameCheckLoading = true
+            error = null
+            when (val result = authRepository.checkNickname(normalizedNickname)) {
+                is NetworkResult.Success -> {
+                    isNicknameChecked = result.data
+                    nicknameCheckMessage = if (result.data) {
+                        "사용 가능한 닉네임입니다."
+                    } else {
+                        "이미 사용 중인 닉네임입니다."
+                    }
+                }
+                is NetworkResult.ApiError -> error = result.message
+                is NetworkResult.NetworkError -> error = "네트워크 오류가 발생했습니다."
+            }
+            isNicknameCheckLoading = false
+        }
     }
 
     fun requestEmailCode() {
@@ -137,6 +177,18 @@ class SignupViewModel @Inject constructor(
     fun signup() {
         if (email.isBlank() || password.isBlank() || nickname.isBlank()) {
             error = "모든 항목을 입력해 주세요."
+            return
+        }
+        if (password.length < 10) {
+            error = "비밀번호는 10자 이상이어야 합니다."
+            return
+        }
+        if (password != passwordConfirm) {
+            error = "비밀번호가 일치하지 않습니다."
+            return
+        }
+        if (!isNicknameChecked) {
+            error = "닉네임 중복 확인을 완료해 주세요."
             return
         }
         val verificationToken = emailVerificationToken
