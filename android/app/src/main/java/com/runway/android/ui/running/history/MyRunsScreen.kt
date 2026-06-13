@@ -151,8 +151,14 @@ fun MyRunsScreen(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
-                                    text = if (viewModel.selectedDate != null) "선택한 날짜에 러닝 기록이 없습니다."
-                                    else "이 달의 러닝 기록이 없습니다.",
+                                    text = when {
+                                        viewModel.allRuns.isEmpty() ->
+                                            "아직 러닝 기록이 없습니다."
+                                        viewModel.selectedDate != null ->
+                                            "선택한 날짜에 러닝 기록이 없습니다."
+                                        else ->
+                                            "이 달의 러닝 기록이 없습니다."
+                                    },
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

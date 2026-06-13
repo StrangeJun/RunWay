@@ -1,6 +1,7 @@
 package com.runway.common.exception;
 
 import com.runway.common.response.ApiResponse;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -31,6 +32,19 @@ public class GlobalExceptionHandler {
                 .findFirst()
                 .orElse(ErrorCode.VALIDATION_ERROR.getMessage());
         log.warn("ValidationException: {}", message);
+        return ResponseEntity
+                .status(ErrorCode.VALIDATION_ERROR.getHttpStatus())
+                .body(ApiResponse.error(message, ErrorCode.VALIDATION_ERROR.name()));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<?>> handleConstraintViolation(
+            ConstraintViolationException e) {
+        String message = e.getConstraintViolations().stream()
+                .map(violation -> violation.getMessage())
+                .findFirst()
+                .orElse(ErrorCode.VALIDATION_ERROR.getMessage());
+        log.warn("ConstraintViolationException: {}", message);
         return ResponseEntity
                 .status(ErrorCode.VALIDATION_ERROR.getHttpStatus())
                 .body(ApiResponse.error(message, ErrorCode.VALIDATION_ERROR.name()));

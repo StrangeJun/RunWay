@@ -125,9 +125,10 @@ class MyRunsViewModel @Inject constructor(
     }
 
     private suspend fun doLoad() {
-        val result = runningRepository.getMyRuns(page = 0, size = 200)
+        val result = runningRepository.getMyRuns(page = 0, size = 100)
         when (result) {
             is NetworkResult.Success -> {
+                hasError = false
                 totalCount = result.data.totalElements
                 allRuns = result.data.content.map { it.toHistoryItem() }
             }
