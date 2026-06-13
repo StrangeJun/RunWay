@@ -27,7 +27,7 @@ class LoginViewModel @Inject constructor(
     var error by mutableStateOf<String?>(null)
         private set
 
-    private val _navigateToHome = MutableSharedFlow<Unit>()
+    private val _navigateToHome = MutableSharedFlow<LoginCredentials?>()
     val navigateToHome = _navigateToHome.asSharedFlow()
 
     fun onEmailChange(value: String) {
@@ -40,6 +40,12 @@ class LoginViewModel @Inject constructor(
         error = null
     }
 
+    fun fillCredentials(email: String, password: String) {
+        this.email = email
+        this.password = password
+        error = null
+    }
+
     fun login() {
         if (email.isBlank() || password.isBlank()) {
             error = "이메일과 비밀번호를 입력해 주세요."
@@ -49,7 +55,9 @@ class LoginViewModel @Inject constructor(
             isLoading = true
             error = null
             when (val result = authRepository.login(email.trim(), password)) {
-                is NetworkResult.Success -> _navigateToHome.emit(Unit)
+                is NetworkResult.Success -> _navigateToHome.emit(
+                    LoginCredentials(email.trim(), password),
+                )
                 is NetworkResult.ApiError -> error = result.message
                 is NetworkResult.NetworkError -> error = "네트워크 오류가 발생했습니다."
             }
@@ -58,13 +66,14 @@ class LoginViewModel @Inject constructor(
     }
 
     fun setGoogleError(message: String) { error = message }
+    fun setCredentialError(message: String) { error = message }
 
     fun loginWithKakao(accessToken: String) {
         viewModelScope.launch {
             isLoading = true
             error = null
             when (val result = authRepository.loginWithKakao(accessToken)) {
-                is NetworkResult.Success -> _navigateToHome.emit(Unit)
+                is NetworkResult.Success -> _navigateToHome.emit(null)
                 is NetworkResult.ApiError -> error = result.message ?: "카카오 로그인에 실패했습니다."
                 is NetworkResult.NetworkError -> error = "네트워크 오류가 발생했습니다."
             }
@@ -77,7 +86,7 @@ class LoginViewModel @Inject constructor(
             isLoading = true
             error = null
             when (val result = authRepository.loginWithGoogle(idToken)) {
-                is NetworkResult.Success -> _navigateToHome.emit(Unit)
+                is NetworkResult.Success -> _navigateToHome.emit(null)
                 is NetworkResult.ApiError -> error = result.message ?: "Google 로그인에 실패했습니다."
                 is NetworkResult.NetworkError -> error = "네트워크 오류가 발생했습니다."
             }
@@ -85,3 +94,8 @@ class LoginViewModel @Inject constructor(
         }
     }
 }
+
+data class LoginCredentials(
+    val email: String,
+    val password: String,
+)

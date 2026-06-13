@@ -115,6 +115,10 @@ dependencies {
     // ─── DataStore ───
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
+    // ─── Credential Manager ───
+    implementation("androidx.credentials:credentials:1.5.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
+
     // ─── Location ───
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("com.google.android.gms:play-services-wearable:19.0.0")

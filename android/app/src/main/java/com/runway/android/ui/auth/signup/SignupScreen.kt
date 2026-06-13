@@ -56,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -64,6 +65,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.runway.android.core.credential.RunwayPasswordManager
 import com.runway.android.ui.components.RunwayErrorText
 import com.runway.android.ui.components.runwayCardFrame
 import com.runway.android.ui.theme.DisplayFontFamily
@@ -83,8 +85,15 @@ fun SignupScreen(
     onSignupSuccess: () -> Unit,
     viewModel: SignupViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
+    val passwordManager = remember(context) { RunwayPasswordManager(context) }
     LaunchedEffect(Unit) {
-        viewModel.navigateToLogin.collect { onSignupSuccess() }
+        viewModel.navigateToLogin.collect { credentials ->
+            runCatching {
+                passwordManager.save(context, credentials.email, credentials.password)
+            }
+            onSignupSuccess()
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(BgColor)) {

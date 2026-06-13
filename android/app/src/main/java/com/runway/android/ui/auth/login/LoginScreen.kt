@@ -12,6 +12,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.NoCredentialException
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -47,6 +49,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,6 +69,7 @@ import com.kakao.sdk.common.model.ClientError
 import com.kakao.sdk.common.model.ClientErrorCause
 import com.kakao.sdk.user.UserApiClient
 import com.runway.android.BuildConfig
+import com.runway.android.core.credential.RunwayPasswordManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -84,6 +88,7 @@ import com.runway.android.ui.components.RunwayErrorText
 import com.runway.android.ui.theme.PillShape
 import com.runway.android.ui.theme.DisplayFontFamily
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val BgColor   = Color(0xFF080C0B)
 private val CardColor = Color(0xFF0B100E)
@@ -98,9 +103,19 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     var showSuccessAnim by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { viewModel.navigateToHome.collect { showSuccessAnim = true } }
-
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val passwordManager = remember(context) { RunwayPasswordManager(context) }
+    LaunchedEffect(Unit) {
+        viewModel.navigateToHome.collect { credentials ->
+            if (credentials != null) {
+                runCatching {
+                    passwordManager.save(context, credentials.email, credentials.password)
+                }
+            }
+            showSuccessAnim = true
+        }
+    }
     val googleSignInClient = remember {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(BuildConfig.GOOGLE_WEB_CLIENT_ID)
@@ -178,6 +193,21 @@ fun LoginScreen(
                     }
                 },
                 onForgotPassword = onNavigateToPasswordReset,
+                onSavedCredentialsClick = {
+                    coroutineScope.launch {
+                        try {
+                            passwordManager.get(context)?.let {
+                                viewModel.fillCredentials(it.email, it.password)
+                            }
+                        } catch (_: GetCredentialCancellationException) {
+                            // The user closed the system credential picker.
+                        } catch (_: NoCredentialException) {
+                            viewModel.setCredentialError("휴대폰에 저장된 RunWay 계정이 없습니다.")
+                        } catch (_: Exception) {
+                            viewModel.setCredentialError("저장된 계정을 불러오지 못했습니다.")
+                        }
+                    }
+                },
             )
             Spacer(Modifier.height(20.dp))
 
@@ -366,6 +396,7 @@ private fun FormCard(
     onGoogleClick: () -> Unit,
     onKakaoClick: () -> Unit,
     onForgotPassword: () -> Unit,
+    onSavedCredentialsClick: () -> Unit,
 ) {
     Surface(
         modifier = Modifier
@@ -420,6 +451,16 @@ private fun FormCard(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 isError = viewModel.error != null,
             )
+            TextButton(
+                onClick = onSavedCredentialsClick,
+                modifier = Modifier.align(Alignment.End),
+            ) {
+                Text(
+                    "저장된 계정으로 로그인",
+                    color = LogoGreen.copy(alpha = 0.85f),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,

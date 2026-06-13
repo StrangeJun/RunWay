@@ -67,7 +67,7 @@ class SignupViewModel @Inject constructor(
     fun togglePrivacy()   { agreePrivacy = !agreePrivacy }
     fun toggleMarketing() { agreeMarketing = !agreeMarketing }
 
-    private val _navigateToLogin = MutableSharedFlow<Unit>()
+    private val _navigateToLogin = MutableSharedFlow<SignupCredentials>()
     val navigateToLogin = _navigateToLogin.asSharedFlow()
 
     fun onEmailChange(value: String) {
@@ -211,7 +211,9 @@ class SignupViewModel @Inject constructor(
                     verificationToken,
                 )
             ) {
-                is NetworkResult.Success -> _navigateToLogin.emit(Unit)
+                is NetworkResult.Success -> _navigateToLogin.emit(
+                    SignupCredentials(email.trim(), password),
+                )
                 is NetworkResult.ApiError -> error = result.message
                 is NetworkResult.NetworkError -> error = "네트워크 오류가 발생했습니다."
             }
@@ -219,3 +221,8 @@ class SignupViewModel @Inject constructor(
         }
     }
 }
+
+data class SignupCredentials(
+    val email: String,
+    val password: String,
+)
