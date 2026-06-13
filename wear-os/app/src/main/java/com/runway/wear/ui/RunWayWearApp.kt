@@ -367,15 +367,6 @@ private fun HomeScreen(
                         color = Danger,
                     )
                 }
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    if (state.isPhoneConnected) "PHONE CONNECTED" else "STANDALONE GPS",
-                    color = Muted,
-                    fontSize = 8.sp,
-                    letterSpacing = 0.7.sp,
-                    textAlign = TextAlign.Center,
-                )
-                state.phoneStatusMessage?.let { StatusText(it) }
             }
         }
     }
