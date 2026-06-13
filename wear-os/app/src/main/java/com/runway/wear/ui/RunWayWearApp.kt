@@ -240,98 +240,144 @@ private fun HomeScreen(
     onCourses: () -> Unit,
     onLogin: () -> Unit = {},
 ) {
-    WatchPage(scrollable = true) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Image(
-                painter = painterResource(R.drawable.app_logo_mark),
-                contentDescription = "RunWay",
-                modifier = Modifier.size(if (compact) 30.dp else 38.dp),
-            )
-            Spacer(Modifier.width(7.dp))
-            Text(
-                "Run",
-                color = Accent,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = if (compact) 16.sp else 19.sp,
-            )
-            Text(
-                "Way",
-                color = Color.White,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = if (compact) 16.sp else 19.sp,
-            )
-        }
-        Text(
-            "RUN YOUR WAY",
-            color = Color.White.copy(alpha = 0.38f),
-            fontSize = 8.sp,
-            letterSpacing = 1.5.sp,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            GpsStatusIndicator(state.gpsReady)
-            ConnectionLabel(state.isPhoneConnected)
-        }
-        Surface(
-            onClick = { onStart(RunGoal.Free) },
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val pageHeight = maxHeight
+        val compact = maxHeight <= 260.dp
+        val scrollState = rememberScrollState()
+        val focusRequester = remember { FocusRequester() }
+        val rotaryBehavior = RotaryScrollableDefaults.behavior(scrollableState = scrollState)
+
+        Column(
             modifier = Modifier
-                .size(if (compact) 72.dp else 82.dp)
-                .border(2.dp, Accent.copy(alpha = 0.62f), CircleShape),
-            shape = CircleShape,
-            color = Accent,
-            shadowElevation = 10.dp,
+                .fillMaxSize()
+                .requestFocusOnHierarchyActive()
+                .rotaryScrollable(
+                    behavior = rotaryBehavior,
+                    focusRequester = focusRequester,
+                )
+                .verticalScroll(scrollState),
         ) {
             Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(pageHeight)
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.app_logo_mark),
+                    contentDescription = "RunWay",
+                    modifier = Modifier.size(if (compact) 38.dp else 48.dp),
+                )
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row {
+                        Text(
+                            "Run",
+                            color = Accent,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = if (compact) 20.sp else 23.sp,
+                        )
+                        Text(
+                            "Way",
+                            color = Color.White,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = if (compact) 20.sp else 23.sp,
+                        )
+                    }
+                    Text(
+                        "RUN YOUR WAY",
+                        color = Color.White.copy(alpha = 0.38f),
+                        fontSize = 8.sp,
+                        letterSpacing = 1.5.sp,
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    GpsStatusIndicator(state.gpsReady)
+                    ConnectionLabel(state.isPhoneConnected)
+                }
+
+                Surface(
+                    onClick = { onStart(RunGoal.Free) },
+                    modifier = Modifier
+                        .size(if (compact) 74.dp else 84.dp)
+                        .border(2.dp, Accent.copy(alpha = 0.62f), CircleShape),
+                    shape = CircleShape,
+                    color = Accent,
+                    shadowElevation = 10.dp,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = null,
+                            tint = Color(0xFF081000),
+                            modifier = Modifier.size(27.dp),
+                        )
+                        Text(
+                            "START",
+                            color = Color(0xFF081000),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 10.sp,
+                            letterSpacing = 0.8.sp,
+                        )
+                    }
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(pageHeight)
+                    .padding(horizontal = 28.dp, vertical = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Icon(
-                    imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = null,
-                    tint = Color(0xFF081000),
-                    modifier = Modifier.size(27.dp),
-                )
                 Text(
-                    "START",
-                    color = Color(0xFF081000),
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 10.sp,
-                    letterSpacing = 0.8.sp,
+                    "RUN OPTIONS",
+                    color = Accent,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    letterSpacing = 1.2.sp,
                 )
+                Spacer(Modifier.height(14.dp))
+                HomeAction(
+                    label = "SET GOAL",
+                    icon = Icons.Filled.Flag,
+                    onClick = onGoal,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(9.dp))
+                HomeAction(
+                    label = "COURSE",
+                    icon = Icons.Filled.Route,
+                    onClick = onCourses,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (state.isPhoneConnected && state.phoneLoggedIn == false) {
+                    Spacer(Modifier.height(9.dp))
+                    SecondaryAction(
+                        label = "핸드폰에서 로그인하기",
+                        icon = Icons.Filled.PhoneAndroid,
+                        onClick = onLogin,
+                        color = Danger,
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    if (state.isPhoneConnected) "PHONE CONNECTED" else "STANDALONE GPS",
+                    color = Muted,
+                    fontSize = 8.sp,
+                    letterSpacing = 0.7.sp,
+                    textAlign = TextAlign.Center,
+                )
+                state.phoneStatusMessage?.let { StatusText(it) }
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
-        ) {
-            HomeAction(
-                label = "GOAL",
-                icon = Icons.Filled.Flag,
-                onClick = onGoal,
-                modifier = Modifier.weight(1f),
-            )
-            HomeAction(
-                label = "COURSE",
-                icon = Icons.Filled.Route,
-                onClick = onCourses,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        if (state.isPhoneConnected && state.phoneLoggedIn == false) {
-            SecondaryAction(
-                label = "핸드폰에서 로그인하기",
-                icon = Icons.Filled.PhoneAndroid,
-                onClick = onLogin,
-                color = Danger,
-            )
-        }
-        Text(
-            if (state.isPhoneConnected) "PHONE CONNECTED" else "STANDALONE GPS",
-            color = Muted,
-            fontSize = 8.sp,
-            letterSpacing = 0.7.sp,
-            textAlign = TextAlign.Center,
-        )
-        state.phoneStatusMessage?.let { StatusText(it) }
     }
 }
 
