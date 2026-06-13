@@ -50,14 +50,13 @@ public class CourseController {
             @RequestParam(required = false) Double maxDistanceMeters,
             @RequestParam(required = false) Boolean isLoop,
             @RequestParam(required = false) String keyword,
-            @RequestParam(defaultValue = "true") boolean includeRoutePoints,
-            @RequestParam(defaultValue = "false") boolean includeExactStartPoint,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+        // includeRoutePoints=true(경로 표시), includeExactStartPoint=false(출발지 마스킹) 서버 고정
         PageResponse<NearbyCourseItem> data = courseService.getNearby(
                 latitude, longitude, radiusMeters,
                 minDistanceMeters, maxDistanceMeters, isLoop, keyword,
-                includeRoutePoints, includeExactStartPoint,
+                true, false,
                 page, size);
         return ResponseEntity.ok(ApiResponse.success("인근 코스 조회에 성공했습니다.", data));
     }

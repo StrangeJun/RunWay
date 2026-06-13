@@ -40,6 +40,8 @@ public class SecurityConfig {
                                 "/api/auth/google",
                                 "/api/auth/kakao",
                                 "/api/auth/naver",
+                                "/api/auth/email-verification/**",
+                                "/api/auth/password-reset/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
@@ -55,6 +57,7 @@ public class SecurityConfig {
                                 writeErrorResponse(response, HttpStatus.FORBIDDEN,
                                         "접근 권한이 없습니다.", "FORBIDDEN"))
                 )
+                .addFilterBefore(new RateLimitFilter(objectMapper), UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

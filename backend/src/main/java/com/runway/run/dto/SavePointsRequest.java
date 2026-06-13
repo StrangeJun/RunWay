@@ -11,6 +11,7 @@ import java.util.List;
 public class SavePointsRequest {
 
     @NotEmpty(message = "포인트 목록은 비어 있을 수 없습니다.")
+    @Size(max = 500, message = "포인트는 한 번에 최대 500개까지 전송할 수 있습니다.")
     @Valid
     private List<PointData> points;
 

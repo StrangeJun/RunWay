@@ -9,14 +9,14 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmailAndDeletedAtIsNull(String email);
+    Optional<User> findByEmailIgnoreCaseAndDeletedAtIsNull(String email);
 
     Optional<User> findByIdAndDeletedAtIsNull(UUID id);
 
     boolean existsByEmailAndDeletedAtIsNull(String email);
+    boolean existsByEmailIgnoreCaseAndDeletedAtIsNull(String email);
 
     boolean existsByNicknameAndDeletedAtIsNull(String nickname);
 
     boolean existsByNicknameAndIdNotAndDeletedAtIsNull(String nickname, UUID id);
-
-    Optional<User> findBySocialProviderAndSocialId(String socialProvider, String socialId);
 }

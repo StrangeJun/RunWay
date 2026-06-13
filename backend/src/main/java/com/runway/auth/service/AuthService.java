@@ -22,10 +22,16 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
+    private final AuthVerificationService authVerificationService;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
-        if (userRepository.existsByEmailAndDeletedAtIsNull(request.getEmail())) {
+        String email = authVerificationService.consumeVerifiedEmail(
+                request.getEmail(),
+                request.getEmailVerificationToken(),
+                com.runway.auth.domain.VerificationPurpose.SIGNUP
+        );
+        if (userRepository.existsByEmailIgnoreCaseAndDeletedAtIsNull(email)) {
             throw new RunwayException(ErrorCode.DUPLICATED_EMAIL);
         }
         if (userRepository.existsByNicknameAndDeletedAtIsNull(request.getNickname())) {
@@ -33,7 +39,7 @@ public class AuthService {
         }
 
         User user = User.builder()
-                .email(request.getEmail())
+                .email(email)
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .nickname(request.getNickname())
                 .build();
@@ -45,15 +51,18 @@ public class AuthService {
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
-        User user = userRepository.findByEmailAndDeletedAtIsNull(request.getEmail())
+        User user = userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull(request.getEmail().trim())
                 .orElseThrow(() -> new RunwayException(ErrorCode.INVALID_REQUEST, "이메일 또는 비밀번호가 올바르지 않습니다."));
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+        if (user.getPasswordHash() == null
+                || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new RunwayException(ErrorCode.INVALID_REQUEST, "이메일 또는 비밀번호가 올바르지 않습니다.");
         }
 
-        String accessToken = jwtProvider.generateAccessToken(user.getId(), user.getEmail());
-        String refreshToken = jwtProvider.generateRefreshToken(user.getId(), user.getEmail());
+        String accessToken = jwtProvider.generateAccessToken(
+                user.getId(), user.getEmail(), user.getCredentialVersion());
+        String refreshToken = jwtProvider.generateRefreshToken(
+                user.getId(), user.getEmail(), user.getCredentialVersion());
 
         user.updateRefreshTokenHash(jwtProvider.hashToken(refreshToken));
         log.info("User logged in: {}", user.getEmail());
@@ -69,6 +78,9 @@ public class AuthService {
 
         User user = userRepository.findByIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new RunwayException(ErrorCode.USER_NOT_FOUND));
+        if (jwtProvider.getCredentialVersionFromToken(refreshToken) != user.getCredentialVersion()) {
+            throw new RunwayException(ErrorCode.INVALID_TOKEN);
+        }
 
         String incomingHash = jwtProvider.hashToken(refreshToken);
         if (!incomingHash.equals(user.getRefreshTokenHash())) {
@@ -76,8 +88,10 @@ public class AuthService {
             throw new RunwayException(ErrorCode.INVALID_TOKEN);
         }
 
-        String newAccessToken = jwtProvider.generateAccessToken(user.getId(), user.getEmail());
-        String newRefreshToken = jwtProvider.generateRefreshToken(user.getId(), user.getEmail());
+        String newAccessToken = jwtProvider.generateAccessToken(
+                user.getId(), user.getEmail(), user.getCredentialVersion());
+        String newRefreshToken = jwtProvider.generateRefreshToken(
+                user.getId(), user.getEmail(), user.getCredentialVersion());
 
         user.updateRefreshTokenHash(jwtProvider.hashToken(newRefreshToken));
         log.info("Token reissued for user: {}", user.getEmail());
@@ -91,5 +105,22 @@ public class AuthService {
 
         user.updateRefreshTokenHash(null);
         log.info("User logged out: {}", user.getEmail());
+    }
+
+    @Transactional
+    public void resetPassword(PasswordResetRequest request) {
+        String email = authVerificationService.consumePasswordResetToken(
+                request.getVerificationToken()
+        );
+        User user = userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull(email)
+                .orElseThrow(() -> new RunwayException(ErrorCode.INVALID_VERIFICATION_TOKEN));
+        if (user.getPasswordHash() == null) {
+            throw new RunwayException(
+                    ErrorCode.INVALID_REQUEST,
+                    "소셜 로그인으로 가입한 계정입니다."
+            );
+        }
+        user.updatePasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        log.info("Password reset completed for user: {}", user.getEmail());
     }
 }

@@ -25,7 +25,7 @@ public class User {
     private String email;
 
     @JsonIgnore
-    @Column(name = "password_hash", nullable = false, length = 255)
+    @Column(name = "password_hash", length = 255)
     private String passwordHash;
 
     @Column(nullable = false, unique = true, length = 50)
@@ -41,6 +41,9 @@ public class User {
     @Column(name = "refresh_token_hash", length = 512)
     private String refreshTokenHash;
 
+    @Column(name = "credential_version", nullable = false)
+    private int credentialVersion;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -50,23 +53,14 @@ public class User {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
-    @Column(name = "social_provider", length = 20)
-    private String socialProvider;
-
-    @Column(name = "social_id", length = 255)
-    private String socialId;
-
     @Builder
     private User(String email, String passwordHash, String nickname,
-                 String profileImageUrl, String bio,
-                 String socialProvider, String socialId) {
+                 String profileImageUrl, String bio) {
         this.email = email;
         this.passwordHash = passwordHash;
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
         this.bio = bio;
-        this.socialProvider = socialProvider;
-        this.socialId = socialId;
     }
 
     @PrePersist
@@ -91,9 +85,10 @@ public class User {
         this.refreshTokenHash = refreshTokenHash;
     }
 
-    public void linkSocial(String provider, String id) {
-        this.socialProvider = provider;
-        this.socialId = id;
+    public void updatePasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+        this.refreshTokenHash = null;
+        this.credentialVersion++;
     }
 
     public void softDelete() {

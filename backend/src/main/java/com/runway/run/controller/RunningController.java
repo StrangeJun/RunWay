@@ -9,14 +9,18 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
 @Tag(name = "Running", description = "러닝 기록 API")
+@Validated
 @RestController
 @RequestMapping("/api/runs")
 @RequiredArgsConstructor
@@ -87,8 +91,8 @@ public class RunningController {
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<PageResponse<RunSummaryResponse>>> getMyRuns(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         PageResponse<RunSummaryResponse> data = runningService.getMyRuns(principal.getUserId(), page, size);
         return ResponseEntity.ok(ApiResponse.success("내 러닝 기록 목록 조회가 완료되었습니다.", data));
     }

@@ -14,10 +14,12 @@ public class UserPrincipal implements UserDetails {
 
     private final UUID userId;
     private final String email;
+    private final int credentialVersion;
 
-    public UserPrincipal(UUID userId, String email) {
+    public UserPrincipal(UUID userId, String email, int credentialVersion) {
         this.userId = userId;
         this.email = email;
+        this.credentialVersion = credentialVersion;
     }
 
     @Override

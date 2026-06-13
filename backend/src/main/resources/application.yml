@@ -35,12 +35,27 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
 
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 server:
   port: 8080
 
 app:
   upload-dir: ${UPLOAD_DIR:/opt/runway/uploads}
   base-url: ${BASE_URL:https://runway.run}
+  mail:
+    delivery-mode: ${MAIL_DELIVERY_MODE:smtp}
+    from: ${MAIL_FROM:no-reply@runway.run}
 
 springdoc:
   swagger-ui:
@@ -52,6 +67,12 @@ jwt:
   secret: ${JWT_SECRET}
   access-token-expiry: ${JWT_ACCESS_TOKEN_EXPIRY:3600000}
   refresh-token-expiry: ${JWT_REFRESH_TOKEN_EXPIRY:1209600000}
+
+social:
+  google:
+    client-id: ${GOOGLE_WEB_CLIENT_ID}
+  kakao:
+    app-id: ${KAKAO_APP_ID}
 
 logging:
   level:

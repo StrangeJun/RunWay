@@ -36,15 +36,16 @@ public class JwtProvider {
     }
 
     private static final String CLAIM_TOKEN_TYPE = "tokenType";
+    private static final String CLAIM_CREDENTIAL_VERSION = "credentialVersion";
     private static final String TYPE_ACCESS      = "access";
     private static final String TYPE_REFRESH     = "refresh";
 
-    public String generateAccessToken(UUID userId, String email) {
-        return buildToken(userId, email, jwtProperties.getAccessTokenExpiry(), TYPE_ACCESS);
+    public String generateAccessToken(UUID userId, String email, int credentialVersion) {
+        return buildToken(userId, email, credentialVersion, jwtProperties.getAccessTokenExpiry(), TYPE_ACCESS);
     }
 
-    public String generateRefreshToken(UUID userId, String email) {
-        return buildToken(userId, email, jwtProperties.getRefreshTokenExpiry(), TYPE_REFRESH);
+    public String generateRefreshToken(UUID userId, String email, int credentialVersion) {
+        return buildToken(userId, email, credentialVersion, jwtProperties.getRefreshTokenExpiry(), TYPE_REFRESH);
     }
 
     /**
@@ -85,6 +86,11 @@ public class JwtProvider {
         return parseClaims(token).get("email", String.class);
     }
 
+    public int getCredentialVersionFromToken(String token) {
+        Integer version = parseClaims(token).get(CLAIM_CREDENTIAL_VERSION, Integer.class);
+        return version == null ? 0 : version;
+    }
+
     public String hashToken(String token) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -95,13 +101,20 @@ public class JwtProvider {
         }
     }
 
-    private String buildToken(UUID userId, String email, long expiryMs, String tokenType) {
+    private String buildToken(
+            UUID userId,
+            String email,
+            int credentialVersion,
+            long expiryMs,
+            String tokenType
+    ) {
         Date now = new Date();
         Date expiration = new Date(now.getTime() + expiryMs);
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("email", email)
                 .claim(CLAIM_TOKEN_TYPE, tokenType)
+                .claim(CLAIM_CREDENTIAL_VERSION, credentialVersion)
                 .issuedAt(now)
                 .expiration(expiration)
                 .signWith(secretKey)
