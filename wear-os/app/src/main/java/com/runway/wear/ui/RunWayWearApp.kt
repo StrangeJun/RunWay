@@ -83,6 +83,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -114,10 +115,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 private val Background = Color(0xFF090B0F)
-private val SurfaceColor = Color(0xFF171A20)
+private val SurfaceColor = Color(0xFF0B100E)
 private val Accent = Color(0xFFB8FF00)
 private val Muted = Color(0xFF9AA3AF)
 private val Danger = Color(0xFFFF665E)
+private val Grid = Color(0xFF173028)
 
 @Composable
 fun RunWayWearApp(
@@ -144,7 +146,8 @@ fun RunWayWearApp(
             onSurface = Color.White,
         ),
     ) {
-        Surface(modifier = Modifier.fillMaxSize(), color = Background) {
+        Box(modifier = Modifier.fillMaxSize().background(Background)) {
+            RunWayGridBackdrop()
             if (showLaunchAnimation) {
                 LaunchAnimationScreen()
             } else if (isAmbient && (state.screen == WatchScreen.TRACKING || state.screen == WatchScreen.PAUSED)) {
@@ -212,12 +215,20 @@ private fun LaunchAnimationScreen() {
                 },
         )
         Spacer(Modifier.height(10.dp))
-        Text(
-            "RunWay",
-            color = Color.White.copy(alpha = alpha),
-            fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
-        )
+        Row {
+            Text(
+                "Run",
+                color = Accent.copy(alpha = alpha),
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 19.sp,
+            )
+            Text(
+                "Way",
+                color = Color.White.copy(alpha = alpha),
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 19.sp,
+            )
+        }
     }
 }
 
@@ -230,22 +241,81 @@ private fun HomeScreen(
     onLogin: () -> Unit = {},
 ) {
     WatchPage(scrollable = true) {
-        Image(
-            painter = painterResource(R.drawable.app_logo_mark),
-            contentDescription = "RunWay",
-            modifier = Modifier.size(if (compact) 34.dp else 52.dp),
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Image(
+                painter = painterResource(R.drawable.app_logo_mark),
+                contentDescription = "RunWay",
+                modifier = Modifier.size(if (compact) 30.dp else 38.dp),
+            )
+            Spacer(Modifier.width(7.dp))
+            Text(
+                "Run",
+                color = Accent,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = if (compact) 16.sp else 19.sp,
+            )
+            Text(
+                "Way",
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = if (compact) 16.sp else 19.sp,
+            )
+        }
+        Text(
+            "RUN YOUR WAY",
+            color = Color.White.copy(alpha = 0.38f),
+            fontSize = 8.sp,
+            letterSpacing = 1.5.sp,
         )
-        Text("RunWay", fontWeight = FontWeight.Bold, fontSize = if (compact) 16.sp else 18.sp)
-        GpsStatusIndicator(state.gpsReady)
-        ConnectionLabel(state.isPhoneConnected)
-        PrimaryAction(
-            label = "바로 시작",
-            icon = Icons.Filled.PlayArrow,
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            GpsStatusIndicator(state.gpsReady)
+            ConnectionLabel(state.isPhoneConnected)
+        }
+        Surface(
             onClick = { onStart(RunGoal.Free) },
-            compact = compact,
-        )
-        SecondaryAction("목표 설정", Icons.Filled.Flag, onClick = onGoal, compact = compact)
-        SecondaryAction("주변 코스 도전", Icons.Filled.Route, onClick = onCourses, compact = compact)
+            modifier = Modifier
+                .size(if (compact) 72.dp else 82.dp)
+                .border(2.dp, Accent.copy(alpha = 0.62f), CircleShape),
+            shape = CircleShape,
+            color = Accent,
+            shadowElevation = 10.dp,
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    tint = Color(0xFF081000),
+                    modifier = Modifier.size(27.dp),
+                )
+                Text(
+                    "START",
+                    color = Color(0xFF081000),
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 10.sp,
+                    letterSpacing = 0.8.sp,
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            HomeAction(
+                label = "GOAL",
+                icon = Icons.Filled.Flag,
+                onClick = onGoal,
+                modifier = Modifier.weight(1f),
+            )
+            HomeAction(
+                label = "COURSE",
+                icon = Icons.Filled.Route,
+                onClick = onCourses,
+                modifier = Modifier.weight(1f),
+            )
+        }
         if (state.isPhoneConnected && state.phoneLoggedIn == false) {
             SecondaryAction(
                 label = "핸드폰에서 로그인하기",
@@ -255,12 +325,68 @@ private fun HomeScreen(
             )
         }
         Text(
-            if (state.isPhoneConnected) "폰 연결됨 · 독립 GPS 준비" else "독립 GPS 모드 · 동기화 대기",
+            if (state.isPhoneConnected) "PHONE CONNECTED" else "STANDALONE GPS",
             color = Muted,
-            fontSize = 10.sp,
+            fontSize = 8.sp,
+            letterSpacing = 0.7.sp,
             textAlign = TextAlign.Center,
         )
         state.phoneStatusMessage?.let { StatusText(it) }
+    }
+}
+
+@Composable
+private fun HomeAction(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.border(
+            1.dp,
+            Accent.copy(alpha = 0.26f),
+            RoundedCornerShape(14.dp),
+        ),
+        shape = RoundedCornerShape(14.dp),
+        color = SurfaceColor.copy(alpha = 0.92f),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 9.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icon, null, tint = Accent, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(label, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 9.sp)
+        }
+    }
+}
+
+@Composable
+private fun RunWayGridBackdrop() {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val step = 26.dp.toPx()
+        var x = 0f
+        while (x <= size.width) {
+            drawLine(Grid.copy(alpha = 0.28f), Offset(x, 0f), Offset(x, size.height), 0.7f)
+            x += step
+        }
+        var y = 0f
+        while (y <= size.height) {
+            drawLine(Grid.copy(alpha = 0.28f), Offset(0f, y), Offset(size.width, y), 0.7f)
+            y += step
+        }
+        drawCircle(
+            brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                colors = listOf(Accent.copy(alpha = 0.1f), Color.Transparent),
+                center = center,
+                radius = size.minDimension * 0.65f,
+            ),
+            radius = size.minDimension * 0.65f,
+            center = center,
+        )
     }
 }
 
