@@ -61,7 +61,7 @@ fun WeeklyStatsCard(
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             Text(
-                text = "주간 진행 상황",
+                text = "WEEKLY PROGRESS",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )

@@ -3,6 +3,7 @@ package com.runway.android.ui.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -36,6 +38,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -139,47 +142,56 @@ fun HomeScreen(
         onRefresh = viewModel::refresh,
         modifier = Modifier.fillMaxSize(),
     ) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(bottom = 24.dp),
-    ) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val firstScreenHeight = maxHeight
 
-        item {
-            RunHeroSection(
-                onStartRun = onStartRun,
-                onSetGoal = viewModel::openGoalSheet,
-                selectedGoal = viewModel.selectedGoal,
-                weatherInfo = viewModel.weatherInfo,
-                currentLocation = viewModel.currentLocation,
-                hasLocationPermission = viewModel.locationPermissionGranted,
-                onSelectCourse = viewModel::openCoursePicker,
-                isVoiceGuideEnabled = viewModel.isVoiceGuideEnabled,
-                onVoiceGuideEnabledChange = viewModel::updateVoiceGuideEnabled,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillParentMaxHeight(),
-            )
-        }
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            contentPadding = PaddingValues(bottom = 24.dp),
+        ) {
 
-        item {
-            WeeklyStatsCard(
-                stats = viewModel.weeklyStats,
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .padding(top = 10.dp),
-            )
-        }
+            item {
+                RunHeroSection(
+                    onStartRun = onStartRun,
+                    onSetGoal = viewModel::openGoalSheet,
+                    selectedGoal = viewModel.selectedGoal,
+                    weatherInfo = viewModel.weatherInfo,
+                    currentLocation = viewModel.currentLocation,
+                    hasLocationPermission = viewModel.locationPermissionGranted,
+                    onSelectCourse = viewModel::openCoursePicker,
+                    isVoiceGuideEnabled = viewModel.isVoiceGuideEnabled,
+                    onVoiceGuideEnabledChange = viewModel::updateVoiceGuideEnabled,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(firstScreenHeight),
+                )
+            }
 
-        item {
-            SectionHeader(
-                title = "주변 코스",
-                cta = "전체 보기",
-                onCtaClick = onNavigateToDiscover,
-            )
-        }
-        item {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(top = 20.dp),
+                ) {
+                    WeeklyStatsCard(
+                        stats = viewModel.weeklyStats,
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                    )
+                }
+            }
+
+            item {
+                SectionHeader(
+                    title = "주변 코스",
+                    cta = "전체 보기",
+                    onCtaClick = onNavigateToDiscover,
+                )
+            }
+            item {
             when {
                 viewModel.isLoadingNearbyCourses -> {
                     Box(
@@ -223,18 +235,18 @@ fun HomeScreen(
                     }
                 }
             }
-        }
+            }
 
-        // ─── Recent runs: eased is ~1.0 by this point, no graphicsLayer needed ───
-        item {
-            SectionHeader(
-                title = "최근 러닝",
-                cta = if (!viewModel.isLoadingRuns && viewModel.recentRuns.isNotEmpty()) "전체 보기" else null,
-                onCtaClick = onSeeAllRuns,
-            )
-        }
+            // ─── Recent runs: eased is ~1.0 by this point, no graphicsLayer needed ───
+            item {
+                SectionHeader(
+                    title = "최근 러닝",
+                    cta = if (!viewModel.isLoadingRuns && viewModel.recentRuns.isNotEmpty()) "전체 보기" else null,
+                    onCtaClick = onSeeAllRuns,
+                )
+            }
 
-        when {
+            when {
             viewModel.isLoadingRuns -> item {
                 Box(
                     modifier = Modifier
@@ -282,9 +294,10 @@ fun HomeScreen(
                     )
                 }
             }
-        }
+            }
 
-        item { Spacer(Modifier.height(8.dp)) }
+            item { Spacer(Modifier.height(8.dp)) }
+        }
     }
     } // PullToRefreshBox
 }
