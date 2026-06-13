@@ -19,8 +19,15 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -41,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,7 +56,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.runway.android.ui.components.RunwayPrimaryButton
-import com.runway.android.ui.components.runwayCardFrame
 import com.runway.android.ui.theme.SurfaceContainerDark
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -155,7 +162,7 @@ private fun GoalSetupContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
-                .runwayCardFrame(MaterialTheme.shapes.medium),
+                .goalCardBorder(MaterialTheme.shapes.medium),
             shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
         ) {
@@ -306,7 +313,12 @@ private fun TimeGoalContent(
             onMinutesChange = onMinutesChange,
         )
         Spacer(Modifier.height(18.dp))
-        GoalSummaryBox(text = "${timeLabel(totalMinutes)} 동안 달리기")
+        SimpleGoalSummary(
+            title = "오늘의 러닝 목표",
+            value = timeLabel(totalMinutes),
+            description = "동안 달리기",
+            icon = Icons.Filled.Timer,
+        )
     }
 }
 
@@ -327,7 +339,12 @@ private fun DistanceGoalContent(
             onDecimalChange = onDecimalChange,
         )
         Spacer(Modifier.height(18.dp))
-        GoalSummaryBox(text = "${distanceLabel(distanceMeters(km, decimal))} 달리기")
+        SimpleGoalSummary(
+            title = "오늘의 러닝 목표",
+            value = distanceLabel(distanceMeters(km, decimal)),
+            description = "목표 거리 달리기",
+            icon = Icons.Filled.Route,
+        )
     }
 }
 
@@ -445,11 +462,12 @@ private fun IntervalGoalContent(
         }
 
         Spacer(Modifier.height(16.dp))
-        GoalSummaryBox(
-            text = "준비 ${segmentLabel(warmupMode, warmupMinutes, warmupKm, warmupDecimal)} → " +
-                "[운동 ${segmentLabel(workMode, workMinutes, workKm, workDecimal)} + " +
-                "회복 ${segmentLabel(recoveryMode, recoveryMinutes, recoveryKm, recoveryDecimal)}] × ${sets}회 → " +
-                "쿨다운 ${segmentLabel(cooldownMode, cooldownMinutes, cooldownKm, cooldownDecimal)}",
+        IntervalGoalSummary(
+            warmup = segmentLabel(warmupMode, warmupMinutes, warmupKm, warmupDecimal),
+            work = segmentLabel(workMode, workMinutes, workKm, workDecimal),
+            recovery = segmentLabel(recoveryMode, recoveryMinutes, recoveryKm, recoveryDecimal),
+            cooldown = segmentLabel(cooldownMode, cooldownMinutes, cooldownKm, cooldownDecimal),
+            sets = sets,
         )
     }
 }
@@ -709,7 +727,7 @@ private fun WheelFrame(content: @Composable RowScope.() -> Unit) {
     androidx.compose.material3.Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .runwayCardFrame(MaterialTheme.shapes.extraLarge),
+            .goalCardBorder(MaterialTheme.shapes.extraLarge),
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
     ) {
@@ -820,21 +838,197 @@ private fun ToggleRow(options: List<String>, selectedIndex: Int, onSelect: (Int)
 }
 
 @Composable
-private fun GoalSummaryBox(text: String) {
+private fun SimpleGoalSummary(
+    title: String,
+    value: String,
+    description: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+) {
     androidx.compose.material3.Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .runwayCardFrame(MaterialTheme.shapes.extraLarge),
+            .goalCardBorder(MaterialTheme.shapes.extraLarge),
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.07f),
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.90f),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(46.dp)
+                    .height(46.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(bottom = 2.dp),
+                    )
+                }
+            }
+        }
     }
+}
+
+@Composable
+private fun IntervalGoalSummary(
+    warmup: String,
+    work: String,
+    recovery: String,
+    cooldown: String,
+    sets: Int,
+) {
+    androidx.compose.material3.Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .goalCardBorder(MaterialTheme.shapes.extraLarge),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.07f),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(13.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.DirectionsRun,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = "인터벌 훈련 순서",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+
+            IntervalSummaryStep(
+                number = "1",
+                title = "준비운동",
+                detail = warmup,
+                icon = Icons.Filled.Timer,
+            )
+            IntervalSummaryStep(
+                number = "2",
+                title = "운동 $work  +  회복 $recovery",
+                detail = "${sets}세트 반복",
+                icon = Icons.Filled.Repeat,
+                emphasized = true,
+            )
+            IntervalSummaryStep(
+                number = "3",
+                title = "쿨다운",
+                detail = cooldown,
+                icon = Icons.Filled.Flag,
+            )
+        }
+    }
+}
+
+@Composable
+private fun IntervalSummaryStep(
+    number: String,
+    title: String,
+    detail: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    emphasized: Boolean = false,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(11.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .width(30.dp)
+                .height(30.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(
+                    MaterialTheme.colorScheme.primary.copy(
+                        alpha = if (emphasized) 0.22f else 0.12f,
+                    ),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = number,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+            modifier = Modifier.width(19.dp),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (emphasized) FontWeight.Bold else FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (emphasized) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun Modifier.goalCardBorder(shape: Shape): Modifier {
+    val primary = MaterialTheme.colorScheme.primary
+    return border(
+        width = 1.dp,
+        brush = Brush.linearGradient(
+            listOf(
+                primary.copy(alpha = 0.65f),
+                primary.copy(alpha = 0.15f),
+                primary.copy(alpha = 0.08f),
+            ),
+        ),
+        shape = shape,
+    )
 }
 
 private fun segmentDuration(

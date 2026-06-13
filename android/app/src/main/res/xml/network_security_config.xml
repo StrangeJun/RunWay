@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Allow cleartext HTTP to dev and production backends -->
+    <!-- 로컬 개발 서버 + 임시 프로덕션 서버 HTTP 허용. 도메인+TLS 적용 시 이 블록을 제거한다. -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">10.0.2.2</domain>
         <domain includeSubdomains="false">192.168.0.101</domain>

@@ -31,9 +31,17 @@ android {
             if (f.exists()) f.inputStream().use { props.load(it) }
         }
         manifestPlaceholders["MAPS_API_KEY"] = localProps.getProperty("MAPS_API_KEY") ?: ""
-        buildConfigField("String", "OPENWEATHER_API_KEY", "\"${localProps.getProperty("OPENWEATHER_API_KEY") ?: ""}\"")
+        manifestPlaceholders["KAKAO_NATIVE_APP_KEY"] = localProps.getProperty("KAKAO_NATIVE_APP_KEY") ?: ""
         buildConfigField("String", "AIRKOREA_API_KEY", "\"${localProps.getProperty("AIRKOREA_API_KEY") ?: ""}\"")
+        buildConfigField(
+            "String",
+            "KMA_API_KEY",
+            "\"${localProps.getProperty("KMA_API_KEY") ?: localProps.getProperty("AIRKOREA_API_KEY") ?: ""}\"",
+        )
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${localProps.getProperty("GOOGLE_WEB_CLIENT_ID") ?: ""}\"")
+        buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"${localProps.getProperty("KAKAO_NATIVE_APP_KEY") ?: ""}\"")
+        buildConfigField("String", "KAKAO_REST_API_KEY", "\"${localProps.getProperty("KAKAO_REST_API_KEY") ?: ""}\"")
+        resValue("string", "kakao_app_key", localProps.getProperty("KAKAO_NATIVE_APP_KEY") ?: "")
 
     }
 
@@ -111,6 +119,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("com.google.android.gms:play-services-wearable:19.0.0")
     implementation("com.google.android.gms:play-services-auth:21.2.0")
+    implementation("com.kakao.sdk:v2-user:2.19.0")
     implementation("org.locationtech.proj4j:proj4j:1.4.3")
 
     // ─── Google Maps ───

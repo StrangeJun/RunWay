@@ -56,11 +56,11 @@ class StatsViewModel @Inject constructor(
     private suspend fun doLoadStats() {
         isLoading = true
         errorMessage = null
-            when (val result = runningRepository.getRunningStats(periods[selectedPeriodIndex])) {
-                is NetworkResult.Success -> stats = result.data
-                is NetworkResult.ApiError -> errorMessage = result.message
-                is NetworkResult.NetworkError -> errorMessage = "네트워크 연결을 확인해 주세요."
-            }
-            isLoading = false
+        when (val result = runningRepository.getRunningStats(periods[selectedPeriodIndex])) {
+            is NetworkResult.Success -> stats = result.data
+            is NetworkResult.ApiError -> errorMessage = result.message
+            is NetworkResult.NetworkError -> errorMessage = "네트워크 연결을 확인해 주세요."
+        }
+        isLoading = false
     }
 }

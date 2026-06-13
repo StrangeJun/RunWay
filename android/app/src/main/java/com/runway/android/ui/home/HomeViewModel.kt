@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Geocoder
+import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -15,8 +16,6 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
-import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
 import com.runway.android.BuildConfig
 import com.runway.android.core.datastore.VoiceGuideDataStore
 import com.runway.android.core.result.NetworkResult
@@ -38,11 +37,12 @@ import com.runway.android.core.util.formatDuration
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -51,7 +51,6 @@ import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
 import java.util.Calendar
 import java.util.Locale
-import kotlin.math.roundToInt
 import javax.inject.Inject
 import javax.inject.Named
 
@@ -67,6 +66,9 @@ class HomeViewModel @Inject constructor(
     @Named("noAuth") private val okHttpClient: OkHttpClient,
 ) : ViewModel() {
     private val airKoreaClient = AirKoreaClient(okHttpClient)
+    private val kmaWeatherClient = KmaWeatherClient(okHttpClient)
+    private var weatherLoadJob: Job? = null
+    private var lastWeatherUpdatedAt = 0L
 
     val greeting: String = buildGreeting()
 
@@ -89,6 +91,8 @@ class HomeViewModel @Inject constructor(
     var isVoiceGuideEnabled by mutableStateOf(true)
         private set
     var savedCourses by mutableStateOf<List<CourseResponse>>(emptyList())
+        private set
+    var savedCourseBestTimes by mutableStateOf<Map<String, Int?>>(emptyMap())
         private set
     var isLoadingSavedCourses by mutableStateOf(false)
         private set
@@ -179,10 +183,20 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             isLoadingSavedCourses = true
             savedCoursesError = null
-            when (val result = courseRepository.getFavoriteCourses(size = 50)) {
-                is NetworkResult.Success -> savedCourses = result.data.content
-                is NetworkResult.ApiError -> savedCoursesError = result.message
+            val favoritesResult = courseRepository.getFavoriteCourses(size = 50)
+            val participatedResult = courseRepository.getParticipatedCourses(size = 100)
+
+            when (favoritesResult) {
+                is NetworkResult.Success -> savedCourses = favoritesResult.data.content
+                is NetworkResult.ApiError -> savedCoursesError = favoritesResult.message
                 is NetworkResult.NetworkError -> savedCoursesError = "네트워크 연결을 확인해 주세요."
+            }
+            savedCourseBestTimes = if (participatedResult is NetworkResult.Success) {
+                participatedResult.data.content.associate {
+                    it.courseId to it.bestTimeSecondsByMe
+                }
+            } else {
+                emptyMap()
             }
             isLoadingSavedCourses = false
         }
@@ -211,7 +225,6 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             isRefreshing = true
             nearbyCourses = emptyList()
-            weatherInfo = null
             // Inline the essential awaits to correctly track completion
             val runsResult = runningRepository.getMyRuns(page = 0, size = HOME_RUN_FETCH_SIZE)
             if (runsResult is NetworkResult.Success) {
@@ -220,6 +233,8 @@ class HomeViewModel @Inject constructor(
             val statsResult = runningRepository.getRunningStats("weekly")
             weeklyStats = resolveWeeklyStats(runsResult, statsResult)
             loadNearbyCoursesIfPermitted()
+            weatherLoadJob?.cancelAndJoin()
+            weatherLoadJob = null
             loadWeatherIfPermitted()
             isRefreshing = false
         }
@@ -239,30 +254,40 @@ class HomeViewModel @Inject constructor(
         loadNearbyCoursesIfPermitted()
     }
 
-    // Called separately from HomeScreen to trigger weather load independently
-    fun tryLoadWeather() {
-        if (weatherInfo != null) return
-        loadWeatherIfPermitted()
+    fun tryLoadWeather(forceRefresh: Boolean = false) {
+        val isFresh = weatherInfo != null &&
+            SystemClock.elapsedRealtime() - lastWeatherUpdatedAt < WEATHER_REFRESH_INTERVAL_MILLIS
+        if (!forceRefresh && isFresh) return
+        if (isRefreshing) return
+        if (weatherLoadJob?.isActive == true) return
+
+        weatherLoadJob = viewModelScope.launch {
+            try {
+                loadWeatherIfPermitted()
+            } finally {
+                weatherLoadJob = null
+            }
+        }
     }
 
     @SuppressLint("MissingPermission")
-    private fun loadWeatherIfPermitted() {
+    private suspend fun loadWeatherIfPermitted() {
         if (!hasLocationPermission()) return
-        viewModelScope.launch {
-            try {
-                val cts = CancellationTokenSource()
-                val request = CurrentLocationRequest.Builder()
-                    .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
-                    .setMaxUpdateAgeMillis(0)
-                    .setDurationMillis(12_000)
-                    .build()
-                val location = fusedLocationClient
-                    .getCurrentLocation(request, cts.token)
-                    .await() ?: return@launch
-                currentLocation = MapPoint(location.latitude, location.longitude)
-                fetchWeatherData(location.latitude, location.longitude)
-            } catch (_: Exception) { }
-        }
+        try {
+            val cts = CancellationTokenSource()
+            val request = CurrentLocationRequest.Builder()
+                .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                .setMaxUpdateAgeMillis(0)
+                .setDurationMillis(12_000)
+                .build()
+            val location = fusedLocationClient
+                .getCurrentLocation(request, cts.token)
+                .await() ?: return
+            currentLocation = MapPoint(location.latitude, location.longitude)
+            if (fetchWeatherData(location.latitude, location.longitude)) {
+                lastWeatherUpdatedAt = SystemClock.elapsedRealtime()
+            }
+        } catch (_: Exception) { }
     }
 
     @SuppressLint("MissingPermission")
@@ -297,29 +322,16 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private suspend fun fetchWeatherData(lat: Double, lon: Double) {
-        val apiKey = BuildConfig.OPENWEATHER_API_KEY
-        if (apiKey.isBlank()) return
+    private suspend fun fetchWeatherData(lat: Double, lon: Double): Boolean {
+        if (BuildConfig.KMA_API_KEY.isBlank()) return false
 
-        try {
+        return try {
             val weatherResp = withContext(Dispatchers.IO) {
-                val req = Request.Builder()
-                    .url("https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&units=metric&lang=kr&appid=$apiKey")
-                    .build()
-                okHttpClient.newCall(req).execute().use { resp ->
-                    if (resp.isSuccessful) Gson().fromJson(resp.body?.string(), OWMWeatherResponse::class.java)
-                    else null
-                }
-            }
-
-            val airResp = withContext(Dispatchers.IO) {
-                val req = Request.Builder()
-                    .url("https://api.openweathermap.org/data/2.5/air_pollution?lat=$lat&lon=$lon&appid=$apiKey")
-                    .build()
-                okHttpClient.newCall(req).execute().use { resp ->
-                    if (resp.isSuccessful) Gson().fromJson(resp.body?.string(), OWMAirPollutionResponse::class.java)
-                    else null
-                }
+                kmaWeatherClient.getCurrentWeather(
+                    latitude = lat,
+                    longitude = lon,
+                    serviceKey = BuildConfig.KMA_API_KEY,
+                )
             }
 
             val airKoreaResp = withContext(Dispatchers.IO) {
@@ -332,20 +344,20 @@ class HomeViewModel @Inject constructor(
             }
 
             if (weatherResp != null) {
-                val condition = weatherResp.weather.firstOrNull()
-                val fallbackAir = airResp?.list?.firstOrNull()?.components
                 weatherInfo = WeatherInfo(
-                    tempCelsius = weatherResp.main.temp.toInt(),
-                    humidity = weatherResp.main.humidity,
-                    pm10 = airKoreaResp?.pm10 ?: fallbackAir?.pm10?.roundToInt() ?: 0,
-                    pm25 = airKoreaResp?.pm25 ?: fallbackAir?.pm25?.roundToInt() ?: 0,
-                    conditionId = condition?.id ?: 800,
-                    condition = condition?.main.orEmpty(),
-                    description = condition?.description.orEmpty(),
+                    tempCelsius = weatherResp.temperatureCelsius,
+                    humidity = weatherResp.humidity,
+                    pm10 = airKoreaResp?.pm10 ?: 0,
+                    pm25 = airKoreaResp?.pm25 ?: 0,
+                    condition = weatherResp.condition,
                 )
+                true
+            } else {
+                false
             }
         } catch (_: Exception) {
             // silent fail — weather is non-critical
+            false
         }
     }
 
@@ -495,28 +507,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    // ── OpenWeatherMap response models ────────────────────────────────────
-
-    private data class OWMWeatherResponse(
-        val main: OWMMain,
-        val weather: List<OWMWeatherCondition> = emptyList(),
-    )
-    private data class OWMMain(val temp: Double, val humidity: Int)
-    private data class OWMWeatherCondition(
-        val id: Int,
-        val main: String,
-        val description: String,
-    )
-
-    private data class OWMAirPollutionResponse(val list: List<OWMAirEntry>)
-    private data class OWMAirEntry(val components: OWMComponents)
-    private data class OWMComponents(
-        val pm10: Double,
-        @SerializedName("pm2_5") val pm25: Double,
-    )
-
     private companion object {
         const val HOME_RUN_FETCH_SIZE = 200
         const val RECENT_RUN_COUNT = 20
+        const val WEATHER_REFRESH_INTERVAL_MILLIS = 60 * 60 * 1_000L
     }
 }

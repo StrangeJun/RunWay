@@ -13,7 +13,14 @@ interface AuthRepository {
         email: String,
         password: String,
         nickname: String,
+        emailVerificationToken: String,
     ): NetworkResult<SignupResponse>
+
+    suspend fun requestSignupEmailCode(email: String): NetworkResult<Unit>
+    suspend fun verifySignupEmailCode(email: String, code: String): NetworkResult<String>
+    suspend fun requestPasswordResetCode(email: String): NetworkResult<Unit>
+    suspend fun verifyPasswordResetCode(email: String, code: String): NetworkResult<String>
+    suspend fun resetPassword(verificationToken: String, newPassword: String): NetworkResult<Unit>
 
     /**
      * 로그인. 성공 시 accessToken + refreshToken을 DataStore에 저장하고 LoginResponse를 반환.
@@ -35,6 +42,9 @@ interface AuthRepository {
 
     /** Google ID 토큰으로 로그인. 성공 시 토큰을 DataStore에 저장. */
     suspend fun loginWithGoogle(idToken: String): NetworkResult<LoginResponse>
+
+    /** Kakao 액세스 토큰으로 로그인. 성공 시 토큰을 DataStore에 저장. */
+    suspend fun loginWithKakao(accessToken: String): NetworkResult<LoginResponse>
 
     /** 현재 로그인 상태를 관찰한다. SplashScreen → 자동 로그인 분기에 사용. */
     fun isLoggedInFlow(): Flow<Boolean>

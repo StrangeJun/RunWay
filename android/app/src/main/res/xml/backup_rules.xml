@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <!-- JWT 토큰이 저장된 DataStore를 클라우드 백업에서 제외한다 -->
+    <!-- 인증 토큰 -->
     <exclude domain="file" path="datastore/runway_auth.preferences_pb"/>
+
+    <!-- GPS 추적 데이터 (위치 정보 백업 제외) -->
+    <exclude domain="database" path="tracking_database"/>
+    <exclude domain="database" path="tracking_database-shm"/>
+    <exclude domain="database" path="tracking_database-wal"/>
+
+    <!-- 자세 분석 데이터 -->
+    <exclude domain="database" path="posture_database"/>
+    <exclude domain="database" path="posture_database-shm"/>
+    <exclude domain="database" path="posture_database-wal"/>
+
+    <!-- 추적 관련 DataStore -->
+    <exclude domain="file" path="datastore/runway_tracking.preferences_pb"/>
 </full-backup-content>

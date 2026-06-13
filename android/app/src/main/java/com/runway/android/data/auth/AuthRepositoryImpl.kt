@@ -4,6 +4,7 @@ import com.runway.android.core.datastore.TokenDataStore
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.core.result.safeApiCall
 import com.runway.android.data.auth.model.GoogleLoginRequest
+import com.runway.android.data.auth.model.KakaoLoginRequest
 import com.runway.android.data.auth.model.LoginRequest
 import com.runway.android.data.auth.model.LoginResponse
 import com.runway.android.data.auth.model.LogoutRequest
@@ -11,6 +12,9 @@ import com.runway.android.data.auth.model.ReissueRequest
 import com.runway.android.data.auth.model.ReissueResponse
 import com.runway.android.data.auth.model.SignupRequest
 import com.runway.android.data.auth.model.SignupResponse
+import com.runway.android.data.auth.model.EmailCodeRequest
+import com.runway.android.data.auth.model.PasswordResetRequest
+import com.runway.android.data.auth.model.VerifyEmailCodeRequest
 import com.runway.android.data.auth.remote.AuthApi
 import com.runway.android.domain.auth.AuthRepository
 import kotlinx.coroutines.flow.Flow
@@ -29,9 +33,56 @@ class AuthRepositoryImpl @Inject constructor(
         email: String,
         password: String,
         nickname: String,
+        emailVerificationToken: String,
     ): NetworkResult<SignupResponse> {
-        return safeApiCall { authApi.signup(SignupRequest(email, password, nickname)) }
+        return safeApiCall {
+            authApi.signup(
+                SignupRequest(email, password, nickname, emailVerificationToken),
+            )
+        }
     }
+
+    override suspend fun requestSignupEmailCode(email: String): NetworkResult<Unit> =
+        toUnitResult { authApi.requestSignupEmailCode(EmailCodeRequest(email)) }
+
+    override suspend fun verifySignupEmailCode(
+        email: String,
+        code: String,
+    ): NetworkResult<String> = when (
+        val result = safeApiCall {
+            authApi.verifySignupEmailCode(VerifyEmailCodeRequest(email, code))
+        }
+    ) {
+        is NetworkResult.Success -> NetworkResult.Success(result.data.verificationToken)
+        is NetworkResult.ApiError -> result
+        is NetworkResult.NetworkError -> result
+    }
+
+    override suspend fun requestPasswordResetCode(email: String): NetworkResult<Unit> =
+        toUnitResult { authApi.requestPasswordResetCode(EmailCodeRequest(email)) }
+
+    override suspend fun verifyPasswordResetCode(
+        email: String,
+        code: String,
+    ): NetworkResult<String> = when (
+        val result = safeApiCall {
+            authApi.verifyPasswordResetCode(VerifyEmailCodeRequest(email, code))
+        }
+    ) {
+        is NetworkResult.Success -> NetworkResult.Success(result.data.verificationToken)
+        is NetworkResult.ApiError -> result
+        is NetworkResult.NetworkError -> result
+    }
+
+    override suspend fun resetPassword(
+        verificationToken: String,
+        newPassword: String,
+    ): NetworkResult<Unit> =
+        toUnitResult {
+            authApi.confirmPasswordReset(
+                PasswordResetRequest(verificationToken, newPassword),
+            )
+        }
 
     override suspend fun login(email: String, password: String): NetworkResult<LoginResponse> {
         val result = safeApiCall { authApi.login(LoginRequest(email, password)) }
@@ -76,7 +127,25 @@ class AuthRepositoryImpl @Inject constructor(
         return result
     }
 
+    override suspend fun loginWithKakao(accessToken: String): NetworkResult<LoginResponse> {
+        val result = safeApiCall { authApi.loginWithKakao(KakaoLoginRequest(accessToken)) }
+        if (result is NetworkResult.Success) {
+            tokenDataStore.saveTokens(result.data.accessToken, result.data.refreshToken)
+        }
+        return result
+    }
+
     override fun isLoggedInFlow(): Flow<Boolean> {
         return tokenDataStore.accessTokenFlow.map { it != null }
+    }
+
+    private suspend fun toUnitResult(
+        call: suspend () -> com.runway.android.core.model.ApiResponse<
+            com.runway.android.data.auth.model.ActionResponse
+        >,
+    ): NetworkResult<Unit> = when (val result = safeApiCall { call() }) {
+        is NetworkResult.Success -> NetworkResult.Success(Unit)
+        is NetworkResult.ApiError -> result
+        is NetworkResult.NetworkError -> result
     }
 }

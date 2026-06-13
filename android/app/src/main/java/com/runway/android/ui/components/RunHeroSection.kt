@@ -32,13 +32,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AcUnit
-import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Thunderstorm
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.Umbrella
 import androidx.compose.material.icons.filled.WaterDrop
@@ -489,26 +487,33 @@ private fun WeatherSummaryPill(
     }
 }
 
-private fun WeatherInfo.weatherLabel(): String = when {
-    conditionId in 200..232 -> "천둥번개"
-    conditionId in 300..321 -> "이슬비"
-    conditionId in 500..531 -> "비"
-    conditionId in 600..622 -> "눈"
-    conditionId in 700..781 -> "안개"
-    conditionId == 800 -> "맑음"
-    conditionId in 801..802 -> "구름 조금"
-    conditionId in 803..804 -> "흐림"
-    else -> description.ifBlank { condition.ifBlank { "현재 날씨" } }
+private fun WeatherInfo.weatherLabel(): String = when (condition) {
+    WeatherCondition.CLEAR -> "맑음"
+    WeatherCondition.MOSTLY_CLOUDY -> "구름 많음"
+    WeatherCondition.CLOUDY -> "흐림"
+    WeatherCondition.RAIN -> "비"
+    WeatherCondition.SLEET -> "비/눈"
+    WeatherCondition.SNOW -> "눈"
+    WeatherCondition.SHOWER -> "소나기"
+    WeatherCondition.DRIZZLE -> "빗방울"
+    WeatherCondition.DRIZZLE_AND_FLURRY -> "빗방울/눈날림"
+    WeatherCondition.FLURRY -> "눈날림"
 }
 
-private fun WeatherInfo.weatherIcon() = when {
-    conditionId in 200..232 -> Icons.Filled.Thunderstorm
-    conditionId in 300..321 -> Icons.Filled.Grain
-    conditionId in 500..531 -> Icons.Filled.Umbrella
-    conditionId in 600..622 -> Icons.Filled.AcUnit
-    conditionId in 700..781 -> Icons.Filled.Air
-    conditionId == 800 -> Icons.Filled.WbSunny
-    else -> Icons.Filled.Cloud
+private fun WeatherInfo.weatherIcon() = when (condition) {
+    WeatherCondition.CLEAR -> Icons.Filled.WbSunny
+    WeatherCondition.MOSTLY_CLOUDY,
+    WeatherCondition.CLOUDY,
+    -> Icons.Filled.Cloud
+    WeatherCondition.RAIN,
+    WeatherCondition.SHOWER,
+    -> Icons.Filled.Umbrella
+    WeatherCondition.DRIZZLE -> Icons.Filled.Grain
+    WeatherCondition.SLEET,
+    WeatherCondition.SNOW,
+    WeatherCondition.DRIZZLE_AND_FLURRY,
+    WeatherCondition.FLURRY,
+    -> Icons.Filled.AcUnit
 }
 
 @Composable

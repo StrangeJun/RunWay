@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -37,6 +38,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.runway.android.ui.components.CoursePreviewSheet
 import com.runway.android.ui.components.DiscoverCourseCard
 import com.runway.android.ui.components.RecentRunCard
@@ -57,14 +61,34 @@ fun HomeScreen(
     onNavigateToRunDetail: (String) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     LaunchedEffect(Unit) {
         viewModel.tryLoadNearbyCourses()
         viewModel.tryLoadWeather()
+
+        while (true) {
+            delay(WEATHER_REFRESH_INTERVAL_MILLIS)
+            viewModel.tryLoadWeather(forceRefresh = true)
+        }
+    }
+
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.tryLoadWeather(forceRefresh = true)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     if (viewModel.showCoursePicker) {
         SavedCoursePickerSheet(
             courses = viewModel.savedCourses,
+            bestTimesByCourseId = viewModel.savedCourseBestTimes,
             isLoading = viewModel.isLoadingSavedCourses,
             error = viewModel.savedCoursesError,
             onDismiss = viewModel::closeCoursePicker,
@@ -135,7 +159,7 @@ fun HomeScreen(
                 onVoiceGuideEnabledChange = viewModel::updateVoiceGuideEnabled,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillParentMaxHeight(1.06f),
+                    .fillParentMaxHeight(),
             )
         }
 
@@ -264,3 +288,5 @@ fun HomeScreen(
     }
     } // PullToRefreshBox
 }
+
+private const val WEATHER_REFRESH_INTERVAL_MILLIS = 60 * 60 * 1_000L

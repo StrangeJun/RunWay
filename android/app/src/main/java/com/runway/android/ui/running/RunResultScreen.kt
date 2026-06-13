@@ -1,9 +1,8 @@
 package com.runway.android.ui.running
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,15 +17,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -37,22 +38,24 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.ui.components.RouteMapView
+import com.runway.android.ui.components.runwayCardFrame
 import com.runway.android.ui.course.CreateCourseDialog
+import com.runway.android.ui.theme.DisplayFontFamily
 import com.runway.android.ui.theme.PillShape
-import com.runway.android.ui.theme.RunwayElectricBlue
-import com.runway.android.ui.theme.RunwayPurple
 
-private val ResultPurple = Color(0xFF7138E8)
-private val ResultGold = Color(0xFFFFC84A)
+private val BgDark   = Color(0xFF080C0B)
+private val Accent   = Color(0xFFB8FF00)
+private val StatCard = Color(0xFF0E1612)
 
 @Composable
 fun RunResultScreen(
@@ -62,274 +65,370 @@ fun RunResultScreen(
     onNavigateToCourseDetail: (String) -> Unit = {},
     viewModel: RunResultViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(Unit) {
-        viewModel.courseCreated.collect(onNavigateToCourseDetail)
-    }
+    LaunchedEffect(Unit) { viewModel.courseCreated.collect(onNavigateToCourseDetail) }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+        modifier = Modifier.fillMaxSize().background(BgDark),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(300.dp)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            ResultPurple.copy(alpha = 0.34f),
-                            Color.Transparent,
-                        ),
-                        radius = 760f,
-                    ),
-                ),
-        )
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(horizontal = 16.dp)
-                .padding(top = 14.dp, bottom = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .verticalScroll(rememberScrollState()),
         ) {
-            Surface(
-                shape = PillShape,
-                color = MaterialTheme.colorScheme.primary,
-                shadowElevation = 14.dp,
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(text = "♛", fontSize = 15.sp, color = MaterialTheme.colorScheme.onPrimary)
-                    Spacer(modifier = Modifier.width(7.dp))
-                    Text(
-                        text = "RUN COMPLETE",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = "${viewModel.distanceText} km",
-                style = MaterialTheme.typography.displayMedium.copy(
-                    fontSize = 42.sp,
-                    lineHeight = 46.sp,
-                ),
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = "${viewModel.timerText} • ${viewModel.paceText}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
+            // ── 상단 지도 영역 ──────────────────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(180.dp)
-                    .shadow(18.dp, MaterialTheme.shapes.large)
-                    .clip(MaterialTheme.shapes.large)
-                    .clickable(enabled = viewModel.runId != null && !viewModel.isLoadingRoute) {
-                        viewModel.runId?.let(onOpenRunDetail)
-                    },
-                contentAlignment = Alignment.Center,
+                    .height(260.dp),
             ) {
                 if (viewModel.isLoadingRoute) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        modifier = Modifier.fillMaxSize().background(Color(0xFF101510)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        CircularProgressIndicator(color = Accent, modifier = Modifier.size(28.dp))
                     }
                 } else {
                     RouteMapView(
                         points = viewModel.routePoints,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clickable(enabled = viewModel.runId != null) {
+                                viewModel.runId?.let(onOpenRunDetail)
+                            },
                     )
+                }
+
+                // 하단 그라데이션 페이드
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            Brush.verticalGradient(listOf(Color.Transparent, BgDark)),
+                        ),
+                )
+
+                // 상단 statusBar 패딩용 그라데이션
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp)
+                        .align(Alignment.TopCenter)
+                        .background(
+                            Brush.verticalGradient(listOf(BgDark.copy(0.7f), Color.Transparent)),
+                        ),
+                )
+
+                // RUN COMPLETE 배지
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .padding(top = 12.dp),
+                    shape = PillShape,
+                    color = Accent,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.DirectionsRun,
+                            null,
+                            Modifier.size(14.dp),
+                            tint = BgDark,
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "RUN COMPLETE",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = BgDark,
+                            letterSpacing = 1.sp,
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Text(
-                text = "🏆  Earned Achievements",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
+            // ── 메인 콘텐츠 ────────────────────────────────────────────────
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = 24.dp)
+                    .navigationBarsPadding(),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                ResultAchievement(
-                    value = "★",
-                    label = "Run Complete",
-                    color = ResultGold,
-                )
-                ResultAchievement(
-                    value = "↗",
-                    label = viewModel.paceText.removeSuffix("/km"),
-                    color = Color(0xFF43E6BA),
-                )
-                ResultAchievement(
-                    value = viewModel.distanceText,
-                    label = "km Total",
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                ResultAchievement(
-                    value = viewModel.stepsText,
-                    label = "Steps",
-                    color = RunwayElectricBlue,
-                )
-            }
+                Spacer(Modifier.height(4.dp))
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Button(
-                    onClick = viewModel::onShowCreateDialog,
-                    enabled = viewModel.runId != null,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
-                ) {
-                    Icon(Icons.Filled.AddCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(7.dp))
-                    Text("코스 만들기", style = MaterialTheme.typography.labelMedium)
-                }
-
-                Button(
-                    onClick = { viewModel.runId?.let(onShareImage) },
-                    enabled = viewModel.runId != null,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = ResultPurple,
-                        contentColor = Color.White,
-                    ),
-                ) {
-                    Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(7.dp))
-                    Text("공유", style = MaterialTheme.typography.labelMedium)
-                }
-            }
-
-            if (viewModel.courseCreatedSuccess) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(17.dp),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "코스가 생성되었습니다",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-
-            TextButton(onClick = onBackToHome) {
+                // 거리 — 히어로 수치
                 Text(
-                    text = "홈으로",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = viewModel.distanceText,
+                    style = MaterialTheme.typography.displayLarge.copy(
+                        fontFamily = DisplayFontFamily,
+                        fontSize = 88.sp,
+                        lineHeight = 92.sp,
+                    ),
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
                 )
+                Text(
+                    "KILOMETERS",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Accent,
+                    letterSpacing = 3.sp,
+                )
+
+                Spacer(Modifier.height(28.dp))
+
+                // ── 주요 지표 2×2 그리드 ──────────────────────────────────
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .runwayCardFrame(MaterialTheme.shapes.extraLarge),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = StatCard,
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            StatItem(
+                                value = viewModel.timerText,
+                                label = "TIME",
+                                modifier = Modifier.weight(1f),
+                            )
+                            VerticalStatDivider()
+                            StatItem(
+                                value = viewModel.paceText,
+                                label = "PACE",
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        HorizontalDivider(
+                            color = Accent.copy(alpha = 0.10f),
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            StatItem(
+                                value = viewModel.stepsText,
+                                label = "STEPS",
+                                modifier = Modifier.weight(1f),
+                            )
+                            VerticalStatDivider()
+                            StatItem(
+                                value = viewModel.caloriesText.removeSuffix(" kcal"),
+                                label = "KCAL",
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                // ── 속도 시각화 바 ─────────────────────────────────────────
+                PaceBar(paceText = viewModel.paceText)
+
+                Spacer(Modifier.height(24.dp))
+
+                // ── 액션 버튼 ─────────────────────────────────────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Button(
+                        onClick = viewModel::onShowCreateDialog,
+                        enabled = viewModel.runId != null,
+                        modifier = Modifier.weight(1f).height(52.dp),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Accent,
+                            contentColor   = BgDark,
+                            disabledContainerColor = Accent.copy(0.4f),
+                            disabledContentColor   = BgDark,
+                        ),
+                    ) {
+                        Icon(Icons.Filled.AddCircleOutline, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "코스 만들기",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+
+                    Button(
+                        onClick = { viewModel.runId?.let(onShareImage) },
+                        enabled = viewModel.runId != null,
+                        modifier = Modifier.height(52.dp).width(72.dp),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White.copy(0.08f),
+                            contentColor   = Color.White,
+                        ),
+                    ) {
+                        Icon(Icons.Filled.Share, null, Modifier.size(18.dp))
+                    }
+                }
+
+                if (viewModel.courseCreatedSuccess) {
+                    Spacer(Modifier.height(10.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Filled.CheckCircle,
+                            null,
+                            Modifier.size(15.dp),
+                            tint = Accent,
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            "코스가 생성되었습니다",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Accent,
+                        )
+                    }
+                }
+
+                TextButton(
+                    onClick = onBackToHome,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        "홈으로",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White.copy(0.35f),
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
             }
         }
     }
 
     if (viewModel.showCreateDialog) {
         CreateCourseDialog(
-            courseName = viewModel.courseName,
+            courseName     = viewModel.courseName,
             onCourseNameChange = viewModel::onCourseNameChange,
-            isLoop = viewModel.isLoop,
+            isLoop         = viewModel.isLoop,
             onIsLoopChange = viewModel::onIsLoopChange,
-            isCreating = viewModel.isCreating,
-            errorMessage = viewModel.createError,
-            onConfirm = viewModel::createCourse,
-            onDismiss = viewModel::onDismissCreateDialog,
+            isCreating     = viewModel.isCreating,
+            errorMessage   = viewModel.createError,
+            onConfirm      = viewModel::createCourse,
+            onDismiss      = viewModel::onDismissCreateDialog,
+        )
+    }
+}
+
+// ── 지표 셀 ──────────────────────────────────────────────────────────────────
+
+@Composable
+private fun StatItem(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(vertical = 22.dp, horizontal = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            value,
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontFamily = DisplayFontFamily,
+                fontSize = 34.sp,
+                lineHeight = 36.sp,
+            ),
+            fontWeight = FontWeight.ExtraBold,
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = Accent.copy(0.70f),
+            letterSpacing = 1.5.sp,
         )
     }
 }
 
 @Composable
-private fun ResultAchievement(
-    value: String,
-    label: String,
-    color: Color,
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(66.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(54.dp)
-                .shadow(12.dp, CircleShape, ambientColor = color, spotColor = color)
-                .background(color.copy(alpha = 0.15f), CircleShape)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        listOf(color.copy(alpha = 0.32f), Color.Transparent),
-                    ),
-                ),
-            contentAlignment = Alignment.Center,
+private fun VerticalStatDivider() {
+    Box(
+        modifier = Modifier
+            .width(1.dp)
+            .height(80.dp)
+            .background(Accent.copy(0.10f)),
+    )
+}
+
+// ── 페이스 바 (시각화) ────────────────────────────────────────────────────────
+
+@Composable
+private fun PaceBar(paceText: String) {
+    val secsPerKm = runCatching {
+        val parts = paceText.removeSuffix("/km").split("'", "\"", ":")
+        parts[0].toInt() * 60 + parts.getOrNull(1)?.toInt().orDefault(0)
+    }.getOrElse { 0 }
+
+    // 4:00~8:00 사이 정규화 (240~480초)
+    val ratio = if (secsPerKm > 0) ((secsPerKm - 240f) / 240f).coerceIn(0f, 1f) else 0f
+    val fillRatio = 1f - ratio  // 빠를수록 더 채워짐
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Surface(
-                modifier = Modifier.size(46.dp),
-                shape = CircleShape,
-                color = Color.Transparent,
-                border = BorderStroke(2.dp, color),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = value,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
-                        color = color,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                    )
-                }
-            }
+            Text(
+                "PACE",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(0.35f),
+                letterSpacing = 1.5.sp,
+            )
+            Text(
+                paceText,
+                style = MaterialTheme.typography.labelSmall,
+                color = Accent.copy(0.80f),
+                letterSpacing = 0.5.sp,
+            )
         }
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-        )
+        Spacer(Modifier.height(6.dp))
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp)),
+        ) {
+            drawLine(
+                color = Color.White.copy(0.08f),
+                start = Offset(0f, size.height / 2),
+                end   = Offset(size.width, size.height / 2),
+                strokeWidth = size.height,
+                cap = StrokeCap.Round,
+            )
+            drawLine(
+                brush = Brush.horizontalGradient(
+                    listOf(Accent.copy(0.50f), Accent),
+                ),
+                start = Offset(0f, size.height / 2),
+                end   = Offset(size.width * fillRatio, size.height / 2),
+                strokeWidth = size.height,
+                cap = StrokeCap.Round,
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text("4:00", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(0.22f), fontSize = 9.sp)
+            Text("6:00", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(0.22f), fontSize = 9.sp)
+            Text("8:00+", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(0.22f), fontSize = 9.sp)
+        }
     }
 }
+
+private fun Int?.orDefault(default: Int) = this ?: default

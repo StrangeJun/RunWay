@@ -10,7 +10,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -42,6 +41,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,6 +61,10 @@ import androidx.compose.ui.res.painterResource
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.kakao.sdk.auth.model.OAuthToken
+import com.kakao.sdk.common.model.ClientError
+import com.kakao.sdk.common.model.ClientErrorCause
+import com.kakao.sdk.user.UserApiClient
 import com.runway.android.BuildConfig
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -72,7 +76,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.runway.android.R
 import androidx.compose.foundation.border
-import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -90,6 +93,7 @@ private val LogoGreen = Color(0xFFB8FF00)
 @Composable
 fun LoginScreen(
     onNavigateToSignup: () -> Unit,
+    onNavigateToPasswordReset: () -> Unit,
     onLoginSuccess: () -> Unit,
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
@@ -104,6 +108,17 @@ fun LoginScreen(
             .build()
         GoogleSignIn.getClient(context, gso)
     }
+    // 카카오 로그인 콜백
+    val kakaoCallback: (OAuthToken?, Throwable?) -> Unit = { token, error ->
+        if (error != null) {
+            val msg = if (error is ClientError && error.reason == ClientErrorCause.Cancelled) null
+                      else "카카오 로그인에 실패했습니다."
+            msg?.let { viewModel.setGoogleError(it) }
+        } else if (token != null) {
+            viewModel.loginWithKakao(token.accessToken)
+        }
+    }
+
     val googleLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -111,14 +126,12 @@ fun LoginScreen(
             val account = GoogleSignIn.getSignedInAccountFromIntent(result.data)
                 .getResult(ApiException::class.java)
             val idToken = account.idToken
-            Log.d("GoogleSignIn", "idToken null=${idToken == null}, email=${account.email}")
             if (idToken != null) {
                 viewModel.loginWithGoogle(idToken)
             } else {
                 viewModel.setGoogleError("Google 토큰을 받지 못했습니다. Web Client ID를 확인하세요.")
             }
         } catch (e: ApiException) {
-            Log.e("GoogleSignIn", "ApiException code=${e.statusCode} msg=${e.message}")
             val msg = when (e.statusCode) {
                 10   -> "설정 오류(10): SHA-1 지문 또는 Client ID를 확인하세요."
                 12500 -> "로그인 실패(12500)"
@@ -149,6 +162,22 @@ fun LoginScreen(
             FormCard(
                 viewModel = viewModel,
                 onGoogleClick = { googleLauncher.launch(googleSignInClient.signInIntent) },
+                onKakaoClick = {
+                    if (UserApiClient.instance.isKakaoTalkLoginAvailable(context)) {
+                        UserApiClient.instance.loginWithKakaoTalk(context) { token, error ->
+                            if (error != null) {
+                                if (error is ClientError && error.reason == ClientErrorCause.Cancelled) return@loginWithKakaoTalk
+                                // 카카오톡 실패 시 계정으로 재시도
+                                UserApiClient.instance.loginWithKakaoAccount(context, callback = kakaoCallback)
+                            } else if (token != null) {
+                                viewModel.loginWithKakao(token.accessToken)
+                            }
+                        }
+                    } else {
+                        UserApiClient.instance.loginWithKakaoAccount(context, callback = kakaoCallback)
+                    }
+                },
+                onForgotPassword = onNavigateToPasswordReset,
             )
             Spacer(Modifier.height(20.dp))
 
@@ -332,16 +361,15 @@ private fun TrackDots() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FormCard(viewModel: LoginViewModel, onGoogleClick: () -> Unit) {
+private fun FormCard(
+    viewModel: LoginViewModel,
+    onGoogleClick: () -> Unit,
+    onKakaoClick: () -> Unit,
+    onForgotPassword: () -> Unit,
+) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = 12.dp,
-                shape = MaterialTheme.shapes.extraLarge,
-                ambientColor = LogoGreen.copy(alpha = 0.14f),
-                spotColor   = LogoGreen.copy(alpha = 0.20f),
-            )
             .border(
                 width = 1.dp,
                 brush = Brush.linearGradient(
@@ -392,6 +420,18 @@ private fun FormCard(viewModel: LoginViewModel, onGoogleClick: () -> Unit) {
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 isError = viewModel.error != null,
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onForgotPassword) {
+                    Text(
+                        "비밀번호를 잊으셨나요?",
+                        color = LogoGreen.copy(alpha = 0.85f),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+            }
 
             viewModel.error?.let {
                 Spacer(Modifier.height(8.dp))
@@ -445,37 +485,56 @@ private fun FormCard(viewModel: LoginViewModel, onGoogleClick: () -> Unit) {
             Spacer(Modifier.height(16.dp))
 
             // Google 버튼
-            Surface(
+            SocialButton(
                 onClick = onGoogleClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .border(
-                        1.dp,
-                        Brush.linearGradient(listOf(Color.White.copy(0.22f), Color.White.copy(0.08f))),
-                        MaterialTheme.shapes.extraLarge,
-                    ),
-                shape = MaterialTheme.shapes.extraLarge,
-                color = Color.White.copy(alpha = 0.06f),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_google),
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        "Continue with Google",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color.White.copy(alpha = 0.85f),
-                    )
-                }
-            }
+                icon = { Image(painterResource(R.drawable.ic_google), null, Modifier.size(20.dp)) },
+                text = "Continue with Google",
+                containerColor = Color.White.copy(alpha = 0.06f),
+                borderColor = Color.White.copy(alpha = 0.20f),
+                textColor = Color.White.copy(alpha = 0.85f),
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            // 카카오 버튼
+            SocialButton(
+                onClick = onKakaoClick,
+                icon = { Image(painterResource(R.drawable.ic_kakao), null, Modifier.size(20.dp)) },
+                text = "Continue with Kakao",
+                containerColor = Color(0xFFFEE500),
+                borderColor = Color(0xFFFEE500),
+                textColor = Color(0xFF191919),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SocialButton(
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit,
+    text: String,
+    containerColor: Color,
+    borderColor: Color,
+    textColor: Color,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .border(1.dp, borderColor, MaterialTheme.shapes.extraLarge),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = containerColor,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            icon()
+            Spacer(Modifier.width(10.dp))
+            Text(text, style = MaterialTheme.typography.labelLarge, color = textColor)
         }
     }
 }

@@ -25,6 +25,7 @@ import com.runway.android.ui.attempt.CourseAttemptTrackingScreen
 import com.runway.android.ui.auth.login.LoginScreen
 import com.runway.android.ui.share.RunShareImageScreen
 import com.runway.android.ui.auth.signup.SignupScreen
+import com.runway.android.ui.auth.passwordreset.PasswordResetScreen
 import com.runway.android.ui.course.detail.CourseDetailScreen
 import com.runway.android.ui.course.detail.CourseMapDetailScreen
 import com.runway.android.ui.course.my.MyCoursesScreen
@@ -54,7 +55,8 @@ fun RunwayNavGraph() {
             if (currentRoute != null &&
                 currentRoute != RunwayRoutes.SPLASH &&
                 currentRoute != RunwayRoutes.LOGIN &&
-                currentRoute != RunwayRoutes.SIGNUP
+                currentRoute != RunwayRoutes.SIGNUP &&
+                currentRoute != RunwayRoutes.PASSWORD_RESET
             ) {
                 navController.navigate(RunwayRoutes.LOGIN) {
                     popUpTo(0) { inclusive = true }
@@ -92,6 +94,9 @@ fun RunwayNavGraph() {
         ) {
             LoginScreen(
                 onNavigateToSignup = { navController.navigate(RunwayRoutes.SIGNUP) },
+                onNavigateToPasswordReset = {
+                    navController.navigate(RunwayRoutes.PASSWORD_RESET)
+                },
                 onLoginSuccess = {
                     val dest = if (mainViewModel.isOnboardingCompleted.value == false)
                         RunwayRoutes.ONBOARDING else RunwayRoutes.MAIN
@@ -108,6 +113,18 @@ fun RunwayNavGraph() {
                 onSignupSuccess = {
                     navController.navigate(RunwayRoutes.LOGIN) {
                         popUpTo(RunwayRoutes.SIGNUP) { inclusive = true }
+                    }
+                },
+            )
+        }
+
+        composable(RunwayRoutes.PASSWORD_RESET) {
+            PasswordResetScreen(
+                onBack = { navController.popBackStack() },
+                onCompleted = {
+                    navController.navigate(RunwayRoutes.LOGIN) {
+                        popUpTo(RunwayRoutes.PASSWORD_RESET) { inclusive = true }
+                        launchSingleTop = true
                     }
                 },
             )

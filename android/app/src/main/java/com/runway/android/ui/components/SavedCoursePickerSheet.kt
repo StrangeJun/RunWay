@@ -1,6 +1,9 @@
 package com.runway.android.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.BookmarkBorder
@@ -39,12 +43,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.ui.theme.SurfaceContainerDark
-import java.util.Locale
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SavedCoursePickerSheet(
     courses: List<CourseResponse>,
+    bestTimesByCourseId: Map<String, Int?>,
     isLoading: Boolean,
     error: String?,
     onDismiss: () -> Unit,
@@ -249,6 +252,7 @@ fun SavedCoursePickerSheet(
                         items(courses, key = { it.courseId }) { course ->
                             SavedCourseCard(
                                 course = course,
+                                bestTimeSeconds = bestTimesByCourseId[course.courseId],
                                 onClick = { onCourseSelected(course) },
                             )
                         }
@@ -263,15 +267,26 @@ fun SavedCoursePickerSheet(
 @Composable
 private fun SavedCourseCard(
     course: CourseResponse,
+    bestTimeSeconds: Int?,
     onClick: () -> Unit,
 ) {
     Surface(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .runwayCardFrame(MaterialTheme.shapes.extraLarge),
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    listOf(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                    ),
+                ),
+                shape = MaterialTheme.shapes.extraLarge,
+            ),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.06f),
+        color = Color.Transparent,
     ) {
         Row(
             modifier = Modifier
@@ -282,14 +297,18 @@ private fun SavedCourseCard(
         ) {
             // 거리 배지
             val km = course.distanceMeters / 1000.0
-            val distLabel = if (km >= 1.0) "%.1f".format(km) else "${course.distanceMeters.toInt()}"
+            val distLabel = if (km >= 1.0) {
+                if (km % 1.0 == 0.0) "%.0f".format(km) else "%.1f".format(km)
+            } else {
+                "${course.distanceMeters.toInt()}"
+            }
             val unitLabel = if (km >= 1.0) "km" else "m"
             Box(
                 modifier = Modifier
                     .size(52.dp)
                     .background(
                         MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                        MaterialTheme.shapes.large,
+                        CircleShape,
                     ),
                 contentAlignment = Alignment.Center,
             ) {
@@ -310,49 +329,52 @@ private fun SavedCourseCard(
 
             // 이름 + 메타
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = course.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(4.dp))
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = String.format(Locale.KOREA, "%.1f km", course.distanceMeters / 1000.0),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = course.name,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                    if (course.isLoop) {
-                        Surface(
-                            shape = MaterialTheme.shapes.extraLarge,
-                            color = MaterialTheme.colorScheme.primaryContainer,
+                    Surface(
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(3.dp),
-                            ) {
-                                Icon(
-                                    Icons.Filled.Loop,
-                                    null,
-                                    Modifier.size(10.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                )
-                                Text(
-                                    "루프",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                )
-                            }
+                            Icon(
+                                imageVector = if (course.isLoop) Icons.Filled.Loop else Icons.Filled.Route,
+                                contentDescription = null,
+                                modifier = Modifier.size(10.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                text = if (course.isLoop) "루프" else "비루프",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
                         }
                     }
                 }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "완주 횟수 ${course.completionCount}회   개인 최고 기록 ${
+                        bestTimeSeconds?.let(::formatBestTime) ?: "없음"
+                    }",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
 
             // 화살표
@@ -363,5 +385,16 @@ private fun SavedCourseCard(
                 modifier = Modifier.size(14.dp),
             )
         }
+    }
+}
+
+private fun formatBestTime(seconds: Int): String {
+    val hours = seconds / 3600
+    val minutes = (seconds % 3600) / 60
+    val remainingSeconds = seconds % 60
+    return if (hours > 0) {
+        "%d:%02d:%02d".format(hours, minutes, remainingSeconds)
+    } else {
+        "%d:%02d".format(minutes, remainingSeconds)
     }
 }

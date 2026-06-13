@@ -7,10 +7,21 @@ data class WeatherInfo(
     val humidity: Int,
     val pm10: Int,
     val pm25: Int,
-    val conditionId: Int,
-    val condition: String,
-    val description: String,
+    val condition: WeatherCondition,
 )
+
+enum class WeatherCondition {
+    CLEAR,
+    MOSTLY_CLOUDY,
+    CLOUDY,
+    RAIN,
+    SLEET,
+    SNOW,
+    SHOWER,
+    DRIZZLE,
+    DRIZZLE_AND_FLURRY,
+    FLURRY,
+}
 
 fun pm10Quality(pm10: Int): String = when {
     pm10 <= 30 -> "좋음"

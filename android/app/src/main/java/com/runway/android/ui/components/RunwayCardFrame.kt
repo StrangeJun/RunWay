@@ -4,7 +4,6 @@ import androidx.compose.foundation.border
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
@@ -22,12 +21,5 @@ fun Modifier.runwayCardFrame(shape: Shape): Modifier {
         ),
     )
 
-    return this
-        .shadow(
-            elevation = 10.dp,
-            shape = shape,
-            ambientColor = accent.copy(alpha = 0.16f),
-            spotColor = accent.copy(alpha = 0.22f),
-        )
-        .border(width = 1.dp, brush = borderBrush, shape = shape)
+    return border(width = 1.dp, brush = borderBrush, shape = shape)
 }

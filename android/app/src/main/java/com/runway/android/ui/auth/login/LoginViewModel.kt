@@ -57,8 +57,19 @@ class LoginViewModel @Inject constructor(
         }
     }
 
-    fun setGoogleError(message: String) {
-        error = message
+    fun setGoogleError(message: String) { error = message }
+
+    fun loginWithKakao(accessToken: String) {
+        viewModelScope.launch {
+            isLoading = true
+            error = null
+            when (val result = authRepository.loginWithKakao(accessToken)) {
+                is NetworkResult.Success -> _navigateToHome.emit(Unit)
+                is NetworkResult.ApiError -> error = result.message ?: "카카오 로그인에 실패했습니다."
+                is NetworkResult.NetworkError -> error = "네트워크 오류가 발생했습니다."
+            }
+            isLoading = false
+        }
     }
 
     fun loginWithGoogle(idToken: String) {
