@@ -144,6 +144,12 @@ fun HomeScreen(
             isGenerating = viewModel.isGeneratingTrainingPlan,
             error = viewModel.trainingPlanError,
             applied = viewModel.trainingPlanApplied,
+            currentWeeklyKm = viewModel.weeklyStats.distanceKm.toDoubleOrNull(),
+            suggestedExperience = if (viewModel.recentRuns.size >= 10) {
+                "INTERMEDIATE"
+            } else {
+                "BEGINNER"
+            },
             onDismiss = viewModel::closeTrainingPlanSheet,
             onGenerate = viewModel::recommendTrainingPlan,
             onUpdateDay = viewModel::updateTrainingDay,
