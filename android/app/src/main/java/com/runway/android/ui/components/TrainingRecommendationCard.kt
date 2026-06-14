@@ -38,8 +38,10 @@ fun TrainingRecommendationCard(
     goal: TrainingGoal?,
     isLoading: Boolean,
     errorMessage: String?,
+    reminderMessage: String?,
     onSetGoal: () -> Unit,
     onRetry: () -> Unit,
+    onSetReminder: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -126,7 +128,7 @@ fun TrainingRecommendationCard(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "${recommendation.plan.weeklyRuns}회 · Gemini 목표 맞춤 구성",
+                        text = "${recommendation.plan.weeklyRuns}회 · 이번 주 일정",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -187,6 +189,52 @@ fun TrainingRecommendationCard(
                 recommendation.plan.sessions.forEach { session ->
                     TrainingSessionRow(session)
                 }
+            }
+
+            Button(
+                onClick = onSetReminder,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("리마인더로 설정")
+            }
+
+            reminderMessage?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+
+            Text(
+                text = "일정은 목표를 수정하거나 매주 월요일이 되면 새로 생성됩니다.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            errorMessage?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            OutlinedButton(
+                onClick = onRetry,
+                enabled = !isLoading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .height(18.dp)
+                            .width(18.dp),
+                        strokeWidth = 2.dp,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(if (isLoading) "생성 중" else "새 일정 생성")
             }
 
             OutlinedButton(

@@ -82,6 +82,7 @@ fun HomeScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.tryLoadWeather(forceRefresh = true)
+                viewModel.loadTrainingRecommendation()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -291,8 +292,10 @@ fun HomeScreen(
                         goal = viewModel.trainingGoal,
                         isLoading = viewModel.isLoadingTrainingRecommendation,
                         errorMessage = viewModel.trainingRecommendationError,
+                        reminderMessage = viewModel.trainingReminderMessage,
                         onSetGoal = viewModel::openTrainingGoalSheet,
-                        onRetry = viewModel::loadTrainingRecommendation,
+                        onRetry = viewModel::regenerateTrainingRecommendation,
+                        onSetReminder = viewModel::setTrainingReminder,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
                     )
                 }

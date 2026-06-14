@@ -17,6 +17,9 @@ private val Context.trackingDataStore: DataStore<Preferences> by preferencesData
 private val Context.onboardingDataStore: DataStore<Preferences> by preferencesDataStore(name = "runway_onboarding")
 private val Context.reminderDataStore: DataStore<Preferences> by preferencesDataStore(name = "runway_reminder")
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "runway_settings")
+private val Context.trainingRecommendationDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "runway_training_recommendation",
+)
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -55,4 +58,11 @@ object DataStoreModule {
     fun provideSettingsDataStore(
         @ApplicationContext context: Context,
     ): DataStore<Preferences> = context.settingsDataStore
+
+    @Provides
+    @Singleton
+    @Named("trainingRecommendationDataStore")
+    fun provideTrainingRecommendationDataStore(
+        @ApplicationContext context: Context,
+    ): DataStore<Preferences> = context.trainingRecommendationDataStore
 }

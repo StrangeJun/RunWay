@@ -17,8 +17,11 @@ import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.runway.android.BuildConfig
-import com.runway.android.core.datastore.VoiceGuideDataStore
+import com.runway.android.core.datastore.TokenDataStore
 import com.runway.android.core.datastore.TrainingGoalDataStore
+import com.runway.android.core.datastore.TrainingRecommendationDataStore
+import com.runway.android.core.datastore.VoiceGuideDataStore
+import com.runway.android.core.notification.ReminderScheduler
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.attempt.model.MyBestAttemptResponse
 import com.runway.android.data.course.model.GeoPoint
@@ -27,6 +30,10 @@ import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.domain.attempt.CourseAttemptRepository
 import com.runway.android.data.running.model.RunSummaryResponse
 import com.runway.android.data.running.model.RunningStatsResponse
+import com.runway.android.data.reminder.DayRunningPlan
+import com.runway.android.data.reminder.ReminderPrefs
+import com.runway.android.data.reminder.ReminderPrefsRepository
+import com.runway.android.data.reminder.ReminderWorkoutType
 import com.runway.android.domain.course.CourseRepository
 import com.runway.android.domain.running.RunningRepository
 import com.runway.android.domain.training.TrainingRecommendation
@@ -43,6 +50,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -68,6 +76,10 @@ class HomeViewModel @Inject constructor(
     private val fusedLocationClient: FusedLocationProviderClient,
     private val voiceGuideDataStore: VoiceGuideDataStore,
     private val trainingGoalDataStore: TrainingGoalDataStore,
+    private val trainingRecommendationDataStore: TrainingRecommendationDataStore,
+    private val tokenDataStore: TokenDataStore,
+    private val reminderPrefsRepository: ReminderPrefsRepository,
+    private val reminderScheduler: ReminderScheduler,
     @Named("noAuth") private val okHttpClient: OkHttpClient,
 ) : ViewModel() {
     private val airKoreaClient = AirKoreaClient(okHttpClient)
@@ -90,6 +102,8 @@ class HomeViewModel @Inject constructor(
     var isLoadingTrainingRecommendation by mutableStateOf(false)
         private set
     var trainingRecommendationError by mutableStateOf<String?>(null)
+        private set
+    var trainingReminderMessage by mutableStateOf<String?>(null)
         private set
     var showTrainingGoalSheet by mutableStateOf(false)
     var isLoadingRuns by mutableStateOf(true)
@@ -144,6 +158,7 @@ class HomeViewModel @Inject constructor(
                 if (savedGoal == null) {
                     trainingRecommendation = null
                     trainingRecommendationError = null
+                    trainingRecommendationDataStore.clear()
                 } else {
                     loadTrainingRecommendation()
                 }
@@ -232,7 +247,6 @@ class HomeViewModel @Inject constructor(
 
     fun removeRecentRun(runId: String) {
         recentRuns = recentRuns.filterNot { it.runId == runId }
-        loadTrainingRecommendation()
     }
 
     var isRefreshing by mutableStateOf(false)
@@ -243,7 +257,6 @@ class HomeViewModel @Inject constructor(
             val result = runningRepository.getMyRuns(page = 0, size = HOME_RUN_FETCH_SIZE)
             if (result is NetworkResult.Success) {
                 recentRuns = result.data.content.take(RECENT_RUN_COUNT).map { it.toRecentRun() }
-                loadTrainingRecommendation()
             }
         }
     }
@@ -256,7 +269,6 @@ class HomeViewModel @Inject constructor(
             val runsResult = runningRepository.getMyRuns(page = 0, size = HOME_RUN_FETCH_SIZE)
             if (runsResult is NetworkResult.Success) {
                 recentRuns = runsResult.data.content.take(RECENT_RUN_COUNT).map { it.toRecentRun() }
-                loadTrainingRecommendation()
             }
             val statsResult = runningRepository.getRunningStats("weekly")
             weeklyStats = resolveWeeklyStats(runsResult, statsResult)
@@ -294,24 +306,89 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun loadTrainingRecommendation() {
+    fun loadTrainingRecommendation(forceRefresh: Boolean = false) {
         val goal = trainingGoal ?: return
+        if (isLoadingTrainingRecommendation) return
         viewModelScope.launch {
             isLoadingTrainingRecommendation = true
             trainingRecommendationError = null
-            trainingRecommendation = null
+            trainingReminderMessage = null
+            val ownerId = tokenDataStore.getUserId()
+            if (!forceRefresh && ownerId != null) {
+                trainingRecommendationDataStore.getValid(ownerId, goal)?.let { cached ->
+                    trainingRecommendation = cached
+                    isLoadingTrainingRecommendation = false
+                    return@launch
+                }
+            }
             when (
                 val result = runningRepository.getTrainingRecommendation(
                     TrainingRecommendationRequest.from(goal),
                 )
             ) {
-                is NetworkResult.Success -> trainingRecommendation = result.data
+                is NetworkResult.Success -> {
+                    trainingRecommendation = result.data
+                    if (ownerId != null) {
+                        trainingRecommendationDataStore.save(ownerId, goal, result.data)
+                    }
+                }
                 is NetworkResult.ApiError -> trainingRecommendationError = result.message
                 is NetworkResult.NetworkError ->
                     trainingRecommendationError = "네트워크 연결을 확인해 주세요."
             }
             isLoadingTrainingRecommendation = false
         }
+    }
+
+    fun regenerateTrainingRecommendation() {
+        loadTrainingRecommendation(forceRefresh = true)
+    }
+
+    fun setTrainingReminder() {
+        val recommendation = trainingRecommendation ?: return
+        viewModelScope.launch {
+            val current = reminderPrefsRepository.getPrefs().first()
+            val plans = recommendation.plan.sessions.associate { session ->
+                val calendarDay = session.dayOfWeek.toCalendarDay()
+                calendarDay to DayRunningPlan(
+                    dayOfWeek = calendarDay,
+                    workoutType = ReminderWorkoutType.valueOf(session.type.name),
+                    distanceKm = session.targetDistanceMeters
+                        ?.takeIf { it > 0 }
+                        ?.let { "%.1f".format(Locale.US, it / 1_000.0) }
+                        .orEmpty(),
+                    targetPace = session.targetPaceSecondsPerKm
+                        ?.let { "%d:%02d".format(it / 60, it % 60) }
+                        .orEmpty(),
+                    durationMinutes = session.targetDurationMinutes?.toString().orEmpty(),
+                    note = listOf(session.title, session.guidanceText)
+                        .filter(String::isNotBlank)
+                        .joinToString(" · ")
+                        .take(80),
+                )
+            }
+            val prefs = ReminderPrefs(
+                enabled = true,
+                hour = current.hour,
+                minute = current.minute,
+                enabledDays = plans.keys,
+                plans = plans,
+            )
+            reminderPrefsRepository.save(prefs)
+            reminderScheduler.scheduleAll(prefs)
+            trainingReminderMessage = "훈련 일정이 리마인더에 설정됐습니다."
+        }
+    }
+
+    private fun Int.toCalendarDay(): Int = when (this) {
+        1 -> Calendar.MONDAY
+        2 -> Calendar.TUESDAY
+        3 -> Calendar.WEDNESDAY
+        4 -> Calendar.THURSDAY
+        5 -> Calendar.FRIDAY
+        6 -> Calendar.SATURDAY
+        7 -> Calendar.SUNDAY
+        else -> Calendar.MONDAY
     }
 
     init {
