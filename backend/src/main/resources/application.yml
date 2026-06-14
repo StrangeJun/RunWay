@@ -1,4 +1,7 @@
 spring:
+  config:
+    import: optional:file:.env[.properties]
+
   application:
     name: runway
 
@@ -73,6 +76,10 @@ social:
     client-id: ${GOOGLE_WEB_CLIENT_ID}
   kakao:
     app-id: ${KAKAO_APP_ID}
+
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  model: ${GEMINI_MODEL:gemini-3.5-flash}
 
 logging:
   level:

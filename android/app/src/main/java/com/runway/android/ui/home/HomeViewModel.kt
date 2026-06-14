@@ -18,6 +18,7 @@ import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.runway.android.BuildConfig
 import com.runway.android.core.datastore.VoiceGuideDataStore
+import com.runway.android.core.datastore.TrainingGoalDataStore
 import com.runway.android.core.result.NetworkResult
 import com.runway.android.data.attempt.model.MyBestAttemptResponse
 import com.runway.android.data.course.model.GeoPoint
@@ -29,8 +30,8 @@ import com.runway.android.data.running.model.RunningStatsResponse
 import com.runway.android.domain.course.CourseRepository
 import com.runway.android.domain.running.RunningRepository
 import com.runway.android.domain.training.TrainingRecommendation
-import com.runway.android.domain.training.TrainingRecommendationEngine
-import com.runway.android.domain.training.TrainingRunSample
+import com.runway.android.domain.training.TrainingGoal
+import com.runway.android.domain.training.TrainingRecommendationRequest
 import com.runway.android.domain.user.UserRepository
 import com.runway.android.core.map.MapPoint
 import com.runway.android.ui.components.RecentRun
@@ -66,13 +67,13 @@ class HomeViewModel @Inject constructor(
     private val attemptRepository: CourseAttemptRepository,
     private val fusedLocationClient: FusedLocationProviderClient,
     private val voiceGuideDataStore: VoiceGuideDataStore,
+    private val trainingGoalDataStore: TrainingGoalDataStore,
     @Named("noAuth") private val okHttpClient: OkHttpClient,
 ) : ViewModel() {
     private val airKoreaClient = AirKoreaClient(okHttpClient)
     private val kmaWeatherClient = KmaWeatherClient(okHttpClient)
     private var weatherLoadJob: Job? = null
     private var lastWeatherUpdatedAt = 0L
-    private var trainingRunSamples = emptyList<TrainingRunSample>()
 
     val greeting: String = buildGreeting()
 
@@ -82,10 +83,15 @@ class HomeViewModel @Inject constructor(
         private set
     var recentRuns by mutableStateOf<List<RecentRun>>(emptyList())
         private set
-    var trainingRecommendation by mutableStateOf(
-        TrainingRecommendationEngine.calculate(emptyList()),
-    )
+    var trainingGoal by mutableStateOf<TrainingGoal?>(null)
         private set
+    var trainingRecommendation by mutableStateOf<TrainingRecommendation?>(null)
+        private set
+    var isLoadingTrainingRecommendation by mutableStateOf(false)
+        private set
+    var trainingRecommendationError by mutableStateOf<String?>(null)
+        private set
+    var showTrainingGoalSheet by mutableStateOf(false)
     var isLoadingRuns by mutableStateOf(true)
         private set
     var nearbyCourses by mutableStateOf<List<NearbyCourseItem>>(emptyList())
@@ -131,6 +137,17 @@ class HomeViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             voiceGuideDataStore.enabledFlow.collect { isVoiceGuideEnabled = it }
+        }
+        viewModelScope.launch {
+            trainingGoalDataStore.goalFlow.collect { savedGoal ->
+                trainingGoal = savedGoal
+                if (savedGoal == null) {
+                    trainingRecommendation = null
+                    trainingRecommendationError = null
+                } else {
+                    loadTrainingRecommendation()
+                }
+            }
         }
     }
 
@@ -215,8 +232,7 @@ class HomeViewModel @Inject constructor(
 
     fun removeRecentRun(runId: String) {
         recentRuns = recentRuns.filterNot { it.runId == runId }
-        trainingRunSamples = trainingRunSamples.filterNot { it.runId == runId }
-        trainingRecommendation = TrainingRecommendationEngine.calculate(trainingRunSamples)
+        loadTrainingRecommendation()
     }
 
     var isRefreshing by mutableStateOf(false)
@@ -227,7 +243,7 @@ class HomeViewModel @Inject constructor(
             val result = runningRepository.getMyRuns(page = 0, size = HOME_RUN_FETCH_SIZE)
             if (result is NetworkResult.Success) {
                 recentRuns = result.data.content.take(RECENT_RUN_COUNT).map { it.toRecentRun() }
-                updateTrainingRecommendation(result.data.content)
+                loadTrainingRecommendation()
             }
         }
     }
@@ -240,7 +256,7 @@ class HomeViewModel @Inject constructor(
             val runsResult = runningRepository.getMyRuns(page = 0, size = HOME_RUN_FETCH_SIZE)
             if (runsResult is NetworkResult.Success) {
                 recentRuns = runsResult.data.content.take(RECENT_RUN_COUNT).map { it.toRecentRun() }
-                updateTrainingRecommendation(runsResult.data.content)
+                loadTrainingRecommendation()
             }
             val statsResult = runningRepository.getRunningStats("weekly")
             weeklyStats = resolveWeeklyStats(runsResult, statsResult)
@@ -256,6 +272,47 @@ class HomeViewModel @Inject constructor(
         showGoalSheet = false
     }
     fun clearGoal() { selectedGoal = null }
+
+    fun openTrainingGoalSheet() {
+        showTrainingGoalSheet = true
+    }
+
+    fun closeTrainingGoalSheet() {
+        showTrainingGoalSheet = false
+    }
+
+    fun saveTrainingGoal(goal: TrainingGoal) {
+        showTrainingGoalSheet = false
+        viewModelScope.launch {
+            trainingGoalDataStore.save(goal)
+        }
+    }
+
+    fun clearTrainingGoal() {
+        viewModelScope.launch {
+            trainingGoalDataStore.clear()
+        }
+    }
+
+    fun loadTrainingRecommendation() {
+        val goal = trainingGoal ?: return
+        viewModelScope.launch {
+            isLoadingTrainingRecommendation = true
+            trainingRecommendationError = null
+            trainingRecommendation = null
+            when (
+                val result = runningRepository.getTrainingRecommendation(
+                    TrainingRecommendationRequest.from(goal),
+                )
+            ) {
+                is NetworkResult.Success -> trainingRecommendation = result.data
+                is NetworkResult.ApiError -> trainingRecommendationError = result.message
+                is NetworkResult.NetworkError ->
+                    trainingRecommendationError = "네트워크 연결을 확인해 주세요."
+            }
+            isLoadingTrainingRecommendation = false
+        }
+    }
 
     init {
         loadData()
@@ -407,7 +464,6 @@ class HomeViewModel @Inject constructor(
 
             if (runsResult is NetworkResult.Success) {
                 recentRuns = runsResult.data.content.take(RECENT_RUN_COUNT).map { it.toRecentRun() }
-                updateTrainingRecommendation(runsResult.data.content)
             }
 
             weeklyStats = resolveWeeklyStats(runsResult, statsResult)
@@ -506,21 +562,6 @@ class HomeViewModel @Inject constructor(
         return RecentRun(runId = runId, day = dateLabel, distanceKm = distKm, pace = pace, duration = dur)
     }
 
-    private fun updateTrainingRecommendation(runs: List<RunSummaryResponse>) {
-        trainingRunSamples = runs.mapNotNull { run ->
-            val startedAt = runCatching { Instant.parse(run.startedAt) }.getOrNull()
-                ?: return@mapNotNull null
-            TrainingRunSample(
-                runId = run.runId,
-                status = run.status,
-                startedAt = startedAt,
-                distanceMeters = (run.distanceMeters ?: 0.0).coerceAtLeast(0.0),
-                durationSeconds = (run.durationSeconds ?: 0).coerceAtLeast(0),
-            )
-        }
-        trainingRecommendation = TrainingRecommendationEngine.calculate(trainingRunSamples)
-    }
-
     private fun hasLocationPermission(): Boolean {
         val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -536,7 +577,7 @@ class HomeViewModel @Inject constructor(
     }
 
     private companion object {
-        const val HOME_RUN_FETCH_SIZE = 200
+        const val HOME_RUN_FETCH_SIZE = 100
         const val RECENT_RUN_COUNT = 20
         const val WEATHER_REFRESH_INTERVAL_MILLIS = 60 * 60 * 1_000L
     }

@@ -19,6 +19,9 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, UU
 
     Page<RunningRecord> findByUserIdOrderByStartedAtDesc(UUID userId, Pageable pageable);
 
+    List<RunningRecord> findTop20ByUserIdAndStatusOrderByStartedAtDesc(
+            UUID userId, RunningRecordStatus status);
+
     // ─── Personal Records 쿼리 ───
 
     Optional<RunningRecord> findTop1ByUserIdAndStatusOrderByDistanceMetersDesc(

@@ -13,8 +13,14 @@ import com.runway.android.data.running.model.SavePointsRequest
 import com.runway.android.data.running.model.SavePointsResponse
 import com.runway.android.data.running.model.StartRunRequest
 import com.runway.android.data.running.model.StartRunResponse
+import com.runway.android.domain.training.TrainingRecommendation
+import com.runway.android.domain.training.TrainingRecommendationRequest
 
 interface RunningRepository {
+    suspend fun getTrainingRecommendation(
+        request: TrainingRecommendationRequest,
+    ): NetworkResult<TrainingRecommendation>
+
     suspend fun startRun(request: StartRunRequest): NetworkResult<StartRunResponse>
     suspend fun savePoints(runId: String, request: SavePointsRequest): NetworkResult<SavePointsResponse>
     suspend fun pauseRun(runId: String): NetworkResult<RunStatusResponse>

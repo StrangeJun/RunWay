@@ -18,6 +18,8 @@ import com.runway.android.data.running.model.StartRunResponse
 import com.runway.android.data.running.model.TrimRunRequest
 import com.runway.android.data.running.remote.RunningApi
 import com.runway.android.domain.running.RunningRepository
+import com.runway.android.domain.training.TrainingRecommendation
+import com.runway.android.domain.training.TrainingRecommendationRequest
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,6 +27,11 @@ import javax.inject.Singleton
 class RunningRepositoryImpl @Inject constructor(
     private val runningApi: RunningApi,
 ) : RunningRepository {
+
+    override suspend fun getTrainingRecommendation(
+        request: TrainingRecommendationRequest,
+    ): NetworkResult<TrainingRecommendation> =
+        safeApiCall { runningApi.getTrainingRecommendation(request) }
 
     override suspend fun startRun(request: StartRunRequest): NetworkResult<StartRunResponse> =
         safeApiCall { runningApi.startRun(request) }

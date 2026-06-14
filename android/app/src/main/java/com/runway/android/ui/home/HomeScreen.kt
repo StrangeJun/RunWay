@@ -139,6 +139,14 @@ fun HomeScreen(
         )
     }
 
+    if (viewModel.showTrainingGoalSheet) {
+        TrainingGoalSheet(
+            currentGoal = viewModel.trainingGoal,
+            onDismiss = viewModel::closeTrainingGoalSheet,
+            onConfirm = viewModel::saveTrainingGoal,
+        )
+    }
+
     PullToRefreshBox(
         isRefreshing = viewModel.isRefreshing,
         onRefresh = viewModel::refresh,
@@ -280,6 +288,11 @@ fun HomeScreen(
                 item {
                     TrainingRecommendationCard(
                         recommendation = viewModel.trainingRecommendation,
+                        goal = viewModel.trainingGoal,
+                        isLoading = viewModel.isLoadingTrainingRecommendation,
+                        errorMessage = viewModel.trainingRecommendationError,
+                        onSetGoal = viewModel::openTrainingGoalSheet,
+                        onRetry = viewModel::loadTrainingRecommendation,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
                     )
                 }

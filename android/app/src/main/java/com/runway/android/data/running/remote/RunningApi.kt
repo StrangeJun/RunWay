@@ -14,6 +14,8 @@ import com.runway.android.data.running.model.SavePointsResponse
 import com.runway.android.data.running.model.StartRunRequest
 import com.runway.android.data.running.model.StartRunResponse
 import com.runway.android.data.running.model.TrimRunRequest
+import com.runway.android.domain.training.TrainingRecommendation
+import com.runway.android.domain.training.TrainingRecommendationRequest
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
@@ -23,6 +25,11 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface RunningApi {
+
+    @POST("api/training/recommendation")
+    suspend fun getTrainingRecommendation(
+        @Body request: TrainingRecommendationRequest,
+    ): ApiResponse<TrainingRecommendation>
 
     @POST("api/runs/start")
     suspend fun startRun(@Body request: StartRunRequest): ApiResponse<StartRunResponse>

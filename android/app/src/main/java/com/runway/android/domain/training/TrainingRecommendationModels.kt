@@ -1,8 +1,6 @@
 package com.runway.android.domain.training
 
-import java.time.Instant
-
-const val MIN_RUN_COUNT_FOR_PERSONALIZED_PLAN = 5
+const val MIN_RUN_COUNT_FOR_PERSONALIZED_PLAN = 3
 const val MIN_TOTAL_DISTANCE_METERS_FOR_PERSONALIZED_PLAN = 15_000
 const val MIN_LOOKBACK_DAYS = 14
 const val MIN_SINGLE_RUN_DISTANCE_METERS = 1_000
@@ -17,14 +15,6 @@ enum class TrainingRecommendationStatus {
     INSUFFICIENT_DATA,
     PERSONALIZED_READY,
 }
-
-data class TrainingRunSample(
-    val runId: String,
-    val status: String,
-    val startedAt: Instant,
-    val distanceMeters: Double,
-    val durationSeconds: Int,
-)
 
 data class TrainingReadiness(
     val validRunCount: Int,
@@ -53,9 +43,10 @@ enum class TrainingSessionType {
 data class TrainingSession(
     val type: TrainingSessionType,
     val title: String,
+    val dayOfWeek: Int = 1,
     val targetDurationMinutes: Int? = null,
     val targetDistanceMeters: Double? = null,
-    val targetPaceText: String? = null,
+    val targetPaceSecondsPerKm: Int? = null,
     val guidanceText: String,
 )
 
@@ -65,9 +56,12 @@ data class TrainingPlan(
     val weeklyRuns: Int,
     val totalWeeklyDistanceMeters: Double,
     val sessions: List<TrainingSession>,
+    val goalAssessment: String = "INSUFFICIENT_DATA",
+    val caution: String = "",
 )
 
 data class TrainingRecommendation(
+    val source: String = "GEMINI",
     val status: TrainingRecommendationStatus,
     val readiness: TrainingReadiness,
     val plan: TrainingPlan,

@@ -534,7 +534,7 @@ private fun PaceEditor(
 }
 
 @Composable
-private fun TimeWheelPicker(
+internal fun TimeWheelPicker(
     hours: Int,
     minutes: Int,
     onHoursChange: (Int) -> Unit,
@@ -582,7 +582,7 @@ private fun MinuteWheelPicker(
 }
 
 @Composable
-private fun DistanceWheelPicker(
+internal fun DistanceWheelPicker(
     km: Int,
     decimal: Int,
     onKmChange: (Int) -> Unit,
@@ -621,6 +621,59 @@ private fun DistanceWheelPicker(
             modifier = Modifier.weight(1f),
         )
         UnitLabel("km")
+    }
+}
+
+@Composable
+internal fun DateWheelPicker(
+    date: java.time.LocalDate,
+    onDateChange: (java.time.LocalDate) -> Unit,
+) {
+    val today = remember { java.time.LocalDate.now() }
+    val yearValues = remember(today) { (today.year..today.year + 5).toList() }
+    val monthValues = remember { (1..12).toList() }
+    val maxDay = remember(date.year, date.monthValue) {
+        java.time.YearMonth.of(date.year, date.monthValue).lengthOfMonth()
+    }
+    val dayValues = remember(maxDay) { (1..maxDay).toList() }
+
+    WheelFrame {
+        WheelPicker(
+            values = yearValues,
+            selectedValue = date.year.coerceIn(yearValues.first(), yearValues.last()),
+            onValueChange = { year ->
+                val day = date.dayOfMonth.coerceAtMost(
+                    java.time.YearMonth.of(year, date.monthValue).lengthOfMonth(),
+                )
+                onDateChange(java.time.LocalDate.of(year, date.monthValue, day))
+            },
+            label = { it.toString() },
+            modifier = Modifier.weight(1.35f),
+        )
+        UnitLabel("년")
+        WheelPicker(
+            values = monthValues,
+            selectedValue = date.monthValue,
+            onValueChange = { month ->
+                val day = date.dayOfMonth.coerceAtMost(
+                    java.time.YearMonth.of(date.year, month).lengthOfMonth(),
+                )
+                onDateChange(java.time.LocalDate.of(date.year, month, day))
+            },
+            label = { it.toString().padStart(2, '0') },
+            modifier = Modifier.weight(0.85f),
+        )
+        UnitLabel("월")
+        WheelPicker(
+            values = dayValues,
+            selectedValue = date.dayOfMonth.coerceAtMost(maxDay),
+            onValueChange = { day ->
+                onDateChange(java.time.LocalDate.of(date.year, date.monthValue, day))
+            },
+            label = { it.toString().padStart(2, '0') },
+            modifier = Modifier.weight(0.85f),
+        )
+        UnitLabel("일")
     }
 }
 

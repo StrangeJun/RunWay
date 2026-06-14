@@ -14,7 +14,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,10 +30,16 @@ import androidx.compose.ui.unit.dp
 import com.runway.android.domain.training.TrainingRecommendation
 import com.runway.android.domain.training.TrainingRecommendationStatus
 import com.runway.android.domain.training.TrainingSession
+import com.runway.android.domain.training.TrainingGoal
 
 @Composable
 fun TrainingRecommendationCard(
-    recommendation: TrainingRecommendation,
+    recommendation: TrainingRecommendation?,
+    goal: TrainingGoal?,
+    isLoading: Boolean,
+    errorMessage: String?,
+    onSetGoal: () -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -51,6 +60,50 @@ fun TrainingRecommendationCard(
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            if (recommendation == null) {
+                Text(
+                    text = "AI 목표 맞춤 훈련",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = when {
+                        goal == null -> "목표 거리와 날짜를 입력하면 최근 러닝 기록을 분석해 훈련을 생성합니다."
+                        isLoading -> "Gemini가 최근 기록과 목표를 분석하고 있어요."
+                        errorMessage != null -> errorMessage
+                        else -> "훈련을 생성할 준비가 되었습니다."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                when {
+                    isLoading -> CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    )
+                    goal == null -> Button(
+                        onClick = onSetGoal,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("훈련 목표 입력")
+                    }
+                    else -> {
+                        Button(
+                            onClick = onRetry,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("다시 생성")
+                        }
+                        OutlinedButton(
+                            onClick = onSetGoal,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("목표 수정")
+                        }
+                    }
+                }
+                return@Column
+            }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -73,7 +126,7 @@ fun TrainingRecommendationCard(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "${recommendation.plan.weeklyRuns}회 · 안전한 1주 구성",
+                        text = "${recommendation.plan.weeklyRuns}회 · Gemini 목표 맞춤 구성",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -136,8 +189,17 @@ fun TrainingRecommendationCard(
                 }
             }
 
+            OutlinedButton(
+                onClick = onSetGoal,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("훈련 목표 수정")
+            }
+
             Text(
-                text = "훈련 추천은 참고용입니다. 통증이나 부상이 있다면 운동을 중단하고 전문가와 상담하세요.",
+                text = recommendation.plan.caution.ifBlank {
+                    "훈련 추천은 참고용입니다. 통증이나 부상이 있다면 운동을 중단하고 전문가와 상담하세요."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -223,7 +285,7 @@ private fun TrainingSessionRow(session: TrainingSession) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = session.type.name.take(1),
+                text = dayLabel(session.dayOfWeek),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onPrimary,
                 fontWeight = FontWeight.Bold,
@@ -254,8 +316,11 @@ private fun sessionTargetText(session: TrainingSession): String = buildList {
         add("%.1fkm".format(it / 1_000.0))
     }
     session.targetDurationMinutes?.let { add("${it}분") }
-    session.targetPaceText?.let(::add)
+    session.targetPaceSecondsPerKm?.let { add(formatPace(it)) }
 }.joinToString(" · ")
 
 private fun formatPace(seconds: Int): String =
     "%d'%02d\"".format(seconds / 60, seconds % 60)
+
+private fun dayLabel(dayOfWeek: Int): String =
+    listOf("월", "화", "수", "목", "금", "토", "일").getOrElse(dayOfWeek - 1) { "-" }
