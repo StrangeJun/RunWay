@@ -124,13 +124,22 @@ public class TrainingRecommendationService {
         boolean qualityAllowed = valid14.size() >= REQUIRED_RUNS &&
                 total14 >= REQUIRED_DISTANCE_METERS &&
                 averagePace != null;
+        long daysUntilGoal = request.goalDate() == null ? Long.MAX_VALUE
+                : ChronoUnit.DAYS.between(
+                        now.atZone(ZoneOffset.UTC).toLocalDate(),
+                        request.goalDate()
+                );
+        int maxQualitySessions = !qualityAllowed ? 0
+                : request.goalType() == TrainingRecommendationRequest.GoalType.RACE_TIME &&
+                maxRuns >= 5 && daysUntilGoal > 21 ? 2 : 1;
         String confidence = valid14.size() >= REQUIRED_RUNS ? "PERSONALIZED"
                 : valid14.isEmpty() ? "STARTER" : "LIMITED";
 
         return new TrainingContext(
                 valid28, valid7.size(), valid14.size(), valid28.size(), total7, total14, total28,
                 averagePace, averageDistance, targetWeeklyDistance, longest,
-                maxRuns, minWeeklyDistance, maxWeeklyDistance, maxLongRun, qualityAllowed, confidence
+                maxRuns, minWeeklyDistance, maxWeeklyDistance, maxLongRun,
+                qualityAllowed, maxQualitySessions, confidence
         );
     }
 
@@ -233,10 +242,11 @@ public class TrainingRecommendationService {
                 "TEMPO".equals(session.type()) || "INTERVAL".equals(session.type())).count();
         long intervalCount = sessions.stream().filter(session ->
                 "INTERVAL".equals(session.type())).count();
-        if ((!context.qualityAllowed() && qualityCount > 0) || qualityCount > 1) return false;
+        if ((!context.qualityAllowed() && qualityCount > 0) ||
+                qualityCount > context.maxQualitySessions()) return false;
         if (context.qualityAllowed() &&
                 request.goalType() == TrainingRecommendationRequest.GoalType.RACE_TIME &&
-                (qualityCount != 1 || intervalCount != 1)) return false;
+                (qualityCount != context.maxQualitySessions() || intervalCount != 1)) return false;
         return sessions.stream().allMatch(session ->
                 session.dayOfWeek() >= 1 && session.dayOfWeek() <= 7 &&
                 session.targetDistanceMeters() != null &&
@@ -271,8 +281,10 @@ public class TrainingRecommendationService {
                 STARTER 또는 LIMITED 데이터에서는 템포런과 인터벌을 사용하지 않고 페이스보다 RPE와 대화 테스트를 우선한다.
                 대부분의 러닝은 RPE 2~4의 편안한 강도로 구성한다.
                 PERSONALIZED 데이터의 RACE_TIME 목표에는 INTERVAL 세션을 정확히 1회 포함한다.
+                허용 고강도가 2회면 나머지 1회는 TEMPO로 구성하고 두 고강도 사이에 EASY, RECOVERY 또는 휴식일을 둔다.
                 목표 기록이 현재 능력보다 과도하면 목표 페이스를 강요하지 말고 현재 능력 기준의 짧은 인터벌을 구성한다.
-                고강도 세션은 최대 1회이며 롱런과 인접한 날에 배치하지 않는다.
+                5K와 10K는 인터벌과 역치 능력, 하프는 역치와 점진적 롱런, 풀코스는 지구력과 마라톤 페이스 적응을 우선한다.
+                롱런은 주간 거리의 30~40%% 안에서 구성하고 고강도 세션과 인접한 날에 배치하지 않는다.
                 거리와 강도를 동시에 크게 증가시키지 않는다.
                 대회가 7일 이내면 훈련량을 늘리지 않고, 8~21일이면 피로를 낮추는 계획을 우선한다.
                 목표가 비현실적이면 훈련량을 억지로 늘리지 말고 goalAssessment에 반영한다.
@@ -318,7 +330,7 @@ public class TrainingRecommendationService {
                 이번 주 총거리 범위(km): %.1f~%.1f
                 최대 롱런 거리(km): %.1f
                 고강도 허용: %s
-                최대 고강도 세션: %d
+                최대 고강도 세션: %d회
 
                 [최근 기록]
                 %s
@@ -332,7 +344,7 @@ public class TrainingRecommendationService {
                 daysUntilGoal, c.maxRuns(), c.minWeeklyDistanceMeters() / 1_000.0,
                 c.maxWeeklyDistanceMeters() / 1_000.0,
                 c.maxLongRunMeters() / 1_000.0, c.qualityAllowed(),
-                c.qualityAllowed() ? 1 : 0, objectMapper.writeValueAsString(recentRuns)
+                c.maxQualitySessions(), objectMapper.writeValueAsString(recentRuns)
         );
     }
 
@@ -370,35 +382,67 @@ public class TrainingRecommendationService {
                 record.getDurationSeconds() >= MIN_RUN_DURATION_SECONDS;
     }
 
-    private double targetWeeklyDistance(TrainingRecommendationRequest request) {
+    double targetWeeklyDistance(TrainingRecommendationRequest request) {
         double distanceKm = request.goalDistanceKm() == null ? 5.0 : request.goalDistanceKm();
         double weeklyKm;
         if (request.goalType() == TrainingRecommendationRequest.GoalType.FITNESS) {
             weeklyKm = Math.max(15.0, request.preferredRunsPerWeek() * 5.0);
-        } else if (request.goalType() == TrainingRecommendationRequest.GoalType.DISTANCE) {
-            weeklyKm = Math.max(15.0, distanceKm * 2.5);
-        } else if (distanceKm <= 5.0) {
-            weeklyKm = 25.0;
-        } else if (distanceKm <= 10.0) {
-            weeklyKm = 40.0;
-        } else if (distanceKm <= 21.1) {
-            weeklyKm = 50.0;
-        } else if (distanceKm <= 42.2) {
-            weeklyKm = 65.0;
         } else {
-            weeklyKm = distanceKm * 1.5;
+            double[] distances = {5.0, 10.0, 21.1, 42.2};
+            double[] completionMileage = {20.0, 30.0, 45.0, 60.0};
+            double[] raceMileage = {30.0, 40.0, 55.0, 75.0};
+            weeklyKm = interpolateMileage(
+                    distanceKm,
+                    distances,
+                    request.goalType() == TrainingRecommendationRequest.GoalType.RACE_TIME
+                            ? raceMileage : completionMileage
+            );
         }
 
         if (request.goalType() == TrainingRecommendationRequest.GoalType.RACE_TIME &&
                 request.goalTimeSeconds() != null && distanceKm > 0) {
-            double targetPace = request.goalTimeSeconds() / distanceKm;
-            double performanceFactor = targetPace <= 180 ? 1.50
-                    : targetPace <= 240 ? 1.30
-                    : targetPace <= 300 ? 1.15
-                    : 1.0;
-            weeklyKm *= performanceFactor;
+            weeklyKm *= performanceMileageFactor(distanceKm, request.goalTimeSeconds());
         }
         return roundHundred(weeklyKm * 1_000.0);
+    }
+
+    private double interpolateMileage(double distanceKm, double[] distances, double[] mileages) {
+        if (distanceKm <= distances[0]) return mileages[0];
+        for (int i = 1; i < distances.length; i++) {
+            if (distanceKm <= distances[i]) {
+                double ratio = (distanceKm - distances[i - 1]) /
+                        (distances[i] - distances[i - 1]);
+                return mileages[i - 1] + ratio * (mileages[i] - mileages[i - 1]);
+            }
+        }
+        double ultraMultiplier = mileages[mileages.length - 1] < 70.0
+                ? 1.5 : 1.7;
+        return Math.max(mileages[mileages.length - 1], distanceKm * ultraMultiplier);
+    }
+
+    private double performanceMileageFactor(double distanceKm, int goalTimeSeconds) {
+        double[] distances = {5.0, 10.0, 21.1, 42.2};
+        double[] completionTimes = {1_800.0, 3_600.0, 7_800.0, 18_000.0};
+        double[] competitiveTimes = {1_200.0, 2_400.0, 5_400.0, 12_600.0};
+        double completionTime = interpolateValue(distanceKm, distances, completionTimes);
+        double competitiveTime = interpolateValue(distanceKm, distances, competitiveTimes);
+        if (goalTimeSeconds >= completionTime) return 1.0;
+        if (goalTimeSeconds <= competitiveTime) return 1.25;
+        double difficulty = (completionTime - goalTimeSeconds) /
+                (completionTime - competitiveTime);
+        return 1.0 + difficulty * 0.25;
+    }
+
+    private double interpolateValue(double distanceKm, double[] distances, double[] values) {
+        if (distanceKm <= distances[0]) return values[0] * distanceKm / distances[0];
+        for (int i = 1; i < distances.length; i++) {
+            if (distanceKm <= distances[i]) {
+                double ratio = (distanceKm - distances[i - 1]) /
+                        (distances[i] - distances[i - 1]);
+                return values[i - 1] + ratio * (values[i] - values[i - 1]);
+            }
+        }
+        return values[values.length - 1] * distanceKm / distances[distances.length - 1];
     }
 
     private double plannedWeeklyDistance(
@@ -444,6 +488,7 @@ public class TrainingRecommendationService {
             double maxWeeklyDistanceMeters,
             double maxLongRunMeters,
             boolean qualityAllowed,
+            int maxQualitySessions,
             String confidence
     ) {}
 
