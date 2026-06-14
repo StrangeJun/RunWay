@@ -1,6 +1,8 @@
 package com.runway.android.ui.reminder
 
 import android.app.TimePickerDialog
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,6 +26,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -32,12 +35,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.runway.android.data.reminder.DayRunningPlan
+import com.runway.android.data.reminder.ReminderPlanFormatter
+import com.runway.android.data.reminder.ReminderWorkoutType
 import com.runway.android.ui.components.runwayCardFrame
 import com.runway.android.ui.theme.SurfaceContainerDark
 import java.util.Calendar
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ReminderScreen(
     onBack: () -> Unit,
@@ -216,16 +225,180 @@ fun ReminderScreen(
                     )
                 }
             }
+
+            if (viewModel.enabledDays.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(
+                    text = "요일별 러닝 계획".uppercase(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 10.dp),
+                )
+                reminderDays()
+                    .filter { (day, _) -> day in viewModel.enabledDays }
+                    .forEach { (day, label) ->
+                        DayRunningPlanCard(
+                            dayLabel = label,
+                            plan = viewModel.planFor(day),
+                            enabled = viewModel.enabled,
+                            onWorkoutTypeChange = { viewModel.setWorkoutType(day, it) },
+                            onDistanceChange = { viewModel.setDistance(day, it) },
+                            onPaceChange = { viewModel.setPace(day, it) },
+                            onDurationChange = { viewModel.setDuration(day, it) },
+                            onNoteChange = { viewModel.setNote(day, it) },
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
         // 안내 문구
         Text(
-            text = "설정한 요일과 시간에 러닝 알림이 전송됩니다.\n앱이 재시작된 경우에도 알림이 자동으로 복원됩니다.",
+            text = "거리, 페이스, 시간은 필요한 항목만 입력할 수 있으며 함께 설정할 수도 있습니다.\n설정한 계획은 알림 내용에 표시되고 재부팅 후에도 자동 복원됩니다.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
         )
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DayRunningPlanCard(
+    dayLabel: String,
+    plan: DayRunningPlan,
+    enabled: Boolean,
+    onWorkoutTypeChange: (ReminderWorkoutType) -> Unit,
+    onDistanceChange: (String) -> Unit,
+    onPaceChange: (String) -> Unit,
+    onDurationChange: (String) -> Unit,
+    onNoteChange: (String) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 2.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "${dayLabel}요일",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = ReminderPlanFormatter.summary(plan),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                )
+            }
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                ReminderWorkoutType.entries.forEach { type ->
+                    FilterChip(
+                        selected = plan.workoutType == type,
+                        onClick = { onWorkoutTypeChange(type) },
+                        label = { Text(type.label) },
+                        enabled = enabled,
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                ReminderNumberField(
+                    value = plan.distanceKm,
+                    onValueChange = onDistanceChange,
+                    label = "거리",
+                    placeholder = "5",
+                    suffix = "km",
+                    enabled = enabled,
+                    modifier = Modifier.weight(1f),
+                )
+                ReminderNumberField(
+                    value = plan.durationMinutes,
+                    onValueChange = onDurationChange,
+                    label = "러닝 시간",
+                    placeholder = "30",
+                    suffix = "분",
+                    enabled = enabled,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            OutlinedTextField(
+                value = plan.targetPace,
+                onValueChange = onPaceChange,
+                label = { Text("목표 페이스") },
+                placeholder = { Text("예: 5:30") },
+                suffix = { Text("/km") },
+                singleLine = true,
+                enabled = enabled,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            OutlinedTextField(
+                value = plan.note,
+                onValueChange = onNoteChange,
+                label = { Text("추가 계획 또는 메모") },
+                placeholder = { Text("예: 1km 워밍업 후 400m × 6회") },
+                enabled = enabled,
+                minLines = 2,
+                maxLines = 3,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReminderNumberField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String,
+    suffix: String,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        placeholder = { Text(placeholder) },
+        suffix = { Text(suffix) },
+        singleLine = true,
+        enabled = enabled,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        modifier = modifier,
+    )
+}
+
+private fun reminderDays() = listOf(
+    Calendar.MONDAY to "월",
+    Calendar.TUESDAY to "화",
+    Calendar.WEDNESDAY to "수",
+    Calendar.THURSDAY to "목",
+    Calendar.FRIDAY to "금",
+    Calendar.SATURDAY to "토",
+    Calendar.SUNDAY to "일",
+)

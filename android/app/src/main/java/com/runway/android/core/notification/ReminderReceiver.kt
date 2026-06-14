@@ -22,16 +22,21 @@ class ReminderReceiver : BroadcastReceiver() {
         val dayOfWeek = intent.getIntExtra(EXTRA_DAY_OF_WEEK, -1)
         val hour = intent.getIntExtra(EXTRA_HOUR, 7)
         val minute = intent.getIntExtra(EXTRA_MINUTE, 0)
+        val planSummary = intent.getStringExtra(EXTRA_PLAN_SUMMARY).orEmpty()
 
-        showReminderNotification(context, dayLabel)
+        showReminderNotification(context, dayLabel, planSummary)
 
         // Exact alarm은 one-shot — 다음 주 같은 요일로 재예약
         if (dayOfWeek != -1) {
-            scheduler.schedule(dayOfWeek, hour, minute)
+            scheduler.schedule(dayOfWeek, hour, minute, planSummary)
         }
     }
 
-    private fun showReminderNotification(context: Context, dayLabel: String) {
+    private fun showReminderNotification(
+        context: Context,
+        dayLabel: String,
+        planSummary: String,
+    ) {
         val launchIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
@@ -42,8 +47,13 @@ class ReminderReceiver : BroadcastReceiver() {
 
         val notification = NotificationCompat.Builder(context, NotificationChannels.CHANNEL_REMINDER)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("오늘 런 하셨나요? 🏃")
-            .setContentText("$dayLabel 러닝 목표를 달성해보세요!")
+            .setContentTitle("$dayLabel 러닝 계획")
+            .setContentText(planSummary.ifBlank { "오늘의 러닝 목표를 달성해보세요!" })
+            .setStyle(
+                NotificationCompat.BigTextStyle().bigText(
+                    planSummary.ifBlank { "오늘의 러닝 목표를 달성해보세요!" },
+                ),
+            )
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .build()
@@ -58,5 +68,6 @@ class ReminderReceiver : BroadcastReceiver() {
         const val EXTRA_DAY_OF_WEEK = "day_of_week"
         const val EXTRA_HOUR = "hour"
         const val EXTRA_MINUTE = "minute"
+        const val EXTRA_PLAN_SUMMARY = "plan_summary"
     }
 }

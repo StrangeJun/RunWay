@@ -138,6 +138,19 @@ fun HomeScreen(
         )
     }
 
+    if (viewModel.showTrainingPlanSheet) {
+        TrainingPlanSheet(
+            plan = viewModel.trainingPlan,
+            isGenerating = viewModel.isGeneratingTrainingPlan,
+            error = viewModel.trainingPlanError,
+            applied = viewModel.trainingPlanApplied,
+            onDismiss = viewModel::closeTrainingPlanSheet,
+            onGenerate = viewModel::recommendTrainingPlan,
+            onUpdateDay = viewModel::updateTrainingDay,
+            onApplyToReminder = viewModel::applyTrainingPlanToReminder,
+        )
+    }
+
     PullToRefreshBox(
         isRefreshing = viewModel.isRefreshing,
         onRefresh = viewModel::refresh,
@@ -274,6 +287,13 @@ fun HomeScreen(
                             }
                         }
                     }
+                }
+
+                item {
+                    TrainingPlanPromoCard(
+                        onClick = viewModel::openTrainingPlanSheet,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
+                    )
                 }
 
                 item {

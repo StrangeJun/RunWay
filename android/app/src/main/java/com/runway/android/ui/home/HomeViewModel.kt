@@ -19,6 +19,8 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import com.runway.android.BuildConfig
 import com.runway.android.core.datastore.VoiceGuideDataStore
 import com.runway.android.core.result.NetworkResult
+import com.runway.android.core.result.safeApiCall
+import com.runway.android.core.notification.ReminderScheduler
 import com.runway.android.data.attempt.model.MyBestAttemptResponse
 import com.runway.android.data.course.model.GeoPoint
 import com.runway.android.data.course.model.NearbyCourseItem
@@ -26,6 +28,14 @@ import com.runway.android.data.course.model.CourseResponse
 import com.runway.android.domain.attempt.CourseAttemptRepository
 import com.runway.android.data.running.model.RunSummaryResponse
 import com.runway.android.data.running.model.RunningStatsResponse
+import com.runway.android.data.reminder.DayRunningPlan
+import com.runway.android.data.reminder.ReminderPrefs
+import com.runway.android.data.reminder.ReminderPrefsRepository
+import com.runway.android.data.reminder.ReminderWorkoutType
+import com.runway.android.data.training.model.TrainingDay
+import com.runway.android.data.training.model.TrainingPlanRequest
+import com.runway.android.data.training.model.TrainingPlanResponse
+import com.runway.android.data.training.remote.TrainingPlanApi
 import com.runway.android.domain.course.CourseRepository
 import com.runway.android.domain.running.RunningRepository
 import com.runway.android.domain.user.UserRepository
@@ -42,6 +52,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 import java.time.DayOfWeek
 import java.time.Instant
@@ -63,6 +74,9 @@ class HomeViewModel @Inject constructor(
     private val attemptRepository: CourseAttemptRepository,
     private val fusedLocationClient: FusedLocationProviderClient,
     private val voiceGuideDataStore: VoiceGuideDataStore,
+    private val trainingPlanApi: TrainingPlanApi,
+    private val reminderPrefsRepository: ReminderPrefsRepository,
+    private val reminderScheduler: ReminderScheduler,
     @Named("noAuth") private val okHttpClient: OkHttpClient,
 ) : ViewModel() {
     private val airKoreaClient = AirKoreaClient(okHttpClient)
@@ -103,6 +117,16 @@ class HomeViewModel @Inject constructor(
     var selectedGoal by mutableStateOf<RunGoal?>(null)
         private set
     var showGoalSheet by mutableStateOf(false)
+    var showTrainingPlanSheet by mutableStateOf(false)
+        private set
+    var trainingPlan by mutableStateOf<TrainingPlanResponse?>(null)
+        private set
+    var isGeneratingTrainingPlan by mutableStateOf(false)
+        private set
+    var trainingPlanError by mutableStateOf<String?>(null)
+        private set
+    var trainingPlanApplied by mutableStateOf(false)
+        private set
 
     var coursePreview by mutableStateOf<CourseResponse?>(null)
         private set
@@ -204,6 +228,71 @@ class HomeViewModel @Inject constructor(
 
     fun openGoalSheet()  { showGoalSheet = true }
     fun closeGoalSheet() { showGoalSheet = false }
+
+    fun openTrainingPlanSheet() {
+        trainingPlanError = null
+        trainingPlanApplied = false
+        showTrainingPlanSheet = true
+    }
+
+    fun closeTrainingPlanSheet() {
+        showTrainingPlanSheet = false
+    }
+
+    fun recommendTrainingPlan(request: TrainingPlanRequest) {
+        viewModelScope.launch {
+            isGeneratingTrainingPlan = true
+            trainingPlanError = null
+            trainingPlanApplied = false
+            when (val result = safeApiCall { trainingPlanApi.recommend(request) }) {
+                is NetworkResult.Success -> trainingPlan = result.data
+                is NetworkResult.ApiError -> trainingPlanError = result.message
+                is NetworkResult.NetworkError ->
+                    trainingPlanError = "훈련계획을 불러오지 못했습니다. 네트워크를 확인해 주세요."
+            }
+            isGeneratingTrainingPlan = false
+        }
+    }
+
+    fun updateTrainingDay(updated: TrainingDay) {
+        val current = trainingPlan ?: return
+        trainingPlan = current.copy(
+            days = current.days.map { if (it.dayOfWeek == updated.dayOfWeek) updated else it },
+        )
+        trainingPlanApplied = false
+    }
+
+    fun applyTrainingPlanToReminder() {
+        val currentPlan = trainingPlan ?: return
+        viewModelScope.launch {
+            val currentPrefs = reminderPrefsRepository.getPrefs().first()
+            val runDays = currentPlan.days.filterNot(TrainingDay::restDay)
+            val plans = runDays.associate { day ->
+                day.dayOfWeek to DayRunningPlan(
+                    dayOfWeek = day.dayOfWeek,
+                    workoutType = runCatching {
+                        ReminderWorkoutType.valueOf(day.workoutType)
+                    }.getOrDefault(ReminderWorkoutType.FREE),
+                    distanceKm = day.distanceKm?.let { value ->
+                        if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
+                    }.orEmpty(),
+                    targetPace = day.targetPace,
+                    durationMinutes = day.durationMinutes?.toString().orEmpty(),
+                    note = day.description,
+                )
+            }
+            val prefs = ReminderPrefs(
+                enabled = true,
+                hour = currentPrefs.hour,
+                minute = currentPrefs.minute,
+                enabledDays = plans.keys,
+                plans = currentPrefs.plans + plans,
+            )
+            reminderPrefsRepository.save(prefs)
+            reminderScheduler.scheduleAll(prefs)
+            trainingPlanApplied = true
+        }
+    }
 
     fun removeRecentRun(runId: String) {
         recentRuns = recentRuns.filterNot { it.runId == runId }
