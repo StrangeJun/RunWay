@@ -171,7 +171,7 @@ fun TrainingRecommendationCard(
                         modifier = Modifier.weight(1f),
                     )
                     MetricChip(
-                        label = "주간 거리",
+                        label = "목표 주간 거리",
                         value = "%.1fkm".format(metrics.weeklyDistanceMeters / 1_000.0),
                         modifier = Modifier.weight(1f),
                     )

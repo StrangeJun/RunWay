@@ -86,9 +86,13 @@ public class TrainingRecommendationService {
         List<RunningRecord> valid14 = valid28.stream()
                 .filter(record -> !record.getStartedAt().isBefore(now.minus(Duration.ofDays(14))))
                 .toList();
+        List<RunningRecord> valid7 = valid28.stream()
+                .filter(record -> !record.getStartedAt().isBefore(now.minus(Duration.ofDays(7))))
+                .toList();
 
         double total14 = valid14.stream().mapToDouble(RunningRecord::getDistanceMeters).sum();
         double total28 = valid28.stream().mapToDouble(RunningRecord::getDistanceMeters).sum();
+        double total7 = valid7.stream().mapToDouble(RunningRecord::getDistanceMeters).sum();
         double weightedPaceDistanceKm = valid28.stream()
                 .filter(record -> record.getDurationSeconds() > 0 && record.getDistanceMeters() > 0)
                 .mapToDouble(record -> record.getDistanceMeters() / 1_000.0)
@@ -100,16 +104,23 @@ public class TrainingRecommendationService {
         Integer averagePace = weightedPaceDistanceKm > 0
                 ? (int) Math.round(totalDuration / weightedPaceDistanceKm)
                 : null;
-        double weeklyDistance = total28 / 4.0;
         double averageDistance = valid28.isEmpty() ? 0.0 : total28 / valid28.size();
         double longest = valid28.stream().mapToDouble(RunningRecord::getDistanceMeters).max().orElse(0.0);
-        double maxWeeklyDistance = weeklyDistance > 0
-                ? roundHundred(weeklyDistance * 1.10)
-                : starterWeeklyDistance(request);
-        double maxLongRun = longest > 0
-                ? Math.min(roundHundred(longest * 1.10), maxWeeklyDistance * 0.50)
-                : Math.min(maxWeeklyDistance * 0.45, 5_000.0);
-        int maxRuns = Math.min(request.preferredRunsPerWeek(), Math.max(3, (int) Math.ceil(valid28.size() / 4.0) + 1));
+        double targetWeeklyDistance = targetWeeklyDistance(request);
+        double plannedWeeklyDistance = plannedWeeklyDistance(targetWeeklyDistance, request, now);
+        double minWeeklyDistance = roundHundred(plannedWeeklyDistance * 0.90);
+        double maxWeeklyDistance = roundHundred(plannedWeeklyDistance * 1.05);
+        double goalDistanceMeters = request.goalDistanceKm() == null
+                ? 0.0 : request.goalDistanceKm() * 1_000.0;
+        double maxLongRun = roundHundred(Math.min(
+                maxWeeklyDistance * 0.40,
+                Math.max(maxWeeklyDistance * 0.30, goalDistanceMeters * 1.10)
+        ));
+        int availableDayCount = request.availableDays() == null || request.availableDays().isEmpty()
+                ? 7
+                : (int) request.availableDays().stream().filter(day -> day >= 1 && day <= 7)
+                .distinct().count();
+        int maxRuns = Math.min(request.preferredRunsPerWeek(), availableDayCount);
         boolean qualityAllowed = valid14.size() >= REQUIRED_RUNS &&
                 total14 >= REQUIRED_DISTANCE_METERS &&
                 averagePace != null;
@@ -117,9 +128,9 @@ public class TrainingRecommendationService {
                 : valid14.isEmpty() ? "STARTER" : "LIMITED";
 
         return new TrainingContext(
-                valid28, valid14.size(), valid28.size(), total14, total28,
-                averagePace, averageDistance, weeklyDistance, longest,
-                maxRuns, maxWeeklyDistance, maxLongRun, qualityAllowed, confidence
+                valid28, valid7.size(), valid14.size(), valid28.size(), total7, total14, total28,
+                averagePace, averageDistance, targetWeeklyDistance, longest,
+                maxRuns, minWeeklyDistance, maxWeeklyDistance, maxLongRun, qualityAllowed, confidence
         );
     }
 
@@ -204,7 +215,7 @@ public class TrainingRecommendationService {
     ) {
         if (response == null || response.plan() == null || response.plan().sessions() == null) return false;
         List<TrainingRecommendationResponse.Session> sessions = response.plan().sessions();
-        if (sessions.isEmpty() || sessions.size() > context.maxRuns()) return false;
+        if (sessions.size() != context.maxRuns()) return false;
         if (sessions.stream().map(TrainingRecommendationResponse.Session::dayOfWeek).distinct().count()
                 != sessions.size()) return false;
         if (request.availableDays() != null && !request.availableDays().isEmpty() &&
@@ -216,10 +227,16 @@ public class TrainingRecommendationService {
                 .filter(value -> value != null)
                 .mapToDouble(Double::doubleValue)
                 .sum();
-        if (total > context.maxWeeklyDistanceMeters() + 1.0) return false;
+        if (total < context.minWeeklyDistanceMeters() - 1.0 ||
+                total > context.maxWeeklyDistanceMeters() + 1.0) return false;
         long qualityCount = sessions.stream().filter(session ->
                 "TEMPO".equals(session.type()) || "INTERVAL".equals(session.type())).count();
+        long intervalCount = sessions.stream().filter(session ->
+                "INTERVAL".equals(session.type())).count();
         if ((!context.qualityAllowed() && qualityCount > 0) || qualityCount > 1) return false;
+        if (context.qualityAllowed() &&
+                request.goalType() == TrainingRecommendationRequest.GoalType.RACE_TIME &&
+                (qualityCount != 1 || intervalCount != 1)) return false;
         return sessions.stream().allMatch(session ->
                 session.dayOfWeek() >= 1 && session.dayOfWeek() <= 7 &&
                 session.targetDistanceMeters() != null &&
@@ -240,7 +257,7 @@ public class TrainingRecommendationService {
     private TrainingRecommendationResponse.Metrics metrics(TrainingContext context) {
         return new TrainingRecommendationResponse.Metrics(
                 context.averagePaceSecondsPerKm(), context.averageDistanceMeters(),
-                context.weeklyDistanceMeters(), context.validRunCount28() / 4.0
+                context.weeklyDistanceMeters(), context.validRunCount7()
         );
     }
 
@@ -250,8 +267,11 @@ public class TrainingRecommendationService {
                 사용자의 목표와 최근 훈련 이력을 분석해 현실적인 1주 계획을 작성한다.
                 제공되지 않은 건강 정보나 기록을 추측하지 말고 의료 진단을 하지 않는다.
                 백엔드가 제공한 최대 러닝 횟수, 최대 주간 거리, 최대 롱런 거리와 고강도 허용 여부를 절대 넘지 않는다.
+                사용자가 요청한 훈련 횟수와 가능한 요일을 충족하는 정확한 개수의 세션을 작성한다.
                 STARTER 또는 LIMITED 데이터에서는 템포런과 인터벌을 사용하지 않고 페이스보다 RPE와 대화 테스트를 우선한다.
                 대부분의 러닝은 RPE 2~4의 편안한 강도로 구성한다.
+                PERSONALIZED 데이터의 RACE_TIME 목표에는 INTERVAL 세션을 정확히 1회 포함한다.
+                목표 기록이 현재 능력보다 과도하면 목표 페이스를 강요하지 말고 현재 능력 기준의 짧은 인터벌을 구성한다.
                 고강도 세션은 최대 1회이며 롱런과 인접한 날에 배치하지 않는다.
                 거리와 강도를 동시에 크게 증가시키지 않는다.
                 대회가 7일 이내면 훈련량을 늘리지 않고, 8~21일이면 피로를 낮추는 계획을 우선한다.
@@ -282,18 +302,20 @@ public class TrainingRecommendationService {
 
                 [분석]
                 데이터 신뢰도: %s
+                최근 7일 유효 러닝: %d회
+                최근 7일 총거리(km): %.1f
                 최근 14일 유효 러닝: %d회
                 최근 28일 유효 러닝: %d회
                 최근 28일 총거리(km): %.1f
-                주간 평균 거리(km): %.1f
+                목표 달성을 위한 최소 주간 거리(km): %.1f
                 평균 페이스(초/km): %s
                 평균 러닝 거리(km): %.1f
                 최근 최장 거리(km): %.1f
                 목표일까지 남은 일수: %d
 
                 [절대 안전 제한]
-                최대 러닝 횟수: %d
-                최대 주간 총거리(km): %.1f
+                이번 주 생성할 러닝 세션 수: 정확히 %d회
+                이번 주 총거리 범위(km): %.1f~%.1f
                 최대 롱런 거리(km): %.1f
                 고강도 허용: %s
                 최대 고강도 세션: %d
@@ -303,10 +325,12 @@ public class TrainingRecommendationService {
                 """.formatted(
                 r.goalType(), r.goalDistanceKm(), r.goalDate(), r.goalTimeSeconds(),
                 r.preferredRunsPerWeek(), r.availableDays(), c.confidence(),
+                c.validRunCount7(), c.totalDistance7() / 1_000.0,
                 c.validRunCount14(), c.validRunCount28(), c.totalDistance28() / 1_000.0,
                 c.weeklyDistanceMeters() / 1_000.0, c.averagePaceSecondsPerKm(),
                 c.averageDistanceMeters() / 1_000.0, c.longestRunMeters() / 1_000.0,
-                daysUntilGoal, c.maxRuns(), c.maxWeeklyDistanceMeters() / 1_000.0,
+                daysUntilGoal, c.maxRuns(), c.minWeeklyDistanceMeters() / 1_000.0,
+                c.maxWeeklyDistanceMeters() / 1_000.0,
                 c.maxLongRunMeters() / 1_000.0, c.qualityAllowed(),
                 c.qualityAllowed() ? 1 : 0, objectMapper.writeValueAsString(recentRuns)
         );
@@ -346,10 +370,53 @@ public class TrainingRecommendationService {
                 record.getDurationSeconds() >= MIN_RUN_DURATION_SECONDS;
     }
 
-    private double starterWeeklyDistance(TrainingRecommendationRequest request) {
-        double goalBased = request.goalDistanceKm() == null
-                ? 9_000.0 : Math.min(request.goalDistanceKm() * 1_000.0, 15_000.0);
-        return Math.max(6_000.0, roundHundred(goalBased));
+    private double targetWeeklyDistance(TrainingRecommendationRequest request) {
+        double distanceKm = request.goalDistanceKm() == null ? 5.0 : request.goalDistanceKm();
+        double weeklyKm;
+        if (request.goalType() == TrainingRecommendationRequest.GoalType.FITNESS) {
+            weeklyKm = Math.max(15.0, request.preferredRunsPerWeek() * 5.0);
+        } else if (request.goalType() == TrainingRecommendationRequest.GoalType.DISTANCE) {
+            weeklyKm = Math.max(15.0, distanceKm * 2.5);
+        } else if (distanceKm <= 5.0) {
+            weeklyKm = 25.0;
+        } else if (distanceKm <= 10.0) {
+            weeklyKm = 40.0;
+        } else if (distanceKm <= 21.1) {
+            weeklyKm = 50.0;
+        } else if (distanceKm <= 42.2) {
+            weeklyKm = 65.0;
+        } else {
+            weeklyKm = distanceKm * 1.5;
+        }
+
+        if (request.goalType() == TrainingRecommendationRequest.GoalType.RACE_TIME &&
+                request.goalTimeSeconds() != null && distanceKm > 0) {
+            double targetPace = request.goalTimeSeconds() / distanceKm;
+            double performanceFactor = targetPace <= 180 ? 1.50
+                    : targetPace <= 240 ? 1.30
+                    : targetPace <= 300 ? 1.15
+                    : 1.0;
+            weeklyKm *= performanceFactor;
+        }
+        return roundHundred(weeklyKm * 1_000.0);
+    }
+
+    private double plannedWeeklyDistance(
+            double targetWeeklyDistance,
+            TrainingRecommendationRequest request,
+            Instant now
+    ) {
+        if (request.goalDate() == null) return targetWeeklyDistance;
+        long days = ChronoUnit.DAYS.between(
+                now.atZone(ZoneOffset.UTC).toLocalDate(),
+                request.goalDate()
+        );
+        double phaseFactor = days > 84 ? 0.70
+                : days > 56 ? 0.80
+                : days > 21 ? 0.90
+                : days > 7 ? 0.80
+                : 0.60;
+        return roundHundred(targetWeeklyDistance * phaseFactor);
     }
 
     private double roundHundred(double value) {
@@ -362,8 +429,10 @@ public class TrainingRecommendationService {
 
     private record TrainingContext(
             List<RunningRecord> records,
+            int validRunCount7,
             int validRunCount14,
             int validRunCount28,
+            double totalDistance7,
             double totalDistance14,
             double totalDistance28,
             Integer averagePaceSecondsPerKm,
@@ -371,6 +440,7 @@ public class TrainingRecommendationService {
             double weeklyDistanceMeters,
             double longestRunMeters,
             int maxRuns,
+            double minWeeklyDistanceMeters,
             double maxWeeklyDistanceMeters,
             double maxLongRunMeters,
             boolean qualityAllowed,
