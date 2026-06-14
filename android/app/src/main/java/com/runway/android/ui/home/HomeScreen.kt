@@ -50,6 +50,7 @@ import com.runway.android.ui.components.DiscoverCourseCard
 import com.runway.android.ui.components.RecentRunCard
 import com.runway.android.ui.components.RunHeroSection
 import com.runway.android.ui.components.SectionHeader
+import com.runway.android.ui.components.TrainingRecommendationCard
 import com.runway.android.ui.components.WeeklyStatsCard
 import com.runway.android.ui.components.SavedCoursePickerSheet
 
@@ -135,25 +136,6 @@ fun HomeScreen(
                 viewModel.setGoal(goal)
                 onStartRun()
             },
-        )
-    }
-
-    if (viewModel.showTrainingPlanSheet) {
-        TrainingPlanSheet(
-            plan = viewModel.trainingPlan,
-            isGenerating = viewModel.isGeneratingTrainingPlan,
-            error = viewModel.trainingPlanError,
-            applied = viewModel.trainingPlanApplied,
-            currentWeeklyKm = viewModel.weeklyStats.distanceKm.toDoubleOrNull(),
-            suggestedExperience = if (viewModel.recentRuns.size >= 10) {
-                "INTERMEDIATE"
-            } else {
-                "BEGINNER"
-            },
-            onDismiss = viewModel::closeTrainingPlanSheet,
-            onGenerate = viewModel::recommendTrainingPlan,
-            onUpdateDay = viewModel::updateTrainingDay,
-            onApplyToReminder = viewModel::applyTrainingPlanToReminder,
         )
     }
 
@@ -296,8 +278,8 @@ fun HomeScreen(
                 }
 
                 item {
-                    TrainingPlanPromoCard(
-                        onClick = viewModel::openTrainingPlanSheet,
+                    TrainingRecommendationCard(
+                        recommendation = viewModel.trainingRecommendation,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
                     )
                 }
