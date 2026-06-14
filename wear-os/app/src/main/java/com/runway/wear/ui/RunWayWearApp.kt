@@ -839,7 +839,7 @@ private fun TrackingScreen(state: WatchRunState, viewModel: WatchViewModel) {
 
 @Composable
 private fun TrackingMetrics(state: WatchRunState) {
-    WatchPage {
+    WatchPage(scrollable = false) {
         Text(
             when {
                 state.isOffCourse -> "코스 이탈 · 경로로 돌아가세요"
@@ -1024,15 +1024,31 @@ private fun SummaryScreen(
     onDone: () -> Unit,
     onOpenRunOnPhone: () -> Unit = {},
 ) {
-    WatchPage(scrollable = true) {
-        Text("런 완료", color = Accent, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-        Text("%.2f km".format(state.distanceMeters / 1000.0), fontWeight = FontWeight.Bold, fontSize = 32.sp)
-        Text(formatDuration(state.elapsedSeconds), fontSize = 18.sp)
-        Text("평균 페이스 ${formatPace(state.paceMinPerKm)}/km", color = Muted, fontSize = 11.sp)
+    WatchPage(scrollable = false) {
+        Text(
+            "런 완료",
+            color = Accent,
+            fontWeight = FontWeight.Bold,
+            fontSize = if (compact) 17.sp else 20.sp,
+        )
+        Text(
+            "%.2f km".format(state.distanceMeters / 1000.0),
+            fontWeight = FontWeight.Bold,
+            fontSize = if (compact) 27.sp else 32.sp,
+        )
+        Text(
+            formatDuration(state.elapsedSeconds),
+            fontSize = if (compact) 16.sp else 18.sp,
+        )
+        Text(
+            "평균 페이스 ${formatPace(state.paceMinPerKm)}/km",
+            color = Muted,
+            fontSize = if (compact) 9.sp else 11.sp,
+        )
         Text(
             state.phoneStatusMessage ?: "폰 연결 시 기록과 GPS 경로를 자동 동기화합니다",
             color = Muted,
-            fontSize = 10.sp,
+            fontSize = if (compact) 8.sp else 10.sp,
             textAlign = TextAlign.Center,
         )
         if (state.syncedRunId != null && state.isPhoneConnected) {
@@ -1659,9 +1675,12 @@ private fun PreparingScreen(
         label = "blink",
     )
 
-    WatchPage {
-        Text("준비 중", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        Spacer(Modifier.height(4.dp))
+    WatchPage(scrollable = false) {
+        Text(
+            "준비 중",
+            fontWeight = FontWeight.Bold,
+            fontSize = if (compact) 16.sp else 18.sp,
+        )
 
         // GPS 상태
         Row(
@@ -1680,12 +1699,17 @@ private fun PreparingScreen(
             Text(
                 text = if (state.gpsReady) "GPS 준비됨" else "GPS 탐색 중...",
                 color = if (state.gpsReady) Accent else Muted,
-                fontSize = 13.sp,
+                fontSize = if (compact) 11.sp else 13.sp,
             )
         }
 
         if (state.gpsReady) {
-            Text("✓ 준비 완료", color = Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "✓ 준비 완료",
+                color = Accent,
+                fontSize = if (compact) 10.sp else 11.sp,
+                fontWeight = FontWeight.Bold,
+            )
         } else {
             Text("GPS 신호를 기다리는 중입니다", color = Muted, fontSize = 9.sp, textAlign = TextAlign.Center)
         }
@@ -1693,7 +1717,9 @@ private fun PreparingScreen(
         Button(
             onClick = onConfirm,
             enabled = state.gpsReady,
-            modifier = Modifier.fillMaxWidth().height(36.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(if (compact) 34.dp else 36.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Accent,
                 contentColor = Color.Black,
