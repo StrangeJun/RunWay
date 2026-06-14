@@ -8,4 +8,7 @@ data class RunwayLocation(
     val altitudeMeters: Double?,
     val speedMps: Float?,
     val recordedAt: Instant,
+    val horizontalAccuracyMeters: Float? = null,
+    val speedAccuracyMps: Float? = null,
+    val elapsedRealtimeNanos: Long? = null,
 )

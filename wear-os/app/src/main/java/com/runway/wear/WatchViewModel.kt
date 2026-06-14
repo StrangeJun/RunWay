@@ -24,6 +24,7 @@ import com.runway.wear.data.PhoneRunStateRepository
 import com.runway.wear.data.WatchSettings
 import com.runway.wear.data.WatchSettingsStore
 import com.runway.wear.health.HealthServicesManager
+import com.runway.wear.health.WatchGpsPointFilter
 import com.runway.wear.model.GoalCompletionAction
 import com.runway.wear.model.IntervalTarget
 import com.runway.wear.model.RunGoal
@@ -50,6 +51,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private val pendingRunStore = PendingWatchRunStore(application)
     private val offlineCourseStore = OfflineCourseStore(application)
     private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(application)
+    private val gpsPointFilter = WatchGpsPointFilter()
 
     private val initialSettings = settingsStore.load()
     private val _state = MutableStateFlow(
@@ -226,6 +228,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private fun startTracking(goal: RunGoal) {
         runStartedAt = Instant.now()
         runPoints.clear()
+        gpsPointFilter.reset()
         intervalSegmentStartSeconds = 0L
         intervalSegmentStartMeters = 0.0
         lastAnnouncedKilometer = 0
@@ -405,7 +408,11 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
             .build()
         val callback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
-                result.lastLocation?.let { location ->
+                result.locations.forEach { location ->
+                    if (!location.hasAccuracy() || location.accuracy > MAX_TRACKING_ACCURACY_METERS) {
+                        return@forEach
+                    }
+                    if (!location.hasSpeed()) return@forEach
                     handleSpeedTick(location.speed.toDouble())
                 }
             }
@@ -501,6 +508,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         val callback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 val loc = result.lastLocation ?: return
+                if (!loc.hasAccuracy() || loc.accuracy > MAX_TRACKING_ACCURACY_METERS) return
                 val proximity = courseProximity(loc.latitude, loc.longitude, course) ?: return
                 val backOnCourse = proximity.nearestMeters <= COURSE_OFF_THRESHOLD_METERS
                 _state.update { it.copy(distanceToCourseMeters = proximity.nearestMeters, isOffCourse = !backOnCourse) }
@@ -537,16 +545,19 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         metricsJob = viewModelScope.launch {
             healthServices.updates.collect { update ->
                 update.locations.forEach { location ->
+                    val filteredPoint = gpsPointFilter.filter(location) ?: return@forEach
+                    if (!filteredPoint.shouldRecord) return@forEach
+                    val filteredLocation = filteredPoint.sample
                     runPoints += WatchRunPoint(
                         sequence = runPoints.size,
-                        latitude = location.latitude,
-                        longitude = location.longitude,
-                        altitudeMeters = location.altitudeMeters,
-                        speedMps = location.speedMps,
-                        recordedAt = location.recordedAt,
+                        latitude = filteredLocation.latitude,
+                        longitude = filteredLocation.longitude,
+                        altitudeMeters = filteredLocation.altitudeMeters,
+                        speedMps = filteredLocation.speedMps,
+                        recordedAt = filteredLocation.recordedAt,
                     )
                     withContext(Dispatchers.Default) {
-                        updateCourseProgress(location.latitude, location.longitude)
+                        updateCourseProgress(filteredLocation.latitude, filteredLocation.longitude)
                     }
                 }
                 _state.update { current ->
@@ -940,6 +951,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         const val AUTO_PAUSE_TICKS = 5
         const val AUTO_RESUME_TICKS = 3
         const val GPS_READY_ACCURACY_METERS = 30f
+        const val MAX_TRACKING_ACCURACY_METERS = 50f
         const val COURSE_OFF_THRESHOLD_METERS = 20.0
         const val COURSE_FINISH_RADIUS_METERS = 30.0
     }

@@ -1,6 +1,7 @@
 package com.runway.android.core.location
 
 import android.annotation.SuppressLint
+import android.os.Build
 import android.os.Looper
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -31,7 +32,7 @@ class DefaultLocationTracker @Inject constructor(
 
         val callback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
-                result.lastLocation?.let { loc ->
+                result.locations.forEach { loc ->
                     trySend(
                         RunwayLocation(
                             latitude = loc.latitude,
@@ -39,6 +40,16 @@ class DefaultLocationTracker @Inject constructor(
                             altitudeMeters = if (loc.hasAltitude()) loc.altitude else null,
                             speedMps = if (loc.hasSpeed()) loc.speed else null,
                             recordedAt = Instant.ofEpochMilli(loc.time),
+                            horizontalAccuracyMeters = if (loc.hasAccuracy()) loc.accuracy else null,
+                            speedAccuracyMps = if (
+                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                                loc.hasSpeedAccuracy()
+                            ) {
+                                loc.speedAccuracyMetersPerSecond
+                            } else {
+                                null
+                            },
+                            elapsedRealtimeNanos = loc.elapsedRealtimeNanos.takeIf { it > 0L },
                         )
                     )
                 }

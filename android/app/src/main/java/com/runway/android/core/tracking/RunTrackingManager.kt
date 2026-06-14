@@ -1,8 +1,7 @@
 package com.runway.android.core.tracking
 
 import com.runway.android.core.cadence.CadenceTracker
-import com.runway.android.core.location.DistanceCalculator
-import com.runway.android.core.location.GpsPointValidator
+import com.runway.android.core.location.GpsPointFilter
 import com.runway.android.core.location.LocationTracker
 import com.runway.android.data.running.model.RunPointRequest
 import kotlinx.coroutines.CoroutineScope
@@ -56,6 +55,7 @@ class RunTrackingManager @Inject constructor(
     private val pointsMutex = Mutex()
     private val _pendingPoints = mutableListOf<RunPointRequest>()
     private val pointSequence = AtomicInteger(0)
+    private val gpsPointFilter = GpsPointFilter()
 
     private var locationJob: Job? = null
     private var timerJob: Job? = null
@@ -70,6 +70,7 @@ class RunTrackingManager @Inject constructor(
         lowSpeedTicks = 0
         highSpeedTicks = 0
         lastMilestoneKm = 0
+        gpsPointFilter.reset()
         _state.value = RunTrackingState(mode = mode, isTracking = true)
         startTimer()
         startCadenceTracking()
@@ -98,6 +99,7 @@ class RunTrackingManager @Inject constructor(
         lowSpeedTicks = 0
         highSpeedTicks = 0
         lastMilestoneKm = 0
+        gpsPointFilter.reset()
         _state.value = RunTrackingState()
         appScope.launch { pointsMutex.withLock { _pendingPoints.clear() } }
         pointSequence.set(0)
@@ -138,8 +140,10 @@ class RunTrackingManager @Inject constructor(
         locationJob?.cancel()
         locationJob = appScope.launch {
             locationTracker.locationFlow().collect { location ->
+                val filteredPoint = gpsPointFilter.filter(location) ?: return@collect
+                val filteredLocation = filteredPoint.location
                 val currentState = _state.value
-                val speed = location.speedMps ?: 0f
+                val speed = filteredLocation.speedMps ?: 0f
 
                 when {
                     !currentState.isPaused -> {
@@ -160,49 +164,41 @@ class RunTrackingManager @Inject constructor(
                                     isPaused = true,
                                     pauseReason = PauseReason.AUTO,
                                     hasFirstFix = true,
-                                    currentSpeedMps = location.speedMps,
-                                    lastLocation = location,
+                                    currentSpeedMps = filteredLocation.speedMps,
+                                    lastLocation = filteredLocation,
                                 )
                             }
                             return@collect
                         }
 
-                        // Normal GPS point processing
-                        val prev = currentState.lastLocation
-                        if (!GpsPointValidator.isValid(location, prev)) {
+                        if (!filteredPoint.shouldRecord) {
                             _state.update {
                                 it.copy(
                                     hasFirstFix = true,
-                                    currentSpeedMps = location.speedMps,
-                                    lastLocation = location,
+                                    currentSpeedMps = filteredLocation.speedMps,
+                                    lastLocation = filteredLocation,
                                 )
                             }
                             return@collect
-                        }
-
-                        val deltaMeters = if (prev != null) {
-                            DistanceCalculator.calculate(prev, location)
-                        } else {
-                            0.0
                         }
 
                         val point = RunPointRequest(
                             sequence = pointSequence.getAndIncrement(),
-                            latitude = location.latitude,
-                            longitude = location.longitude,
-                            altitudeMeters = location.altitudeMeters ?: 0.0,
-                            speedMps = location.speedMps?.toDouble() ?: 0.0,
-                            recordedAt = location.recordedAt.toString(),
+                            latitude = filteredLocation.latitude,
+                            longitude = filteredLocation.longitude,
+                            altitudeMeters = filteredLocation.altitudeMeters ?: 0.0,
+                            speedMps = filteredLocation.speedMps?.toDouble() ?: 0.0,
+                            recordedAt = filteredLocation.recordedAt.toString(),
                         )
                         pointsMutex.withLock { _pendingPoints.add(point) }
 
-                        val newDistance = currentState.distanceMeters + deltaMeters
+                        val newDistance = currentState.distanceMeters + filteredPoint.distanceMeters
                         _state.update {
                             it.copy(
                                 hasFirstFix = true,
                                 distanceMeters = newDistance,
-                                currentSpeedMps = location.speedMps,
-                                lastLocation = location,
+                                currentSpeedMps = filteredLocation.speedMps,
+                                lastLocation = filteredLocation,
                             )
                         }
 
@@ -226,8 +222,8 @@ class RunTrackingManager @Inject constructor(
                                         isPaused = false,
                                         pauseReason = PauseReason.NONE,
                                         hasFirstFix = true,
-                                        currentSpeedMps = location.speedMps,
-                                        lastLocation = location,
+                                        currentSpeedMps = filteredLocation.speedMps,
+                                        lastLocation = filteredLocation,
                                     )
                                 }
                                 return@collect
@@ -239,8 +235,8 @@ class RunTrackingManager @Inject constructor(
                         _state.update {
                             it.copy(
                                 hasFirstFix = true,
-                                currentSpeedMps = location.speedMps,
-                                lastLocation = location,
+                                currentSpeedMps = filteredLocation.speedMps,
+                                lastLocation = filteredLocation,
                             )
                         }
                     }
@@ -250,8 +246,8 @@ class RunTrackingManager @Inject constructor(
                         _state.update {
                             it.copy(
                                 hasFirstFix = true,
-                                currentSpeedMps = location.speedMps,
-                                lastLocation = location,
+                                currentSpeedMps = filteredLocation.speedMps,
+                                lastLocation = filteredLocation,
                             )
                         }
                     }
