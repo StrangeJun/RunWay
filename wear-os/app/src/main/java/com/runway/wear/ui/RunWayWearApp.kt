@@ -65,11 +65,13 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -146,39 +148,48 @@ fun RunWayWearApp(
             onSurface = Color.White,
         ),
     ) {
-        Box(modifier = Modifier.fillMaxSize().background(Background)) {
-            RunWayGridBackdrop()
-            if (showLaunchAnimation) {
-                LaunchAnimationScreen()
-            } else if (isAmbient && (state.screen == WatchScreen.TRACKING || state.screen == WatchScreen.PAUSED)) {
-                AmbientTrackingScreen(state)
-            } else when (state.screen) {
-                WatchScreen.HOME -> HomeScreen(
-                    state = state,
-                    onStart = viewModel::start,
-                    onGoal = { viewModel.navigate(WatchScreen.GOAL_TYPE) },
-                    onCourses = { viewModel.navigate(WatchScreen.COURSE_LIST) },
-                    onLogin = viewModel::openPhoneApp,
-                )
-                WatchScreen.COURSE_LIST -> CourseListScreen(state, viewModel)
-                WatchScreen.COURSE_DETAIL -> CourseDetailScreen(state, viewModel)
-                WatchScreen.GOAL_TYPE -> GoalTypeScreen(viewModel)
-                WatchScreen.TIME_GOAL -> TimeGoalScreen(viewModel)
-                WatchScreen.DISTANCE_GOAL -> DistanceGoalScreen(viewModel)
-                WatchScreen.INTERVAL_GOAL -> IntervalGoalScreen(viewModel)
-                WatchScreen.SETTINGS -> RunningSettingsScreen(state, viewModel)
-                WatchScreen.PREPARING -> PreparingScreen(
-                    state = state,
-                    onConfirm = viewModel::confirmPreparing,
-                    onCancel = viewModel::cancelPreparing,
-                )
-                WatchScreen.COUNTDOWN -> CountdownScreen(
-                    onFinished = viewModel::commitCountdown,
-                    onCancel = viewModel::cancelCountdown,
-                )
-                WatchScreen.TRACKING -> TrackingScreen(state, viewModel)
-                WatchScreen.PAUSED -> PausedScreen(state, viewModel)
-                WatchScreen.SUMMARY -> SummaryScreen(state, viewModel::returnHome, viewModel::openRunOnPhone)
+        CompositionLocalProvider(LocalContentColor provides Color.White) {
+            Box(modifier = Modifier.fillMaxSize().background(Background)) {
+                RunWayGridBackdrop()
+                if (showLaunchAnimation) {
+                    LaunchAnimationScreen()
+                } else if (isAmbient &&
+                    (state.screen == WatchScreen.TRACKING ||
+                        state.screen == WatchScreen.PAUSED)
+                ) {
+                    AmbientTrackingScreen(state)
+                } else when (state.screen) {
+                    WatchScreen.HOME -> HomeScreen(
+                        state = state,
+                        onStart = viewModel::start,
+                        onGoal = { viewModel.navigate(WatchScreen.GOAL_TYPE) },
+                        onCourses = { viewModel.navigate(WatchScreen.COURSE_LIST) },
+                        onLogin = viewModel::openPhoneApp,
+                    )
+                    WatchScreen.COURSE_LIST -> CourseListScreen(state, viewModel)
+                    WatchScreen.COURSE_DETAIL -> CourseDetailScreen(state, viewModel)
+                    WatchScreen.GOAL_TYPE -> GoalTypeScreen(viewModel)
+                    WatchScreen.TIME_GOAL -> TimeGoalScreen(viewModel)
+                    WatchScreen.DISTANCE_GOAL -> DistanceGoalScreen(viewModel)
+                    WatchScreen.INTERVAL_GOAL -> IntervalGoalScreen(viewModel)
+                    WatchScreen.SETTINGS -> RunningSettingsScreen(state, viewModel)
+                    WatchScreen.PREPARING -> PreparingScreen(
+                        state = state,
+                        onConfirm = viewModel::confirmPreparing,
+                        onCancel = viewModel::cancelPreparing,
+                    )
+                    WatchScreen.COUNTDOWN -> CountdownScreen(
+                        onFinished = viewModel::commitCountdown,
+                        onCancel = viewModel::cancelCountdown,
+                    )
+                    WatchScreen.TRACKING -> TrackingScreen(state, viewModel)
+                    WatchScreen.PAUSED -> PausedScreen(state, viewModel)
+                    WatchScreen.SUMMARY -> SummaryScreen(
+                        state,
+                        viewModel::returnHome,
+                        viewModel::openRunOnPhone,
+                    )
+                }
             }
         }
     }
